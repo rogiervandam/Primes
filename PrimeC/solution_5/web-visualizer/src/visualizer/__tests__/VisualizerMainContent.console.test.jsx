@@ -139,22 +139,12 @@ function buildProps(overrides = {}) {
     },
     widgets: {
       state: {
-        areJoined: false,
-        isSingleEventRevealed: false,
-        joinBannerRect: null,
-        pendingBannerDragStart: null,
         revealStepRequest: 0,
       },
       handlers: {
         expandEventsPanel: noop,
         dockEventsToTopBar: noop,
         dockEventsToDetail: noop,
-        pushEventsToPanel: noop,
-        pushEventsToDetail: noop,
-        hideJoined: noop,
-        split: noop,
-        join: noop,
-        setPendingDragStart: noop,
       },
     },
     overlays: {

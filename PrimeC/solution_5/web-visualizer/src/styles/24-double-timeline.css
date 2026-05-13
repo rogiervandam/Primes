@@ -4,28 +4,19 @@
   display: flex;
   flex-direction: column;
   gap: 0;  /* item 199: no transparent gap between title, strip and annotation */
-  /* item 260: Float over canvas: absolute within .main-content (position:relative) */
+  /* Float over canvas: absolute within .canvas-and-detail-column (position:relative) */
   position: absolute;
   left: var(--events-panel-width, 0px);
   right: var(--settings-panel-width, 0px);  /* item 182: shrink when settings panel open */
-  /* item 319: raised above balloons (max 260); below toolbar (310). Was 20 docked, 100 floating. */
-  z-index: 270;
+  z-index: 20;
   user-select: none;
   /* padding-bottom: 10px;  item 202: more bottom padding for annotation readability (was 4px) */
   overflow: visible;
   background: transparent;
-  /* item 340: default active chart bar color (white for dark themes); can be overridden per preset */
-  --dtl-chart-active-color: #ffffff;
   /* Smooth movement when detail panel opens/closes and when events/settings panels toggle */
-  /* item 297: match the events-panel collapse easing so both move in sync and look like one motion.
-     item 312: using the same cubic-bezier(0.22, 0.61, 0.36, 1) as the events panel removes the
-     '2 snaps' artefact that came from different easing curves. */
   transition: left 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
               right 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
               bottom 300ms cubic-bezier(0.34, 1.2, 0.64, 1);
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
-  background: var(--dtl-floater-unified-bg, rgba(8, 10, 14, 0.8));
 }
 
 /* ── Main strip ─────────────────────────────────────────────────────────── */
@@ -37,7 +28,6 @@
   height: 38px;
   overflow: visible;        /* item 127: let centre zone protrude above + below */
   position: relative;
-  z-index: 6;               /* above title bar (z-index:4) and annotation bar so playheads are not hidden behind them */
 }
 
 .double-timeline.dtl-collapsed .dtl-strip {
@@ -60,36 +50,17 @@
 
 .dtl-zone {
   position: relative;
-  overflow: visible;
+  overflow: hidden;
   flex-shrink: 1;
   align-self: stretch;  /* wave/anim zones fill the full strip height */
 }
 
-/* LEFT — waveform; item 242: blurry glassmorphism; item 314: greyscale; item 320: lighter = more readable */
+/* LEFT — waveform; item 242: blurry glassmorphism (matching title/annotation bars) */
 .dtl-wave-zone {
   cursor: pointer;
-  background: var(--dtl-zone-bg, rgba(12, 12, 12, 0.42));  /* item 322/323: CSS var for zone background */
-  /* -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px); */
-}
-/* item 314: greyscale gradient to match greyscale zone background; item 320 reduced opacity */
-.dtl-wave-zone::before {
-  content: '';
-  position: absolute;
-  top: 0; bottom: 0; left: 0; width: 12px;
-  background: linear-gradient(to right, var(--dtl-zone-bg, rgba(12, 12, 12, 0.42)) 0%, transparent 100%);  /* item 322/323 */
-  pointer-events: none;
-  z-index: 2;
-}
-/* item 291: active area — inset past the toggle button on the left */
-/* item 315: also inset right by 6px so the playhead stops before entering the dragger */
-/* item 345: increased to 22px to cover the dragger's 20px negative-margin overlap */
-.dtl-wave-active-area {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: var(--dtl-edge-inset, 30px);
-  right: 22px;
+  background: rgba(14, 27, 46, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .dtl-wave-canvas {
   position: absolute;
@@ -104,8 +75,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* item 330: right side reserved for dragger overlap (~20px) so the event counter stays visible */
-  padding: 0 26px 0 6px;
+  padding: 0 6px;
   pointer-events: none;
 }
 .dtl-wave-label {
@@ -119,28 +89,6 @@
   font-size: 9px;
   color: rgba(255, 255, 255, 0.55);
   font-variant-numeric: tabular-nums;
-}
-
-/* item 289: zoom range indicators — shown at bottom corners when zoomed in */
-.dtl-zoom-range-indicators {
-  position: absolute;
-  bottom: 2px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-between;
-  pointer-events: none;
-  padding: 0 4px;
-}
-.dtl-zoom-range-start,
-.dtl-zoom-range-end {
-  font-size: 8px;
-  color: rgba(255, 255, 255, 0.55);
-  font-variant-numeric: tabular-nums;
-  background: rgba(0, 0, 0, 0.28);
-  border-radius: 2px;
-  padding: 0 2px;
-  line-height: 1.4;
 }
 
 /* item 156/158/179: event title bar — full width above the strip */
@@ -157,16 +105,15 @@
   letter-spacing: 0.02em;
   /* item 199: blue background (same as strip) so no transparent gap shows */
   background: transparent;
-  /* item 342: match zone blur (14px) for cohesive glass look across all docked timeline elements */
-  /* -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px); */
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   flex-shrink: 0;
   cursor: default;
   user-select: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  pointer-events: auto; /* item 252: block click-through to canvas */
+  pointer-events: none;
   touch-action: none;
   position: relative;
   z-index: 4;
@@ -180,12 +127,11 @@
   cursor: grabbing;
 }
 /* item 179: solid header when undocked (top of the floating panel) */
-/* item 316: floating — keep glass look (transparent + blur) so the widget looks cohesive */
 .double-timeline.dtl-timeline-undocked .dtl-event-title-bar {
-  background: rgba(10, 10, 10, 0.45);
-  /* -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px); */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(14, 27, 46, 0.92);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   pointer-events: auto;
   cursor: grab;
 }
@@ -200,54 +146,32 @@
 }
 .dtl-annotation-bar {
   width: 100%;
-  /* item 324: always reserve two text lines so height stays stable */
-  min-height: calc(2 * 11px * 1.4 + 2em); /* 2 lines × font-size × line-height + padding */
+  min-height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
-  /* item 327: right padding makes room for the absolutely-positioned action buttons (~3 × 26px + gaps + margin ≈ 96px) */
-  padding: 0.75em 96px 0.75em 96px;
+  padding: 5px 14px 0px 14px;
   font-size: 11px;
   color: rgba(255, 255, 255, 0.65);
   font-style: italic;
+  /* item 199: same blue background as the rest of the timeline (was rgba(10,20,36,0.92)) */
   background: transparent;
-  /* item 342: match zone blur (14px) for cohesive glass look across all docked timeline elements */
-  /* -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px); */
+  padding: 1em 14px 1em 14px;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   flex-shrink: 0;
   user-select: none;
-  pointer-events: auto; /* item 252: block click-through to canvas */
-  overflow: hidden;  /* clip sliding text */
-  white-space: pre-wrap;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
   text-overflow: ellipsis;
-  position: relative;  /* item 325: contain absolute positioned text */
 }
-.dtl-annotation-bar.dtl-annotation-clickable {
-  cursor: pointer;
-}
-.dtl-annotation-bar.dtl-annotation-clickable:hover {
-  background: color-mix(in srgb, var(--bg-raised, rgba(255,255,255,0.08)) 45%, transparent);
-}
-/* item 324: when annotation is empty, don’t show a visible background */
-.dtl-annotation-bar.dtl-annotation-empty {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  background: transparent;
-}
-/* item 316: floating annotation — transparent glass, same as docked */
 .double-timeline.dtl-timeline-undocked .dtl-annotation-bar {
-  background: rgba(10, 10, 10, 0.35);
-  /* -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px); */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-/* item 316: floating annotation — still no background when empty */
-.double-timeline.dtl-timeline-undocked .dtl-annotation-bar.dtl-annotation-empty {
-  background: transparent;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  border-bottom: none;
+  background: rgba(14, 27, 46, 0.75);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 /* item 169/171: title bar always visible — not hidden when collapsed */
 /* (do NOT add display:none for .dtl-collapsed .dtl-event-title-bar) */
@@ -264,82 +188,56 @@
   align-self: center;         /* keep the dragger vertically centered with both timeline rows */
   height: 44px;               /* slightly taller than timeline strip */
   overflow: visible;          /* item 158: don't clip children */
-  /* item 308: glassy look with a touch of red — dark red-tinted glass */
-  /* item 322/323: use CSS var for dragger color so presets can theme it */
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--dtl-dragger-color, rgba(72, 28, 32, 0.86)) 100%, white 0%) 0%,
-    color-mix(in srgb, var(--dtl-dragger-color, rgba(72, 28, 32, 0.86))  92%, black 8%) 50%,
-    color-mix(in srgb, var(--dtl-dragger-color, rgba(72, 28, 32, 0.86))  82%, black 18%) 100%
-  );
-  backdrop-filter: blur(18px) saturate(180%);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  /* item 308: subtle red-tinted border */
-  border: 1px solid rgba(255, 80, 80, 0.22);
-  border-radius: 15px;        /* item 127: rounded corners on the raised tab */
-  /* item 313: extra horizontal padding extends the grab area ~20px each side */
-  padding: 25px 35px;
+  background: color-mix(in srgb, var(--bg-raised) 78%, var(--accent) 22%);
+  border: 2px solid color-mix(in srgb, var(--border) 50%, var(--accent) 50%);
+  border-radius: 6px;         /* item 127: rounded corners on the raised tab */
+  padding: 2px 12px;
   cursor: move;
-  /* item 313: negative margin makes the dragger overlap the side zones, closing the gap */
-  margin-inline: -20px;
   min-width: 184px;           /* wider so left/right drag handles are clearer */
+  max-width: 320px;           /* cap width so title doesn't push zones */
   z-index: 5;                 /* item 202: above title bar (z-index:4) so rounded top/bottom corners are not clipped */
-  /* item 308: red-tinted deep shadow */
-  box-shadow:
-    0 6px 32px rgba(0, 0, 0, 0.55),
-    0 2px 8px rgba(80, 0, 0, 0.30),
-    0 1px 0 rgba(255, 120, 120, 0.12) inset,
-    0 -1px 0 rgba(0, 0, 0, 0.25) inset;
-  transition: background 180ms, border-color 180ms, box-shadow 180ms, backdrop-filter 180ms;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);  /* item 127: elevation shadow */
+  transition: background 140ms, border-color 140ms, box-shadow 140ms;
   touch-action: none;         /* item 142: allow pointer drag on touch devices */
+  width: 280px;
+  padding: 25px 15px;
+  width: 900px;
+  border-radius: 15px;
 }
-/* item 296: top-edge highlight simulates reflected light */
-.dtl-center-zone::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 12px;
-  right: 12px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.32) 25%, rgba(255,255,255,0.45) 50%, rgba(255,255,255,0.32) 75%, transparent 100%);
-  border-radius: 1px;
-  pointer-events: none;
-}
-/* item 296: bottom-edge depth shadow */
+.dtl-center-zone::before,
 .dtl-center-zone::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 12px;
-  right: 12px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.4) 30%, rgba(0,0,0,0.4) 70%, transparent 100%);
-  border-radius: 1px;
+  top: 50%;
+  width: 12px;
+  height: 28px;
+  transform: translateY(-50%);
+  border-radius: 4px;
+  /* border: 1px solid rgba(255, 255, 255, 0.28); */
+  /* background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.58) 0 2px,
+      transparent 2px 5px
+    ); */
+  opacity: 0.8;
   pointer-events: none;
 }
-.dtl-center-zone:hover {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--dtl-dragger-color, rgba(72, 28, 32, 0.86)) 100%, white 14%) 0%,
-    color-mix(in srgb, var(--dtl-dragger-color, rgba(72, 28, 32, 0.86))  96%, white  6%) 50%,
-    color-mix(in srgb, var(--dtl-dragger-color, rgba(72, 28, 32, 0.86))  86%, black 14%) 100%
-  );
-  border-color: rgba(255, 100, 100, 0.34);
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.65),
-    0 3px 14px rgba(80, 0, 0, 0.40),
-    0 1px 0 rgba(255, 140, 140, 0.18) inset,
-    0 -1px 0 rgba(0, 0, 0, 0.30) inset;
+.dtl-center-zone::before {
+  left: 2px;
 }
-.dtl-center-zone:active {
-  background: color-mix(in srgb, var(--dtl-dragger-color, rgba(72, 28, 32, 0.86)) 80%, black 20%);
-  box-shadow:
-    0 2px 12px rgba(0, 0, 0, 0.45),
-    0 1px 4px rgba(0, 0, 0, 0.30),
-    0 0 0 rgba(255, 255, 255, 0.06) inset,
-    0 1px 0 rgba(0, 0, 0, 0.35) inset;
-  transform: translateY(1px);
-  transition: transform 60ms ease, box-shadow 60ms ease;
+.dtl-center-zone::after {
+  right: 2px;
+}
+.dtl-center-zone:hover {
+  background: color-mix(in srgb, var(--bg-raised) 55%, var(--accent-bg) 45%);
+  border-color: var(--accent);
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
+}
+.dtl-center-zone:hover::before,
+.dtl-center-zone:hover::after {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent) 55%, rgba(255, 255, 255, 0.3));
 }
 /* Six-dot vertical drag handle (2 cols × 3 rows) — items 126, 134 (bigger); item 168: wider + less tall */
 .dtl-grip {
@@ -485,52 +383,6 @@
 }
 .dtl-btn.dtl-gear { color: var(--fg-dim); }
 .dtl-btn.dtl-toggle-btn { color: var(--fg-dim); font-size: 9px; }
-/* item 290: repeat handle — draggable element on the animation timeline */
-.dtl-repeat-handle {
-  position: absolute;
-  top: -4px;
-  bottom: -4px;
-  width: 26px;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(40, 40, 60, 0.80);
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  border-radius: 5px;
-  color: rgba(255, 255, 255, 0.60);
-  cursor: ew-resize;
-  z-index: 4;  /* below playhead (z-index: 8) so playhead wins on overlap */
-  transition: border-color 0.12s, color 0.12s, background 0.12s;
-  touch-action: none;
-  pointer-events: auto;
-}
-.dtl-repeat-handle:hover {
-  background: rgba(50, 50, 75, 0.90);
-  border-color: rgba(255, 255, 255, 0.55);
-  color: rgba(255, 255, 255, 0.85);
-}
-.dtl-repeat-handle--active {
-  border-color: rgba(220, 60, 60, 0.85);
-  color: #fff;
-  background: rgba(180, 30, 30, 0.82);
-  animation: dtl-repeat-active-pulse 2s ease-in-out infinite;
-}
-.dtl-repeat-handle--active:hover {
-  border-color: rgba(255, 80, 80, 1);
-  background: rgba(210, 40, 40, 0.92);
-  color: #fff;
-}
-/* item 290: repeat range fill — shows the loopable portion from repeat point to end */
-.dtl-repeat-range {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  border-left: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent);
-  pointer-events: none;
-  z-index: 2;
-}
 /* Repeat toggle — active state (item 135); item 241: pulsing glow + badge when active */
 .dtl-btn.dtl-repeat-btn { color: rgba(255,255,255,0.5); }
 .dtl-btn.dtl-repeat-btn.dtl-active {
@@ -582,26 +434,17 @@
   to   { opacity: 1; box-shadow: 0 0 8px rgba(100, 180, 255, 0.6); }
 }
 
-/* RIGHT — animation scrubber; item 242: blurry glassmorphism; item 314: greyscale; item 320: lighter = more readable */
+/* RIGHT — animation scrubber; item 242: blurry glassmorphism (matching title/annotation bars) */
 .dtl-anim-zone {
-  background: var(--dtl-zone-bg, rgba(12, 12, 12, 0.42));  /* item 322/323: CSS var for zone background */
-  /* -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px); */
+  background: rgba(14, 27, 46, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
   justify-content: center;
   padding: 4px 8px;
   gap: 3px;
   position: relative;
-}
-/* item 292: fade right outer edge; item 314: greyscale; item 320: matching reduced opacity */
-.dtl-anim-zone::after {
-  content: '';
-  position: absolute;
-  top: 0; bottom: 0; right: 0; width: 12px;
-  background: linear-gradient(to left, var(--dtl-zone-bg, rgba(12, 12, 12, 0.42)) 0%, transparent 100%);  /* item 322/323 */
-  pointer-events: none;
-  z-index: 2;
 }
 /* Header row with labels + controls (items 135-137) */
 .dtl-anim-header {
@@ -611,8 +454,6 @@
   justify-content: space-between;
   width: 100%;
   pointer-events: none;
-  /* item 330: left side reserved for dragger overlap (~20px) so the 0% progress stays visible */
-  padding-left: 20px;
 }
 .dtl-anim-header-left {
   display: flex;
@@ -639,71 +480,17 @@
 }
 /* No fill bar — just the white vertical bar playhead (items 122, 138) */
 /* item 138: positioned on zone (not track) so it spans the full section height */
-/* item 288: transparent vertical pill — wider and taller than the timeline for easier grabbing */
-/* item 291: now inside dtl-anim-active-area so 100% maps to just before the settings toggle */
-/* item 291: active area — inset past the settings toggle on the right */
-.dtl-anim-active-area {
+.dtl-anim-playhead {
   position: absolute;
   top: 0;
   bottom: 0;
-  /* item 291+: extra inset so 100% lands with room for the repeat handle + gap before settings toggle */
-  /* item 315: inset left so the playhead stops before the dragger; item 330: updated from 6px to 22px to match 20px dragger overlap */
-  left: 22px;
-  right: 40px;
-}
-.dtl-anim-playhead {
-  position: absolute;
-  top: -7px;
-  bottom: -7px;
-  width: 14px;
+  width: 3px;
   transform: translateX(-50%);
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.55) 0%,
-    rgba(255, 255, 255, 0.04) 40%,
-    rgba(255, 255, 255, 0.04) 70%,
-    rgba(255, 255, 255, 0.18) 100%
-  );
-  border: 1.5px solid rgba(255, 255, 255, 0.80);
-  border-radius: 7px;
-  /* item 291+: auto so clicks on the playhead bubble to the zone (seek) and beat the repeat handle */
+  background: #ffffff;
+  border-radius: 2px;
   pointer-events: none;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.70);
-  z-index: 8;  /* above repeat handle (z-index: 4) — playhead has visual priority; pointer-events:none lets clicks pass through */
-  transition: border-color 80ms, box-shadow 80ms;
-}
-.dtl-anim-zone:hover .dtl-anim-playhead,
-.dtl-anim-zone:active .dtl-anim-playhead {
-  border-color: rgba(255, 255, 255, 1);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.90);
-}
-
-/* item 288: wave zone pill scrubber — mirrors the anim zone pill style */
-/* item 291: now inside dtl-wave-active-area so 0% is just right of the events toggle */
-.dtl-wave-playhead {
-  position: absolute;
-  top: -7px;
-  bottom: -7px;
-  width: 14px;
-  transform: translateX(-50%);
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.55) 0%,
-    rgba(255, 255, 255, 0.04) 40%,
-    rgba(255, 255, 255, 0.04) 70%,
-    rgba(255, 255, 255, 0.18) 100%
-  );
-  border: 1.5px solid rgba(255, 255, 255, 0.80);
-  border-radius: 7px;
-  pointer-events: none;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.70);
-  z-index: 2;
-  transition: left 80ms linear;
-}
-.dtl-wave-zone:hover .dtl-wave-playhead,
-.dtl-wave-zone:active .dtl-wave-playhead {
-  border-color: rgba(255, 255, 255, 1);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.90);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.55);
+  z-index: 1;
 }
 
 /* item 154: fill bar — grows left→right proportional to scrub progress */
@@ -712,7 +499,7 @@
   top: 0;
   left: 0;
   bottom: 0;
-  background: rgba(180, 180, 180, 0.20);  /* item 314: greyscale fill (was blue) */
+  background: rgba(100, 180, 255, 0.22);
   pointer-events: none;
   z-index: 0;
   transition: width 80ms linear;
@@ -765,11 +552,11 @@
 
 /* items 151/152: zone toggle buttons (left of EVENTS, right of ANIMATION) */
 .dtl-zone-toggle {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.45);
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   border-radius: 3px;
   pointer-events: auto;
   flex-shrink: 0;
@@ -786,10 +573,6 @@
   pointer-events: auto;
 }
 .dtl-anim-toggle {
-  pointer-events: auto;
-}
-/* item 286: detail panel toggle arrow */
-.dtl-detail-toggle {
   pointer-events: auto;
 }
 
@@ -834,36 +617,10 @@
               0 0 0 1px rgba(255, 255, 255, 0.06);
   overflow: hidden;   /* clip zones to rounded corners */
   transition: none;   /* no transition when dragging */
-  z-index: 280;  /* item 319: floating state above even settings/events panels (270) */
+  z-index: 100;
   padding-bottom: 0;
   display: flex;
   flex-direction: column;
-  /* item 341: the whole floating widget must block pointer events to the canvas below */
-  pointer-events: auto;
-  /* item 342: unified glass background across the entire floater instead of per-zone blurs.
-     Uses --dtl-floater-unified-bg derived from the preset's floaterBg color (more opaque than zones). */
-  background: var(--dtl-floater-unified-bg, rgba(8, 10, 14, 0.88));
-  /* -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);  */
-}
-/* item 342: remove per-zone blur/bg when the container already provides unified glass */
-.double-timeline.dtl-timeline-undocked .dtl-wave-zone,
-.double-timeline.dtl-timeline-undocked .dtl-anim-zone {
-  background: rgba(255, 255, 255, 0.04);
-  /* -webkit-backdrop-filter: none;
-  backdrop-filter: none; */
-}
-.double-timeline.dtl-timeline-undocked .dtl-annotation-bar:not(.dtl-annotation-empty) {
-  background: rgba(255, 255, 255, 0.03);
-  /* -webkit-backdrop-filter: none;
-  backdrop-filter: none; */
-}
-/* item 342: remove per-element blur from title bar when undocked — container provides unified glass */
-.double-timeline.dtl-timeline-undocked .dtl-event-title-bar {
-  background: rgba(255, 255, 255, 0.03);
-  /* -webkit-backdrop-filter: none;
-  backdrop-filter: none; */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 /* item 172: indicate draggability over the event title bar when undocked */
 .double-timeline.dtl-timeline-undocked .dtl-event-title-bar { cursor: grab; }
@@ -899,155 +656,17 @@
 }
 
 /* item 219: focus mode visual hint — highlighted zone, dimmed opposite zone */
-/* item 292: inset ring uses top+bottom lines only; side lines are invisible via the mask anyway */
-/* item 314: greyscale highlight — use white/grey instead of blue */
-/* item 320: stronger active highlight for clear distinction */
-
-/* item 345: scale up the zone that is currently zoomed for a visual "magnify" cue */
-/* item 345: z-index 4 (below dragger z-index:5) so dragger stays visually on top */
-.dtl-wave-zone.dtl-wave-zoomed {
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
-  transform: scaleY(1.3);
-  transform-origin: center;
-  z-index: 4;
-  transition: transform 180ms ease;
-}
-.dtl-anim-zone.dtl-anim-zoomed {
-  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.22);
-  transform: scaleY(1.3);
-  transform-origin: center;
-  z-index: 4;
-  transition: transform 180ms ease;
-}
-
 .double-timeline.dtl-focus-events .dtl-wave-zone {
-  background: var(--dtl-events-color-bg, rgba(42, 42, 42, 0.90));
-  box-shadow: inset 0 2px 0 0 var(--dtl-events-color-hl, rgba(255, 255, 255, 0.50)),
-              inset 0 -2px 0 0 var(--dtl-events-color-hl, rgba(255, 255, 255, 0.50));
-  /* -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px); */
+  background: rgba(20, 40, 65, 0.95);
+  box-shadow: inset 0 0 0 1.5px rgba(100, 180, 255, 0.35);
 }
 .double-timeline.dtl-focus-events .dtl-anim-zone {
-  opacity: 0.50;
+  opacity: 0.65;
 }
 .double-timeline.dtl-focus-animation .dtl-anim-zone {
-  background: var(--dtl-anim-color-bg, rgba(42, 42, 42, 0.90));
-  box-shadow: inset 0 2px 0 0 var(--dtl-anim-color-hl, rgba(255, 255, 255, 0.50)),
-              inset 0 -2px 0 0 var(--dtl-anim-color-hl, rgba(255, 255, 255, 0.50));
-  /* -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px); */
+  background: rgba(20, 40, 65, 0.95);
+  box-shadow: inset 0 0 0 1.5px rgba(100, 180, 255, 0.35);
 }
 .double-timeline.dtl-focus-animation .dtl-wave-zone {
-  opacity: 0.50;
-}
-
-/* item 240: empty-event animation — fill bar grows left→right then fades out, signalling the
-   event occurred but had nothing to animate. Repeat mode loops the 2-second cycle;
-   no-repeat mode plays once (the hold is cut short when the scheduler advances). */
-@keyframes dtl-empty-fill {
-  0%   { width: 100%; clip-path: inset(0 100% 0 0); opacity: 1; }  /* nothing visible */
-  50%  { width: 100%; clip-path: inset(0 0   0 0); opacity: 1; }  /* fully filled */
-  100% { width: 100%; clip-path: inset(0 0   0 100%); opacity: 0; } /* faded out */
-}
-.dtl-anim-fill--empty {
-  width: 100% !important;  /* override inline 0% */
-  animation: dtl-empty-fill 2s linear forwards;
-}
-.dtl-anim-fill--empty-repeat {
-  width: 100% !important;
-  animation: dtl-empty-fill 2s linear infinite;
-}
-
-/* item 303: playhead tracks the fill-bar's leading edge during empty events.
-   Phase 1 (0→1s): left moves 0%→100% in step with the fill-bar right edge.
-   Phase 2 (1→2s): playhead holds at 100% while the fill fades out. */
-@keyframes dtl-empty-playhead {
-  0%   { left: 0%;    }
-  50%  { left: 100%;  }
-  100% { left: 100%;  }
-}
-.dtl-anim-playhead--empty {
-  animation: dtl-empty-playhead 2s linear forwards;
-}
-.dtl-anim-playhead--empty-repeat {
-  animation: dtl-empty-playhead 2s linear infinite;
-}
-
-/* item 240: "NO CHANGES — NO ANIMATION" label replaces the speed group in the header */
-.dtl-no-changes-label {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
-  white-space: nowrap;
-}
-
-/* item 306: slide-in animation when navigating between events */
-/* item 317: more pronounced shift — increased from 38px to 100px for a clearly visible swipe */
-/* item 325: only the text slides; background stays fixed. Animate inner .dtl-title-text / .dtl-annotation-text */
-@keyframes dtl-slide-from-right {
-  from { transform: translateX(100px); opacity: 0; }
-  to   { transform: translateX(0);     opacity: 1; }
-}
-@keyframes dtl-slide-from-left {
-  from { transform: translateX(-100px); opacity: 0; }
-  to   { transform: translateX(0);      opacity: 1; }
-}
-/* item 325: outer bars stay fixed; animate only inner text spans */
-.dtl-title-text,
-.dtl-annotation-text {
-  display: inline-block;  /* needed for translateX to work */
-}
-.double-timeline.dtl-nav-next .dtl-title-text,
-.double-timeline.dtl-nav-next .dtl-annotation-text {
-  animation: dtl-slide-from-right 260ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-}
-.double-timeline.dtl-nav-prev .dtl-title-text,
-.double-timeline.dtl-nav-prev .dtl-annotation-text {
-  animation: dtl-slide-from-left 260ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-}
-/* Remove old animation that moved entire title/annotation bar (including background) */
-.double-timeline.dtl-nav-next .dtl-event-title-bar,
-.double-timeline.dtl-nav-next .dtl-annotation-bar,
-.double-timeline.dtl-nav-prev .dtl-event-title-bar,
-.double-timeline.dtl-nav-prev .dtl-annotation-bar {
-  animation: none;
-}
-
-/* item 307: in light mode, use dark text for title and annotation */
-[data-theme="light"] .dtl-event-title-bar {
-  color: rgba(0, 0, 0, 0.85);
-}
-[data-theme="light"] .dtl-annotation-bar {
-  color: rgba(0, 0, 0, 0.70);
-}
-
-/* item 348: clickable event-number link inside the title bar */
-.dtl-title-event-link {
-  background: none;
-  border: none;
-  padding: 0 3px;
-  margin: 0;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 700;
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  text-decoration-color: rgba(255, 255, 255, 0.35);
-  border-radius: 3px;
-  transition: background 140ms, text-decoration-color 140ms;
-  pointer-events: auto;
-}
-.dtl-title-event-link:hover {
-  background: rgba(255, 255, 255, 0.12);
-  text-decoration-color: rgba(255, 255, 255, 0.7);
-}
-[data-theme="light"] .dtl-title-event-link {
-  text-decoration-color: rgba(0, 0, 0, 0.3);
-}
-[data-theme="light"] .dtl-title-event-link:hover {
-  background: rgba(0, 0, 0, 0.08);
-  text-decoration-color: rgba(0, 0, 0, 0.6);
+  opacity: 0.65;
 }

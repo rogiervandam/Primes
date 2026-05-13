@@ -2,18 +2,13 @@
  * usePlaybackLoop — encapsulates the three independent playback-loop effects
  * that co-ordinate animation across Visualizer.jsx.
  *
- * **Three effects managed here:**
+ * **Two effects managed here:**
  *
  * 1. **Selected-steps loop** — replays the merged changedBits of the
  *    multi-selected events in a tight async loop until the selection
  *    changes or playback starts.
  *
- * 2. **Single-event replay loop** — fires while the single-event widget is in
- *    Play mode (`isSingleEventLoopActive`) or while the user is mid-drag on the
- *    top-bar scrubber (`isScrubbingTopRef`). Repeats the current step's
- *    animation with the configured between-repeat delay.
- *
- * 3. **All-events play/pause scheduler** — drives trace-level event-by-event
+ * 2. **All-events play/pause scheduler** — drives trace-level event-by-event
  *    playback when `playing` is true. Polls `animBusyUntilRef` to wait for
  *    in-flight per-event animations before advancing to the next step. Also
  *    clears the selected-steps loop timer when play starts so both loops

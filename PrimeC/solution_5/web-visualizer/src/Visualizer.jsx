@@ -1,10 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { bumpRender } from './lib/debugCounters';
 import { SieveRenderer } from './SieveRenderer';
-import { hexToRgb, labelTextColor } from './renderer/drawingHelpers';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
 import { GlyphTextGLCore } from './renderer/gl/GlyphTextGLCore';
-import { COLOR_PRESETS } from './renderer/constants';  // item 342: preset timelineBg lookup
 import EventsPanel from './EventsPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
@@ -214,16 +212,13 @@ export default function Visualizer({
     canvasColors, setCanvasColors,
     colorPreset, setColorPreset,
     customColors, setCustomColors,
-    timelineColors, setTimelineColors,  // item 321
-    floaterBg, setFloaterBg,            // item 322/323
-    draggerColor, setDraggerColor,      // item 322/323
-    zoneBgOpacity, setZoneBgOpacity,    // item 342
   } = useThemeAndColors({ initialPrefs });
 
   const {
     animMode, setAnimMode,
     animStyle, setAnimStyle,
     delayBetweenEvents, setDelayBetweenEvents, delayBetweenEventsRef,
+    delayBetweenRepeats, setDelayBetweenRepeats, delayBetweenRepeatsRef,
     eventTimeTargets, setEventTimeTargets, eventTimeTargetsRef,
     eventDurationMode, setEventDurationMode, eventDurationModeRef,
     bitAnimInterval, setBitAnimInterval,
@@ -232,11 +227,12 @@ export default function Visualizer({
     stepSpeedValue, maskSpeedValue, setStepSpeedValue, setMaskSpeedValue,
     cycleAnimStyle, cycleAnimMode, animStyleInfo, animModeInfo,
     animateBitsMode, setAnimateBitsMode, animateBitsModeRef,  // item 244
-    delayBetweenRepeats, setDelayBetweenRepeats,
   } = useAnimationConfig({ initialPrefs });
 
   const {
     bitAnimationMode, setBitAnimationMode, bitAnimationModeRef,
+    isSingleEventLoopActive, setIsSingleEventLoopActive, isSingleEventLoopActiveRef,
+    isSingleEventRepeatEnabled, setIsSingleEventRepeatEnabled, isSingleEventRepeatEnabledRef,
     isAutoAnimateOnSelect, setIsAutoAnimateOnSelect, isAutoAnimateOnSelectRef,
     isAnimationReplayPaused, setIsAnimationReplayPaused,
     isScrubbingTopRef,
@@ -291,10 +287,6 @@ export default function Visualizer({
 
   const {
     isAllEventsWidgetHidden, setIsAllEventsWidgetHidden,
-    isAllEventsInDetailPanel, setIsAllEventsInDetailPanel,
-    areWidgetsJoined, setAreWidgetsJoined,
-    joinBannerRect, setJoinBannerRect,
-    pendingBannerDragStart, setPendingBannerDragStart,
     revealStepRequest, setRevealStepRequest,
     isTimingPanelOpen, setIsTimingPanelOpen,
     timingFocusOp, setTimingFocusOp,
@@ -322,9 +314,8 @@ export default function Visualizer({
     isDetailPanelFloating, setIsDetailPanelFloating,
   } = usePanelState({ initialPrefs, introPhase });
 
-  // item 163: undocked double timeline (floats freely over canvas)
+    // item 163: undocked double timeline (floats freely over canvas)
   const [isTimelineUndocked, setIsTimelineUndocked] = useState(false);
-  const [floatingDetailVisible, setFloatingDetailVisible] = useState(false);
 
   // item 243: fly mode — WASD navigation with full mouse look; closes panels on enter
   const [flyModeActive, setFlyModeActive] = useState(false);
@@ -361,8 +352,6 @@ export default function Visualizer({
 
   // item 193: direction the events panel slides when collapsed
   const [eventsCollapseDir, setEventsCollapseDir] = useState('left');
-  // item 349: true when the events panel was opened via the nearby-events bottom arrow
-  const [eventsOpenFromBottom, setEventsOpenFromBottom] = useState(false);
   const collapseEventsPanelFromTimeline = useCallback(() => {
     setEventsCollapseDir('right');
     setIsEventsPanelCollapsed(true);
@@ -375,11 +364,6 @@ export default function Visualizer({
     balloonLayoutRafRef, balloonLiveLayoutTimerRef, lastHoveredIdxRef,
     scheduleBalloonRelayout,
   } = useBalloonLayout();
-
-  // item 331: group inspector — byte/uint32/uint64/cacheline detail panel
-  const [groupInspectorUnit, setGroupInspectorUnit] = useState(null);
-  const openGroupInspector = useCallback((unit) => setGroupInspectorUnit(unit), []);
-  const closeGroupInspector = useCallback(() => setGroupInspectorUnit(null), []);
 
   const {
     bitStateRef, bitStateCheckpointsRef, bitStateDirtyRef,
@@ -428,8 +412,7 @@ export default function Visualizer({
   const areControlsHidden = isEventsPanelCollapsed && !isAllEventsWidgetHidden;
   const balloonMode = layoutSettings.balloonMode || 'click-hover';
   const areBalloonsEnabled = balloonMode !== 'off';
-  // item 335: block balloon clicks while the intro 2D→3D animation is in progress
-  const isBalloonClickEnabled = (balloonMode === 'bit-clock' || balloonMode === 'click-hover') && introPhase === 'visible';
+  const isBalloonClickEnabled = balloonMode === 'bit-clock' || balloonMode === 'click-hover';
   const isBalloonHoverEnabled = balloonMode === 'click-hover';
 
   // 3D camera — always enabled; tilt angle controlled by the tilt button.
@@ -444,7 +427,6 @@ export default function Visualizer({
     createCamera,
     disposeCamera,
     ensureTiltCamera,
-    addCameraDomListener,
   } = use3DCamera();
 
   const stepsRef = useRef([]);
@@ -547,7 +529,6 @@ export default function Visualizer({
     setDebugGlAutoOffsetY,
     setCamera3DTransform,
     setCamera3DContainerStyle,
-    addCameraDomListener,
     setAutoFitColumnCount,
     isMinimapVisible,
     updateMinimapAvailability,
@@ -565,10 +546,6 @@ export default function Visualizer({
   });
 
   const { stopPlayback } = useStopPlayback({ setPlaying, playTimeoutRef, playTimerRef });
-
-  // item 215: no-op stub; enableRepeat was for single-event repeat which is removed
-  // eslint-disable-next-line no-unused-vars
-  const enableRepeat = useCallback(() => {}, []);
 
   const stopSeqAnim = useCallback(() => {
     if (seqTimerRef.current) {
@@ -617,31 +594,23 @@ export default function Visualizer({
     dockEventsWidgetToDetailPanel,
     dockEventsWidgetToTopBar,
     expandEventsPanelFromWidget,
-    hideJoinedWidget,
-    joinWidgets,
     openAnimationSettings,
-    pushJoinedWidgetToDetailPanel,
-    pushJoinedWidgetToEventsPanel,
     revealCurrentStepInPanel,
     showAllEventsWidget,
     showEventTitleAboveClosedDetail,
     showEventTitleAboveCurrentDetail,
-    splitWidgets,
     toggleDetailPanel,
     toggleEventsPanel,
     toggleSettingsPanel,
   } = usePanelChoreography({
     panelHandlers: {
       captureResizeAnchor,
-      setIsAllEventsInDetailPanel,
       setIsAllEventsWidgetHidden,
       setEventTitleSettings,
       setIsEventsPanelCollapsed,
-      setJoinBannerRect,
       setRevealStepRequest,
       setIsSettingsCollapsed,
       setSettingsTabRequest,
-      setAreWidgetsJoined,
       updateDetailOpen,
     },
     detailState: {
@@ -672,18 +641,12 @@ export default function Visualizer({
     debugRenderTuning,
     colorPreset,
     customColors,
-    timelineColors,  // item 321
-    floaterBg,        // item 322/323
-    draggerColor,     // item 322/323
-    zoneBgOpacity,    // item 342
     eventDurationMode,
     playSpeedPercent,
     delayBetweenEvents,
     delayBetweenRepeats,
     eventTimeTargets,
     isAllEventsWidgetHidden,
-    areWidgetsJoined,
-    isAllEventsInDetailPanel,
     isAutoAnimateOnSelect,
     isEventsPanelCollapsed,
     isSettingsCollapsed,
@@ -786,6 +749,7 @@ export default function Visualizer({
     stopSeqAnim,
     pausedStepAnimLoopRef,
     selectedAnimLoopRef,
+    setIsSingleEventLoopActive,
     setIsAnimationReplayPaused,
     setDelayPhaseMsRef,
     rendererRef,
@@ -815,6 +779,8 @@ export default function Visualizer({
     currentStep,
     playing,
     stopPlayback,
+    isSingleEventLoopActiveRef,
+    setIsSingleEventLoopActive,
     isScrubbingTopRef,
     selectedStepsRef,
     initialHighlightHoldRef,
@@ -885,6 +851,7 @@ export default function Visualizer({
       setIsStepAnimRunningRef,
       stopSeqAnimRef,
       triggerAnimationRef,
+      isSingleEventLoopActiveRef,
       selectedAnimLoopRef,
       stepScrubProgressValueRef,
       stepResumeStartIndexRef,
@@ -913,7 +880,6 @@ export default function Visualizer({
     animateViewportTo,
     refitViewportToContent,
     navigateToBit,
-    navigateToRange,
   } = useViewportNavigation({
     rendererRef,
     containerRef,
@@ -937,13 +903,12 @@ export default function Visualizer({
   // Search state + handler — extracted to src/hooks/useSearchState.js (Pattern A).
   // Placed here so navigateToBit is in scope for the hook's dep arrays.
   // activateRangeOverlay: set and enable the range overlay from a search query.
-  // item 254: use navigateToRange so the camera zooms to show the full range.
   const activateRangeOverlay = useCallback((startBit, endBit) => {
     setIsRangeOverlayEnabled(true);
     setRangeOverlayStart(startBit);
     setRangeOverlayEnd(endBit);
-    navigateToRange(startBit, endBit);
-  }, [setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd, navigateToRange]);
+    navigateToBit(startBit, 'bit');
+  }, [setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd, navigateToBit]);
 
   const {
     searchQuery, setSearchQuery,
@@ -958,12 +923,9 @@ export default function Visualizer({
 
   const { buildCombinedSelectionOverlay } = useSelectionOverlay({ steps });
 
-  // Use stableGoToStep here so handleStepSelection's identity does not change
-  // every step during playback (goToStep itself depends on currentStep, which
-  // would otherwise cascade into EventsPanel re-rendering on every step).
   const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({
     stopPlayback,
-    goToStep: stableGoToStep,
+    goToStep,
     globalPausedRef,
     setIsAnimationReplayPaused,
     setSelectedSteps,
@@ -996,14 +958,17 @@ export default function Visualizer({
       pausedStepAnimLoopRef,
       playTimeoutRef,
       playTimerRef,
+      isSingleEventLoopActiveRef,
       isScrubbingTopRef,
       initialHighlightHoldRef,
+      delayBetweenRepeatsRef,
       delayBetweenEventsRef,   // item 217: auto-advance to next event when repeat disabled
       stepResumeStartIndexRef,
       stepResumeMaskProgressRef,
       setIsStepAnimRunningRef,
       isStepAnimRunningRefForScheduler,
       isAutoAnimateOnSelectRef,
+      isSingleEventRepeatEnabledRef,
     },
     loopState: {
       playing,
@@ -1011,10 +976,12 @@ export default function Visualizer({
       currentStep,
       selectedSteps,
       isAnimationReplayPaused,
+      isSingleEventLoopActive,
     },
     loopHandlers: {
       setPlaying,
       setCurrentStep,
+      setIsSingleEventLoopActive,
     },
     loopConfig: {
       isAutoAnimateOnSelect,
@@ -1035,12 +1002,14 @@ export default function Visualizer({
   const { handlePlayPause, handleStepAnimToggle } = usePlaybackControls({
     globalPausedRef,
     setIsAnimationReplayPaused,
+    setIsSingleEventLoopActive,
     currentStep,
     stepsLength: steps.length,
     isStepAnimRunning,
     setPlaying,
     playing,
     goToStep,
+    isSingleEventLoopActiveRef,
     stepsRef,
     rendererRef,
     selectedStepsRef,
@@ -1125,7 +1094,6 @@ export default function Visualizer({
     stepScrubProgressValueRef,
     globalPausedRef,
     cancelViewportAnimation,
-    onInspectCanvasUnit: openGroupInspector,
     // item 144: collapse the settings panel when the user clicks on the canvas
     collapseSettingsIfOpen: isSettingsCollapsed ? undefined : () => setIsSettingsCollapsed(true),
   });
@@ -1152,11 +1120,7 @@ export default function Visualizer({
     doZoom,
     resetZoom,
     setTheme,
-    // When the timeline is floating, D should toggle floatingDetailVisible, not the docked detail panel
-    toggleDetailPanel: useCallback(() => {
-      if (isTimelineUndocked) setFloatingDetailVisible((v) => !v);
-      else toggleDetailPanel();
-    }, [isTimelineUndocked, toggleDetailPanel]),
+    toggleDetailPanel,
     toggleEventsPanel,      // item 245
     toggleSettingsPanel,    // item 245
     openRawLog: onOpenRawLog, // item 245
@@ -1184,7 +1148,7 @@ export default function Visualizer({
   // State and handler live in useSearchState (src/hooks/useSearchState.js),
   // wired above after navigateToBit.
 
-  const { currentStepData, surroundingEvents } = useStepDisplayData({
+  const { currentStepData, currentStepBanner, surroundingEvents } = useStepDisplayData({
     steps,
     currentStep,
     selectedSteps,
@@ -1196,12 +1160,13 @@ export default function Visualizer({
     aggMaskStepSetterRef.current(0);
   }, [selectedSteps]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { renderCanvasStyle, mergedCamera3DContainerStyle } = useCanvasStyles({
+  const { renderCanvasStyle, mergedCamera3DContainerStyle, eventTitleStyle } = useCanvasStyles({
     canvasAnchorPx,
     introPhase,
     camera3DContainerStyle,
     canvasColors,
     theme,
+    eventTitleSettings,
   });
 
   const themeContextValue = useMemo(() => ({
@@ -1215,14 +1180,6 @@ export default function Visualizer({
     setColorPreset,
     customColors,
     setCustomColors,
-    timelineColors,       // item 321
-    setTimelineColors,    // item 321
-    floaterBg,            // item 322/323
-    setFloaterBg,         // item 322/323
-    draggerColor,         // item 322/323
-    setDraggerColor,      // item 322/323
-    zoneBgOpacity,        // item 342
-    setZoneBgOpacity,     // item 342
   }), [
     theme,
     setTheme,
@@ -1234,14 +1191,6 @@ export default function Visualizer({
     setColorPreset,
     customColors,
     setCustomColors,
-    timelineColors,
-    setTimelineColors,
-    floaterBg,
-    setFloaterBg,
-    draggerColor,
-    setDraggerColor,
-    zoneBgOpacity,
-    setZoneBgOpacity,
   ]);
 
   // item 236/#4 perf: currentStep is removed from PlaybackContext so that step
@@ -1286,6 +1235,8 @@ export default function Visualizer({
     setIsAnimationReplayPaused,
     bitAnimationMode,
     handleBitAnimationModeChange,
+    isSingleEventRepeatEnabled,
+    setIsSingleEventRepeatEnabled,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
     animateBitsMode,          // item 244
@@ -1307,17 +1258,13 @@ export default function Visualizer({
     setIsAnimationReplayPaused,
     bitAnimationMode,
     handleBitAnimationModeChange,
+    isSingleEventRepeatEnabled,
+    setIsSingleEventRepeatEnabled,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
     animateBitsMode,          // item 244
     setAnimateBitsMode,       // item 244
   ]);
-
-  // item 318: toolbar detail-panel toggle must target floating panel when undocked
-  const toggleDetailPanelContextual = useCallback(() => {
-    if (isTimelineUndocked) setFloatingDetailVisible((v) => !v);
-    else toggleDetailPanel();
-  }, [isTimelineUndocked, toggleDetailPanel]);
 
   const panelLayoutContextValue = useMemo(() => ({
     collapseEventsHideWidget,
@@ -1327,13 +1274,10 @@ export default function Visualizer({
     eventsCollapseDir,
     setEventsCollapseDir,
     collapseEventsPanelFromTimeline,
-    eventsOpenFromBottom,       // item 349
-    setEventsOpenFromBottom,    // item 349
-    // item 318: when undocked, isDetailOpen in context reflects floatingDetailVisible
-    isDetailOpen: isTimelineUndocked ? floatingDetailVisible : isDetailOpen,
+    isDetailOpen,
     setIsDetailOpen,
     isDetailOpenRef,
-    toggleDetailPanel: toggleDetailPanelContextual,
+    toggleDetailPanel,
     isSettingsCollapsed,
     toggleSettingsPanel,
     isAllEventsWidgetHidden,
@@ -1342,7 +1286,6 @@ export default function Visualizer({
     isTimingPanelOpen,
     setIsTimingPanelOpen,
     detailHeight,
-    areWidgetsJoined,
   }), [
     collapseEventsHideWidget,
     isEventsPanelCollapsed,
@@ -1351,14 +1294,10 @@ export default function Visualizer({
     eventsCollapseDir,
     setEventsCollapseDir,
     collapseEventsPanelFromTimeline,
-    eventsOpenFromBottom,
-    setEventsOpenFromBottom,
     isDetailOpen,
-    isTimelineUndocked,
-    floatingDetailVisible,
     setIsDetailOpen,
     isDetailOpenRef,
-    toggleDetailPanelContextual,
+    toggleDetailPanel,
     isSettingsCollapsed,
     toggleSettingsPanel,
     isAllEventsWidgetHidden,
@@ -1367,7 +1306,6 @@ export default function Visualizer({
     isTimingPanelOpen,
     setIsTimingPanelOpen,
     detailHeight,
-    areWidgetsJoined,
   ]);
 
   const { detailInspectorRows, filteredDetailInspectorRows } = useDetailInspectorRows({
@@ -1431,20 +1369,7 @@ export default function Visualizer({
     setBitAnimationMode,
   });
 
-  const { allEventsTransportContent } = useStepAnimContent({
-    isAllEventsInDetailPanel,
-    currentStep,
-    steps,
-    playing,
-    exporting,
-    handlePlayPause,
-    goToStep,
-    isScrubbingTopRef,
-    playSpeedPercent,
-    setPlaySpeedPercent,
-    setIsAllEventsInDetailPanel,
-    setIsAllEventsWidgetHidden,
-  });
+  const { allEventsTransportContent } = useStepAnimContent();
 
   // ============================================================================
   // ORGANIZED STATE STRUCTURE (Phase 1 refactoring)
@@ -1501,6 +1426,7 @@ export default function Visualizer({
       mode: animMode,
       style: animStyle,
       delayBetweenEvents,
+      delayBetweenRepeats,
       eventTimeTargets,
       eventDurationMode,
       bitAnimInterval,
@@ -1510,6 +1436,7 @@ export default function Visualizer({
     },
     runtime: {
       bitAnimationMode,
+      isSingleEventLoopActive,
       isAutoAnimateOnSelect,
       isAnimationReplayPaused,
       isStepAnimRunning,
@@ -1517,6 +1444,7 @@ export default function Visualizer({
       delayPhaseMs,
     },
     refs: {
+      delayBetweenRepeats: delayBetweenRepeatsRef,
       eventTimeTargets: eventTimeTargetsRef,
       eventDurationMode: eventDurationModeRef,
       bitsAtTimeRatio: bitsAtTimeRatioRef,
@@ -1598,10 +1526,6 @@ export default function Visualizer({
     },
     widgets: {
       allEventsHidden: isAllEventsWidgetHidden,
-      allEventsInDetail: isAllEventsInDetailPanel,
-      areJoined: areWidgetsJoined,
-      joinBannerRect,
-      pendingBannerDragStart,
       revealStepRequest,
     },
     refs: {
@@ -1769,6 +1693,7 @@ export default function Visualizer({
       styles: {
         merged3D: mergedCamera3DContainerStyle,
         render: renderCanvasStyle,
+        eventTitle: eventTitleStyle,
       },
       camera3D: {
         transform: camera3DTransform,
@@ -1804,8 +1729,11 @@ export default function Visualizer({
     // Animation & content rendering
     animation: {
       content: {
+        stepAnimSliders: null,
+        stepAnimSlidersDocked: null,
         allEventsTransport: allEventsTransportContent,
       },
+      currentStepBanner,
       surroundingEvents,
       currentStepData,
       aggMaskStepIndex,
@@ -1817,15 +1745,16 @@ export default function Visualizer({
         setStepScrubProgress,
         handleStepAnimToggle,
         isStepAnimRunning,
+        isSingleEventLoopActive,
         isAnimationReplayPaused,
+        isSingleEventRepeatEnabled,
+        onToggleRepeat: () => setIsSingleEventRepeatEnabled((v) => !v),
         onOpenAnimationSettings: openAnimationSettings,
         exporting,
         // item 159: left/right panel toggles in the timeline
         isEventsPanelCollapsed,
         onToggleEventsPanel: toggleEventsPanel,
         onCollapseEventsPanelFromTimeline: collapseEventsPanelFromTimeline,
-        // item 348: reveal (open + scroll-to-center) current step in events panel
-        onRevealCurrentStepInPanel: revealCurrentStepInPanel,
         isSettingsCollapsed,
         onToggleSettingsPanel: toggleSettingsPanel,
         // item 154: delay phase for fill+fade animation
@@ -1840,19 +1769,8 @@ export default function Visualizer({
         onDockDetailPanel: () => { setIsDetailPanelFloating(false); setIsDetailOpen(true); },
         // item 163: undock/dock the timeline itself
         isTimelineUndocked,
-        onUndockTimeline: () => { setIsTimelineUndocked(true); setFloatingDetailVisible(false); },
-        onDockTimeline: () => { setIsTimelineUndocked(false); setFloatingDetailVisible(false); },
-        floatingDetailVisible,
-        onToggleFloatingDetail: () => setFloatingDetailVisible((v) => !v),
-        // item 321: timeline strip colors
-        timelineColors,
-        // item 322/323: floater zone bg and dragger color
-        floaterBg,
-        draggerColor,
-        // item 342: per-preset zone tint background (derived from active color preset)
-        timelineBg: colorPreset ? (COLOR_PRESETS[colorPreset]?.timelineBg ?? null) : null,
-        // item 342: user-adjustable zone background opacity
-        zoneBgOpacity,
+        onUndockTimeline: () => setIsTimelineUndocked(true),
+        onDockTimeline: () => setIsTimelineUndocked(false),
       },
     },
 
@@ -1866,7 +1784,7 @@ export default function Visualizer({
           toggle: toggleEventsPanel,
           setCollapsed: setIsEventsPanelCollapsed,
           setPanelWidth,
-          enableRepeat,  // item 215 — stable callback defined above
+          enableRepeat: () => setIsSingleEventRepeatEnabled(true),  // item 215
         },
       },
       detail: {
@@ -1908,6 +1826,7 @@ export default function Visualizer({
     // Event title & widget management
     eventTitle: {
       settings: eventTitleSettings,
+      style: eventTitleStyle,
       handlers: {
         setSettings: setEventTitleSettings,
         showAboveCurrentDetail: showEventTitleAboveCurrentDetail,
@@ -1918,24 +1837,12 @@ export default function Visualizer({
     // Widget management (events + detail integration)
     widgets: {
       state: {
-        areJoined: widgetsPanelState.areJoined,
-        joinBannerRect: widgetsPanelState.joinBannerRect,
-        pendingBannerDragStart: widgetsPanelState.pendingBannerDragStart,
         revealStepRequest: widgetsPanelState.revealStepRequest,
       },
       handlers: {
         expandEventsPanel: expandEventsPanelFromWidget,
         dockEventsToTopBar: dockEventsWidgetToTopBar,
         dockEventsToDetail: dockEventsWidgetToDetailPanel,
-        pushEventsToPanel: pushJoinedWidgetToEventsPanel,
-        pushEventsToDetail: pushJoinedWidgetToDetailPanel,
-        hideJoined: hideJoinedWidget,
-        split: splitWidgets,
-        join: joinWidgets,
-        setPendingDragStart: setPendingBannerDragStart,
-        // item 162: separate toggle for all-events floater in detail panel
-        toggleAllEventsFloater: () => setIsAllEventsInDetailPanel((v) => !v),
-        isAllEventsInDetailPanel,
       },
     },
 
@@ -1950,20 +1857,6 @@ export default function Visualizer({
           setPinnedIndices: setPinnedBitIndices,
           computeBitInfo,
           getVisibleStyles: getVisibleBalloonStyles,
-        },
-      },
-      // item 331: group inspector state & config
-      groupInspector: {
-        unit: groupInspectorUnit,
-        effectiveGroupBits,
-        storageModel,
-        wheelDefinition,
-        bitLayout: layoutSettings.bitLayout || '4x2',
-        byteLayout: layoutSettings.byteLayout || '4x2',
-        bitCount: header?.bitCount,
-        handlers: {
-          open: openGroupInspector,
-          close: closeGroupInspector,
         },
       },
       heatMap: {
@@ -2186,12 +2079,7 @@ export default function Visualizer({
     <ActiveStepProvider currentStep={currentStep}>
     <AnimationConfigProvider value={animationConfigContextValue}>
     <PanelLayoutProvider value={panelLayoutContextValue}>
-    <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}${flyModeActive ? ' visualizer--fly-mode' : ''}`}
-      style={{
-        // item 328: operation badge bg = events timeline color; fg = auto-contrast
-        '--ep-label-color': timelineColors?.events || '#b87333',
-        '--ep-label-fg': labelTextColor(hexToRgb(timelineColors?.events || '#b87333')),
-      }}>
+    <div className={`visualizer${isMacPlatform ? ' platform-mac' : ''}${isWindowsPlatform ? ' platform-windows' : ''}${isElectron ? ' platform-electron' : ' platform-browser'}${flyModeActive ? ' visualizer--fly-mode' : ''}`}>
       <Toolbar {...toolbarProps} />
 
       {exporting && <ExportProgress progress={exportProgress} />}
@@ -2208,6 +2096,16 @@ export default function Visualizer({
 
       <VisualizerMainContent
         {...visualizerMainContentProps}
+      />
+      {/* Minimap overlay — rendered OUTSIDE .main-content so it is never
+          trapped inside the canvas-container stacking context
+          (transform-style:preserve-3d). position:fixed + z-index:35 then
+          places it above all floating panels (z-index:28) and the detail
+          panel (document order) in the root stacking context. */}
+      <canvas
+        ref={minimapCanvasRef}
+        className="minimap-overlay-canvas"
+        aria-hidden="true"
       />
       <KeyboardShortcutsOverlay
         open={isShortcutsHelpVisible}

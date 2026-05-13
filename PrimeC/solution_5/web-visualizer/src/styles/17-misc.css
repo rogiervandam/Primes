@@ -231,7 +231,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.35);
-  z-index: 270;  /* item 319: raised above balloons (max 260); below toolbar (310) */
+  z-index: 90;
   display: flex;
   flex-direction: column;
   overflow: hidden;

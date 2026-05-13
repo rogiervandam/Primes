@@ -227,14 +227,9 @@ function initialTheme(prefs) {
   return prefs?.theme === 'light' ? 'light' : 'dark';
 }
 
-// `delayBetweenEvents` and `delayBetweenRepeats` both fall back to the legacy
-// single `repeatAnim` setting when the new explicit field is absent.
+// Returns the delay in ms for the given key, defaulting to 500.
 function initialDelayMs(prefs, key) {
-  const explicit = clampInt(prefs?.[key], 0, 5000);
-  if (explicit !== null) return explicit;
-  const legacy = clampInt(prefs?.repeatAnim, 0, 5000);
-  if (legacy !== null) return legacy;
-  return 500;
+  return clampInt(prefs?.[key], 0, 5000) ?? 500;
 }
 
 function initialEventDurationMode(prefs) {
@@ -249,10 +244,6 @@ function initialGridOpacity(prefs) {
 
 function initialAllEventsWidgetHidden(prefs) {
   return prefs?.isAllEventsWidgetHidden === true;
-}
-
-function initialWidgetsJoined(prefs) {
-  return prefs?.areWidgetsJoined === true;
 }
 
 // Valid preset keys (mirrors COLOR_PRESETS in src/renderer/constants.js).
@@ -356,17 +347,10 @@ function initialDebugRenderTuning(prefs) {
 }
 
 function initialPanelVisibility(prefs) {
-  // Migrate legacy key: stepsPanelCollapsed → isEventsPanelCollapsed.
-  // Read new key first; fall back to old key for users with saved prefs.
-  const legacyCollapsed = prefs?.stepsPanelCollapsed;
-  const isEventsPanelCollapsed =
-    prefs?.isEventsPanelCollapsed !== undefined
-      ? prefs.isEventsPanelCollapsed !== false
-      : legacyCollapsed !== false; // default: collapsed
   return {
-    isEventsPanelCollapsed,
-    isSettingsCollapsed: prefs?.isSettingsCollapsed !== false,     // default: collapsed
-    isDetailOpen: prefs?.isDetailOpen === true,                    // default: closed
+    isEventsPanelCollapsed: prefs?.isEventsPanelCollapsed !== false,  // default: collapsed
+    isSettingsCollapsed: prefs?.isSettingsCollapsed !== false,         // default: collapsed
+    isDetailOpen: prefs?.isDetailOpen === true,                        // default: closed
   };
 }
 
@@ -404,8 +388,6 @@ export function getInitialViewState() {
     zoneBgOpacity: (typeof prefs?.zoneBgOpacity === 'number' && prefs.zoneBgOpacity >= 0.05 && prefs.zoneBgOpacity <= 0.95)
       ? prefs.zoneBgOpacity : 0.45,  // item 342
     isAllEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
-    areWidgetsJoined: initialWidgetsJoined(prefs),
-    isAllEventsInDetailPanel: prefs?.isAllEventsInDetailPanel === true,  // default: false (item 162)
     // When false, selecting an event will NOT automatically start the
     // per-event animation loop. Default true to preserve prior behavior.
     isAutoAnimateOnSelect: prefs?.isAutoAnimateOnSelect !== false,

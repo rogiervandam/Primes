@@ -13,15 +13,12 @@ import { useCallback } from 'react';
  * @param {Object} panelConfig - Organized panel state and handlers
  * @param {Object} panelConfig.panelHandlers - Handlers for panel operations
  * @param {function} panelConfig.panelHandlers.captureResizeAnchor
- * @param {function} panelConfig.panelHandlers.setIsAllEventsInDetailPanel
  * @param {function} panelConfig.panelHandlers.setIsAllEventsWidgetHidden
  * @param {function} panelConfig.panelHandlers.setEventTitleSettings
  * @param {function} panelConfig.panelHandlers.setIsEventsPanelCollapsed
- * @param {function} panelConfig.panelHandlers.setJoinBannerRect
  * @param {function} panelConfig.panelHandlers.setRevealStepRequest
  * @param {function} panelConfig.panelHandlers.setIsSettingsCollapsed
  * @param {function} panelConfig.panelHandlers.setSettingsTabRequest
- * @param {function} panelConfig.panelHandlers.setAreWidgetsJoined
  * @param {function} panelConfig.panelHandlers.updateDetailOpen
  * @param {Object} panelConfig.detailState - Detail panel state
  * @param {number} panelConfig.detailState.height
@@ -43,31 +40,18 @@ export function usePanelChoreography(panelConfig = {}) {
     isDetailOpen = detailState.isOpen,
     settingsActiveTab = settingsState.activeTab,
     isSettingsCollapsed = settingsState.isCollapsed,
-    setIsAllEventsInDetailPanel,
     setIsAllEventsWidgetHidden,
     setEventTitleSettings,
     setIsEventsPanelCollapsed,
-    setJoinBannerRect,
     setRevealStepRequest,
     setIsSettingsCollapsed,
     setSettingsTabRequest,
-    setAreWidgetsJoined,
     updateDetailOpen,
   } = handlers;
 
   const showAllEventsWidget = useCallback(() => {
     setIsAllEventsWidgetHidden(false);
   }, [setIsAllEventsWidgetHidden]);
-
-  const joinWidgets = useCallback((bannerRect) => {
-    setJoinBannerRect(bannerRect || null);
-    setAreWidgetsJoined(true);
-  }, [setJoinBannerRect, setAreWidgetsJoined]);
-
-  const splitWidgets = useCallback(() => {
-    setAreWidgetsJoined(false);
-    setEventTitleSettings((prev) => ({ ...prev, dragOffsetX: 0, dragOffsetY: 0 }));
-  }, [setEventTitleSettings, setAreWidgetsJoined]);
 
   const expandEventsPanelFromWidget = useCallback(() => {
     captureResizeAnchor();
@@ -83,17 +67,13 @@ export function usePanelChoreography(panelConfig = {}) {
     captureResizeAnchor();
     setIsAllEventsWidgetHidden(true);
     updateDetailOpen(true);
-    if (setIsAllEventsInDetailPanel) setIsAllEventsInDetailPanel(true);
-  }, [captureResizeAnchor, setIsAllEventsInDetailPanel, setIsAllEventsWidgetHidden, updateDetailOpen]);
+  }, [captureResizeAnchor, setIsAllEventsWidgetHidden, updateDetailOpen]);
 
   const toggleEventsPanel = useCallback(() => {
     captureResizeAnchor();
-    setIsEventsPanelCollapsed((wasCollapsed) => {
-      if (wasCollapsed) setAreWidgetsJoined(false);
-      return !wasCollapsed;
-    });
+    setIsEventsPanelCollapsed((wasCollapsed) => !wasCollapsed);
     setIsAllEventsWidgetHidden(false);
-  }, [captureResizeAnchor, setIsAllEventsWidgetHidden, setIsEventsPanelCollapsed, setAreWidgetsJoined]);
+  }, [captureResizeAnchor, setIsAllEventsWidgetHidden, setIsEventsPanelCollapsed]);
 
   // Collapse the events panel without showing the all-events floater.
   // Used by the ↓ button in EventsPanel so the widget doesn't pop back open.
@@ -111,7 +91,6 @@ export function usePanelChoreography(panelConfig = {}) {
       if (wasCollapsed) {
         opening = true;
         captureResizeAnchor();
-        setAreWidgetsJoined(false);
         return false;
       }
       return wasCollapsed;
@@ -122,7 +101,7 @@ export function usePanelChoreography(panelConfig = {}) {
     } else {
       setRevealStepRequest((n) => n + 1);
     }
-  }, [captureResizeAnchor, setIsEventsPanelCollapsed, setRevealStepRequest, setAreWidgetsJoined]);
+  }, [captureResizeAnchor, setIsEventsPanelCollapsed, setRevealStepRequest]);
 
   const toggleDetailPanel = useCallback(() => {
     captureResizeAnchor();
@@ -155,79 +134,24 @@ export function usePanelChoreography(panelConfig = {}) {
     const totalPanelH = isDetailOpen ? detailHeight + DETAIL_HEADER_H : DETAIL_HEADER_H;
     const dragOffsetY = -(totalPanelH + 30 - 20);
     setEventTitleSettings((prev) => ({ ...prev, visible: true, dragOffsetX: 0, dragOffsetY }));
-    splitWidgets();
-  }, [detailHeight, isDetailOpen, setEventTitleSettings, splitWidgets]);
+  }, [detailHeight, isDetailOpen, setEventTitleSettings]);
 
   const showEventTitleAboveClosedDetail = useCallback(() => {
     const DETAIL_HEADER_H = 22;
     const dragOffsetY = -(DETAIL_HEADER_H + 30 - 20);
     setEventTitleSettings((prev) => ({ ...prev, visible: true, dragOffsetX: 0, dragOffsetY }));
-    splitWidgets();
-  }, [setEventTitleSettings, splitWidgets]);
-
-  const pushJoinedWidgetToEventsPanel = useCallback(() => {
-    captureResizeAnchor();
-    setAreWidgetsJoined(false);
-    setIsAllEventsWidgetHidden(false);
-    setIsEventsPanelCollapsed(false);
-    updateDetailOpen(true);
-    setEventTitleSettings((prev) => ({
-      ...prev,
-      visible: false,
-      dragOffsetX: 0,
-      dragOffsetY: 0,
-    }));
-  }, [
-    captureResizeAnchor,
-    setIsAllEventsWidgetHidden,
-    setEventTitleSettings,
-    setIsEventsPanelCollapsed,
-    setAreWidgetsJoined,
-    updateDetailOpen,
-  ]);
-
-  const pushJoinedWidgetToDetailPanel = useCallback(() => {
-    captureResizeAnchor();
-    setAreWidgetsJoined(false);
-    setIsAllEventsWidgetHidden(true);
-    updateDetailOpen(true);
-    if (setIsAllEventsInDetailPanel) setIsAllEventsInDetailPanel(true);
-    setEventTitleSettings((prev) => ({
-      ...prev,
-      visible: false,
-      dragOffsetX: 0,
-      dragOffsetY: 0,
-    }));
-  }, [
-    captureResizeAnchor,
-    setIsAllEventsInDetailPanel,
-    setIsAllEventsWidgetHidden,
-    setEventTitleSettings,
-    setAreWidgetsJoined,
-    updateDetailOpen,
-  ]);
-
-  const hideJoinedWidget = useCallback(() => {
-    setAreWidgetsJoined(false);
-    setIsAllEventsWidgetHidden(true);
-    setEventTitleSettings((prev) => ({ ...prev, visible: false }));
-  }, [setIsAllEventsWidgetHidden, setEventTitleSettings, setAreWidgetsJoined]);
+  }, [setEventTitleSettings]);
 
   return {
     collapseEventsHideWidget,
     dockEventsWidgetToDetailPanel,
     dockEventsWidgetToTopBar,
     expandEventsPanelFromWidget,
-    hideJoinedWidget,
-    joinWidgets,
     openAnimationSettings,
-    pushJoinedWidgetToDetailPanel,
-    pushJoinedWidgetToEventsPanel,
     revealCurrentStepInPanel,
     showAllEventsWidget,
     showEventTitleAboveClosedDetail,
     showEventTitleAboveCurrentDetail,
-    splitWidgets,
     toggleDetailPanel,
     toggleEventsPanel,
     toggleSettingsPanel,

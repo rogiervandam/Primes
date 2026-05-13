@@ -113,8 +113,8 @@ export default function VisualizerMainContent(props) {
 
   // Widgets
   const { state: widgetsState = {}, handlers: widgetHandlers = {} } = widgets;
-  const { areJoined: areWidgetsJoined, joinBannerRect, pendingBannerDragStart, revealStepRequest } = widgetsState;
-  const { expandEventsPanel: expandEventsPanelFromWidget, dockEventsToTopBar: dockEventsWidgetToTopBar, dockEventsToDetail: dockEventsWidgetToDetailPanel, pushEventsToPanel: pushJoinedWidgetToEventsPanel, pushEventsToDetail: pushJoinedWidgetToDetailPanel, hideJoined: hideJoinedWidget, split: splitWidgets, join: joinWidgets, setPendingDragStart: setPendingBannerDragStart, toggleAllEventsFloater, isAllEventsInDetailPanel } = widgetHandlers;
+  const { revealStepRequest } = widgetsState;
+  const { expandEventsPanel: expandEventsPanelFromWidget, dockEventsToTopBar: dockEventsWidgetToTopBar, dockEventsToDetail: dockEventsWidgetToDetailPanel } = widgetHandlers;
 
   // Overlays
   const { balloons: overlayBalloons = {}, heatMap: overlayHeatMap = {}, cache: overlayCache = {}, prime: overlayPrime = {}, range: overlayRange = {}, multiples: overlayMultiples = {}, minimap: overlayMinimap = {}, groupInspector: overlayGroupInspector = {} } = overlays;
@@ -160,9 +160,9 @@ export default function VisualizerMainContent(props) {
     width: panelWidth,
     externalOpFilter: timingFocusOp,
     revealStepRequest,
-    eventTitleVisible: eventTitleSettings.visible && !areWidgetsJoined,
+    eventTitleVisible: eventTitleSettings.visible,
   }), [steps, selectedSteps, panelWidth, timingFocusOp, revealStepRequest,
-       eventTitleSettings.visible, areWidgetsJoined]);
+       eventTitleSettings.visible]);
 
   const stableEventsHandlers = useMemo(() => ({
     onStepClick: handleStepSelection,
@@ -171,7 +171,6 @@ export default function VisualizerMainContent(props) {
     onExpandPanelFromWidget: expandEventsPanelFromWidget,
     onDockWidgetToTopBar: dockEventsWidgetToTopBar,
     onDockWidgetToDetailPanel: dockEventsWidgetToDetailPanel,
-    onJoinWidgets: joinWidgets,
     onUserScroll: undefined,
     onExternalOpFilterConsumed: () => setTimingFocusOp(''),
     onShowEventTitle: showEventTitleAboveCurrentDetail,
@@ -179,7 +178,7 @@ export default function VisualizerMainContent(props) {
     onInspectAnnotationUnit: openGroupInspector,
   }), [handleStepSelection, handleMultiStepSelect, setPanelWidth,
       expandEventsPanelFromWidget, dockEventsWidgetToTopBar,
-      dockEventsWidgetToDetailPanel, joinWidgets,
+      dockEventsWidgetToDetailPanel,
       setTimingFocusOp, showEventTitleAboveCurrentDetail, enableRepeat, openGroupInspector]);
 
   return (
@@ -235,8 +234,6 @@ export default function VisualizerMainContent(props) {
           isEventsPanelCollapsed,
           setIsEventsPanelCollapsed,
           stepAnimSlidersContent: undefined,
-          areWidgetsJoined,
-          onJoinWidgets: joinWidgets,
           pinnedBitIndices,
           hoveredBitInfo,
           computeBitInfo,
@@ -248,8 +245,6 @@ export default function VisualizerMainContent(props) {
           isDetailOpen,
           detailHeight,
           toggleDetailPanel,
-          pendingBannerDragStart,
-          onConsumePendingBannerDragStart: () => setPendingBannerDragStart(null),
           isDetailInspectorOpen,
           detailInspectorMode,
           detailInspectorQuery,
@@ -289,26 +284,24 @@ export default function VisualizerMainContent(props) {
           directly via DOM in detailPanelCallbackRef (no React re-render triggered). */}
       {currentStepData && (() => {
         const isTimelineUndocked = doubleTimelineProps.isTimelineUndocked;
-        const floatingDetailVisible = doubleTimelineProps.floatingDetailVisible ?? false;
         const detailPanelNode = (
           <DetailPanel
             detailState={{
               step: currentStepData,
               stepIndex: currentStep,
-              open: isTimelineUndocked ? floatingDetailVisible : isDetailOpen,
+              open: isDetailOpen,
               height: detailHeight,
               width: detailWidth,
               playing,
               stepStats: selectedSteps.size > 1 ? null : stepStats,
               bitLayout: layoutSettings.bitLayout,
               byteLayout: layoutSettings.byteLayout,
-              eventTitleVisible: isTimelineUndocked ? false : (eventTitleSettings.visible && !areWidgetsJoined),
+              eventTitleVisible: isTimelineUndocked ? false : eventTitleSettings.visible,
               sourceLineNumber: currentStepSourceLine,
               hasRawSource: !!sourceRef,
               aggMaskStepIndex,
               isHeaderHidden: isTimelineUndocked ? true : isDetailHeaderHidden,
               isFloating: isDetailPanelFloating,
-              isAllEventsInDetailPanel: false,
             }}
             detailConfig={{
               storageModel,
@@ -318,10 +311,7 @@ export default function VisualizerMainContent(props) {
               surroundingEvents,  // item 318: always pass (was undefined when undocked)
             }}
             detailHandlers={{
-              onToggle: isTimelineUndocked
-                // item 212: when undocked, close button in the detail panel should hide it
-                ? doubleTimelineProps.onToggleFloatingDetail
-                : toggleDetailPanel,
+              onToggle: toggleDetailPanel,
               onHeightChange: updateDetailHeight,
               onWidthChange: setDetailWidth,
               onInspectChangedBits: () => openDetailInspector('bits'),

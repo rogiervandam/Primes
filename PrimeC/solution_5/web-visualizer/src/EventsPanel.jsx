@@ -161,7 +161,6 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     onExpandPanelFromWidget,
     onDockWidgetToTopBar,
     onDockWidgetToDetailPanel,
-    onJoinWidgets,
     onUserScroll,
     onExternalOpFilterConsumed,
     onShowEventTitle,
@@ -317,7 +316,6 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     collapseEventsHideWidget,
     isAllEventsWidgetHidden,
     showAllEventsWidget,
-    areWidgetsJoined,
     eventsCollapseDir,
     setEventsCollapseDir,
     eventsOpenFromBottom,        // item 349

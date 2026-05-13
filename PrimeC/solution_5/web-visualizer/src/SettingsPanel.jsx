@@ -141,14 +141,6 @@ export default function SettingsPanel({
     setColorPreset,
     customColors,
     setCustomColors,
-    timelineColors,
-    setTimelineColors,
-    floaterBg,
-    setFloaterBg,
-    draggerColor,
-    setDraggerColor,
-    zoneBgOpacity,
-    setZoneBgOpacity,
   } = useThemeContext();
   const {
     playSpeedPercent,
@@ -200,9 +192,25 @@ export default function SettingsPanel({
     }
   }, [activeTabRequest, changeActiveTab]);
   const [legendFloating, setLegendFloating] = React.useState(false);
-  // item 298: removed animation-class approach (expanding-in / collapsing-out keyframes).
-  // The settings panel now uses CSS transitions like the events panel.
-  // Just use the `collapsed` prop directly — CSS handles the transition.
+  const [isAnimatingOut, setIsAnimatingOut] = React.useState(false);
+  const [settingsAnimClass, setSettingsAnimClass] = React.useState('');
+  const prevCollapsedRef = React.useRef(collapsed);
+  React.useEffect(() => {
+    const prev = prevCollapsedRef.current;
+    prevCollapsedRef.current = collapsed;
+    if (!prev && collapsed) {
+      // Collapsed: animate out then mark as fully collapsed
+      setSettingsAnimClass('collapsing-out');
+      setIsAnimatingOut(true);
+      const t = setTimeout(() => { setIsAnimatingOut(false); setSettingsAnimClass(''); }, 450);
+      return () => clearTimeout(t);
+    } else if (prev && !collapsed) {
+      // Expanded: start expanding-in animation immediately (no flash)
+      setSettingsAnimClass('expanding-in');
+      const t = setTimeout(() => setSettingsAnimClass(''), 450);
+      return () => clearTimeout(t);
+    }
+  }, [collapsed]);
   const [legendDetailed, setLegendDetailed] = React.useState(true);
   const [floatPos, setFloatPos] = React.useState(null);
   const floatDragRef = React.useRef({ dragging: false, startX: 0, startY: 0, originX: 0, originY: 0 });
@@ -255,7 +263,7 @@ export default function SettingsPanel({
 
   return (
     <>
-    <div className={`settings-sidebar${collapsed ? ' is-collapsed' : ''}${isWindowsPlatform ? ' platform-windows' : ''}`}>
+    <div className={`settings-sidebar${collapsed && !isAnimatingOut && !settingsAnimClass ? ' is-collapsed' : ''}${settingsAnimClass ? ` ${settingsAnimClass}` : ''}${isWindowsPlatform ? ' platform-windows' : ''}`} style={isDetailOpen ? { bottom: `${detailHeight}px` } : undefined}>
       <div className="settings-header-rail" title="Settings">
           <div className="settings-tab-row" role="tablist">
             <button
@@ -295,9 +303,8 @@ export default function SettingsPanel({
               Legend
             </button>
           </div>
-        {/* item 353: panel-toggle-arrow gives unified design; › = collapse to the right */}
-        <button className="settings-collapse-btn panel-toggle-arrow is-open" onClick={onToggleCollapse} title="Collapse settings">
-          ›
+        <button className="settings-collapse-btn" onClick={onToggleCollapse} title="Collapse settings">
+          ▶
         </button>
       </div>
         <div className="settings-panel-content">
@@ -329,10 +336,6 @@ export default function SettingsPanel({
             customColors={customColors} onCustomColorsChange={setCustomColors}
             theme={theme} onThemeChange={setTheme}
             canvasColors={canvasColors} onCanvasColorsChange={setCanvasColors}
-            timelineColors={timelineColors} onTimelineColorsChange={setTimelineColors}
-            floaterBg={floaterBg} onFloaterBgChange={setFloaterBg}
-            draggerColor={draggerColor} onDraggerColorChange={setDraggerColor}
-            zoneBgOpacity={zoneBgOpacity} onZoneBgOpacityChange={setZoneBgOpacity}
           />
         )}
 

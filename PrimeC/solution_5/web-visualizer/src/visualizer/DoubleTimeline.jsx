@@ -1,41 +1,11 @@
 import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import {
-  Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus,
+  Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus, Repeat,
 } from '../Icons';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
 
 const MIN_DETAIL_HEIGHT = 180;
 const MAX_DETAIL_HEIGHT = 700;
-
-/** item 321: parse #rrggbb → [r, g, b] */
-function hexToRgb(hex) {
-  const m = (hex || '').match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-  return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [180, 180, 180];
-}
-
-function parseInspectableUnitFromAnnotation(annotation) {
-  const text = String(annotation || '');
-  const patterns = [
-    { type: 'cacheline', label: 'cache line', regex: /\bcache\s*line\s*#?\s*(\d+)\b/i },
-    { type: 'cacheline', label: 'cacheline', regex: /\bcacheline\s*#?\s*(\d+)\b/i },
-    { type: 'byte', label: 'byte', regex: /\bbyte\s*#?\s*(\d+)\b/i },
-    { type: 'group', label: 'group', regex: /\bgroup\s*#?\s*(\d+)\b/i },
-    { type: 'uint32', label: 'uint32', regex: /\buint32\s*#?\s*(\d+)\b/i },
-    { type: 'uint64', label: 'uint64', regex: /\buint64\s*#?\s*(\d+)\b/i },
-  ];
-
-  for (const pattern of patterns) {
-    const match = text.match(pattern.regex);
-    if (!match) continue;
-    return {
-      type: pattern.type,
-      index: Number(match[1]),
-      title: `Inspect ${pattern.label} ${match[1]}`,
-    };
-  }
-
-  return null;
-}
 
 /**
  * DoubleTimeline — backlog items 120-125.
@@ -60,6 +30,9 @@ export default function DoubleTimeline({
   playing = false,
   isStepAnimRunning = false,
   isAnimationReplayPaused = false,
+  isSingleEventLoopActive = false,
+  isSingleEventRepeatEnabled = false,
+  onToggleRepeat,
   handleStepAnimToggle,
   onOpenAnimationSettings,
   exporting = false,
@@ -94,19 +67,6 @@ export default function DoubleTimeline({
   // when undocked: toggle detail panel visibility (shown in normal position, not inside widget)
   floatingDetailVisible = false,
   onToggleFloatingDetail,
-  // item 321: timeline strip colors
-  timelineColors = { events: '#b87333', animation: '#3a8cb8' },
-  // item 322/323: floater zone background and center dragger color
-  // item 342: unified glass CSS variable for the undocked container background
-  floaterBg    = '#0a0a0a',
-  draggerColor = '#481c20',
-  // item 342: per-preset zone background tint (replaces floaterBg-derived zone bg)
-  timelineBg   = null,
-  // item 342: user-adjustable zone background opacity (0.05–0.95)
-  zoneBgOpacity = 0.45,
-  onInspectAnnotationUnit,
-  // item 348: reveal current step in events panel (open + scroll to center)
-  onRevealCurrentStepInPanel,
 }) {
   const {
     goToStep,
@@ -120,21 +80,6 @@ export default function DoubleTimeline({
   const [splitFraction, setSplitFraction] = useState(0.5);
   const splitFractionRef = useRef(0.5);
   const [isCollapsed, setIsCollapsed] = useState(false);
-
-  // item 306: navigation direction for slide animation
-  const [navDir, setNavDir] = useState(null);  // null | 'next' | 'prev'
-  const prevNavStepRef = useRef(null);
-  const navDirTimerRef = useRef(null);
-  useEffect(() => {
-    if (prevNavStepRef.current === null) { prevNavStepRef.current = currentStep; return; }
-    if (currentStep === prevNavStepRef.current) return;
-    const dir = currentStep > prevNavStepRef.current ? 'next' : 'prev';
-    prevNavStepRef.current = currentStep;
-    setNavDir(dir);
-    if (navDirTimerRef.current) clearTimeout(navDirTimerRef.current);
-    navDirTimerRef.current = setTimeout(() => setNavDir(null), 300);
-  }, [currentStep]);
-  useEffect(() => () => { if (navDirTimerRef.current) clearTimeout(navDirTimerRef.current); }, []);
 
   // item 163: free-floating position when undocked (x/y relative to viewport)
   // item 201: default y puts the strip ~40px from the bottom (strip height ≈ 90px: title+strip+annotation)
@@ -155,7 +100,6 @@ export default function DoubleTimeline({
   const preDockWidthRef = useRef(Math.round((typeof window !== 'undefined' ? window.innerWidth : 800) * 0.6));  // Default 60%
   const isDockAnimatingRef = useRef(false);
   const undockAnimatingRef = useRef(false);  // true during undock FLIP animation; blocks drag position tracking
-  const animAccumDeltaRef = useRef({ x: 0, y: 0 });  // item 251: cursor delta accumulated during undock transition
   const preferredBottomGapRef = useRef(96);
   const prevFloatingDetailVisibleRef = useRef(floatingDetailVisible);
 
@@ -165,10 +109,6 @@ export default function DoubleTimeline({
   // item 219: focus mode — 'events' | 'animation'
   // Switches which timeline the center controls affect and adds visual highlight.
   const [focusMode, setFocusMode] = useState('events');
-
-  // item 310: track whether a drag happened during the last center-zone pointer-down
-  // so the click handler can tell a drag apart from a plain click.
-  const centerWasDraggedRef = useRef(false);
 
   // item 181: smooth undock/dock animation
   const preUndockRectRef = useRef(null);  // rect captured just before undocking
@@ -183,15 +123,6 @@ export default function DoubleTimeline({
   const waveCanvasRef = useRef(null);
   const waveContainerRef = useRef(null);
   const containerRef = useRef(null);
-  // item 291: active-area refs — the inset region excluding toggle buttons
-  const waveActiveAreaRef = useRef(null);
-  const animActiveAreaRef = useRef(null);
-
-  // item 289: zoom ranges for both timelines
-  const [waveZoomRange, setWaveZoomRange] = useState({ start: 0, end: 1 }); // fractions of total steps
-  const waveZoomRangeRef = useRef({ start: 0, end: 1 });
-  const [animZoomRange, setAnimZoomRange] = useState({ start: 0, end: 100 }); // percent 0-100
-  const animZoomRangeRef = useRef({ start: 0, end: 100 });
 
   // Pre-compute bar heights (normalised 0-1) from steps
   const barHeights = useMemo(() => {
@@ -201,24 +132,12 @@ export default function DoubleTimeline({
     return vals.map((v) => v / max);
   }, [steps]);
 
-  // item 240: detect events with no animation content (no changed bits, no mask data)
-  const isEmptyEvent = currentStepData != null && (
-    !(Number(currentStepData.numChanged) > 0) &&
-    !(currentStepData.changedBits?.length > 0) &&
-    !(currentStepData.maskWriteOrderWords?.length > 0)
-  );
-
   // Draw waveform on canvas whenever size or data changes
   const drawWave = useCallback(() => {
     const canvas = waveCanvasRef.current;
-    // item 291: measure the active area (inset past the toggle button) not the full zone
-    const activeArea = waveActiveAreaRef.current || waveContainerRef.current;
-    if (!canvas || !activeArea) return;
-    // item 351: use layout dimensions (offsetWidth/offsetHeight, unaffected by CSS transforms)
-    // instead of getBoundingClientRect() so the zone's scaleY(1.3) zoom transform is not
-    // applied twice — once when we size the canvas and again by the parent's CSS scale.
-    const width = activeArea.offsetWidth;
-    const height = activeArea.offsetHeight;
+    const container = waveContainerRef.current;
+    if (!canvas || !container) return;
+    const { width, height } = container.getBoundingClientRect();
     if (width < 1 || height < 1) return;
     const dpr = window.devicePixelRatio || 1;
     canvas.width = width * dpr;
@@ -234,45 +153,37 @@ export default function DoubleTimeline({
     // item 242: transparent canvas so glassmorphism CSS backdrop-filter shows through
     ctx.clearRect(0, 0, width, height);
 
-    // item 289: only render bars in the zoom range
-    const { start: zStart, end: zEnd } = waveZoomRangeRef.current;
-    const iStart = Math.floor(zStart * n);
-    const iEnd = Math.ceil(zEnd * n);
-    const visibleCount = Math.max(1, iEnd - iStart);
-    const barW = width / visibleCount;
+    const barW = width / n;
     const padFrac = barW > 3 ? 0.12 : 0;
 
-    for (let i = iStart; i < iEnd; i++) {
-      if (i < 0 || i >= n) continue;
+    for (let i = 0; i < n; i++) {
       const h = barHeights[i] * (height - 2);
-      const x = (i - iStart) * barW + barW * padFrac;
+      const x = i * barW + barW * padFrac;
       const w = barW * (1 - 2 * padFrac);
       const y = height - h;
       const isActive = i === currentStep;
       const isPast = i < currentStep;
       if (isActive) {
-        // item 340: use CSS variable so light-theme presets can override the active bar colour
-        const activeColor = getComputedStyle(canvas).getPropertyValue('--dtl-chart-active-color').trim() || '#ffffff';
-        ctx.fillStyle = activeColor;
+        ctx.fillStyle = '#ffffff';
       } else if (isPast) {
-        // item 321/340: use a brightened events color (mix toward white) for better contrast on dark presets
-        const [r, g, b] = hexToRgb(timelineColors?.events);
-        const pr = Math.round(r + (255 - r) * 0.35);
-        const pg = Math.round(g + (255 - g) * 0.35);
-        const pb = Math.round(b + (255 - b) * 0.35);
-        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.75)`;
+        ctx.fillStyle = 'rgba(100,180,255,0.65)';
       } else {
-        // item 321/340: future bars — brightened color at lower opacity
-        const [r, g, b] = hexToRgb(timelineColors?.events);
-        const pr = Math.round(r + (255 - r) * 0.35);
-        const pg = Math.round(g + (255 - g) * 0.35);
-        const pb = Math.round(b + (255 - b) * 0.35);
-        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.42)`;
+        ctx.fillStyle = 'rgba(72,128,200,0.35)';
       }
       ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.round(h) || 1);
     }
-    // item 288: scrubber is now a separate pill div overlay — no canvas line needed
-  }, [barHeights, currentStep, timelineColors]);
+
+    // White vertical playhead line (item 125)
+    if (n > 0) {
+      const px = (currentStep / Math.max(1, n - 1)) * width;
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(px, 0);
+      ctx.lineTo(px, height);
+      ctx.stroke();
+    }
+  }, [barHeights, currentStep]);
 
   useEffect(() => { drawWave(); }, [drawWave]);
 
@@ -288,89 +199,35 @@ export default function DoubleTimeline({
   // item 192: rAF-throttled scrub — avoids queuing multiple React state updates per frame
   const waveRafRef = useRef(null);
   const isDividerDraggingRef = useRef(false);  // item 218: block zone interactions during center drag
-  // Ref so wave pointer handlers can read the current playing state without stale closures
-  const isAnimPlayingRef = useRef(false);
-  isAnimPlayingRef.current = (playing || isStepAnimRunning) && !isAnimationReplayPaused;
-  // Ref so repeat-handle handler can check playhead proximity without a stale closure
-  const stepScrubProgressRef = useRef(stepScrubProgress);
-  stepScrubProgressRef.current = stepScrubProgress;
-  // Ref: true while the repeat handle is being dragged — gates zone pointer handlers
-  const isRepeatDraggingRef = useRef(false);
-  // Latest pointer X during a wave drag — the RAF always reads this so it uses
-  // the most recent position even when intermediate pointer events are coalesced.
-  const waveLatestClientXRef = useRef(null);
   const waveSeek = useCallback((e) => {
     const canvas = waveCanvasRef.current;
     if (!canvas || steps.length === 0) return;
     const rect = canvas.getBoundingClientRect();
     const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    // item 289: map fraction to zoomed range
-    const { start: zStart, end: zEnd } = waveZoomRangeRef.current;
-    const mappedFrac = zStart + frac * (zEnd - zStart);
-    goToStep(Math.round(mappedFrac * (steps.length - 1)), { scrub: true });
+    goToStep(Math.round(frac * (steps.length - 1)));
   }, [goToStep, steps.length]);
 
   const handleWavePointerDown = useCallback((e) => {
     if (isDividerDraggingRef.current) return;  // item 218: ignore if center is being dragged
     e.currentTarget.setPointerCapture(e.pointerId);
     setFocusMode('events');  // item 219: click/drag in events zone → events focus
-    if (isAnimPlayingRef.current) handleStepAnimToggle?.();  // stop animation when scrubbing events
-    // Reset animation to 0% so it doesn't show stale progress while browsing events
-    setStepScrubProgress?.(0);
-    seekStepAnimation?.(0);
     waveSeek(e);
-  }, [waveSeek, handleStepAnimToggle, setStepScrubProgress, seekStepAnimation]);
+  }, [waveSeek]);
 
   const handleWavePointerMove = useCallback((e) => {
     if (isDividerDraggingRef.current) return;  // item 218
     if (e.buttons !== 1) return;
-    // Always track the latest pointer position so the RAF uses the most recent
-    // coordinates even when high-frequency events are coalesced (fixes lag).
-    waveLatestClientXRef.current = e.clientX;
+    const clientX = e.clientX;
     if (waveRafRef.current !== null) return;  // already scheduled
     waveRafRef.current = requestAnimationFrame(() => {
       waveRafRef.current = null;
-      const clientX = waveLatestClientXRef.current;
-      if (clientX === null) return;
       const canvas = waveCanvasRef.current;
       if (!canvas || steps.length === 0) return;
       const rect = canvas.getBoundingClientRect();
       const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      // item 289: map fraction to zoomed range
-      const { start: zStart, end: zEnd } = waveZoomRangeRef.current;
-      const mappedFrac = zStart + frac * (zEnd - zStart);
-      goToStep(Math.round(mappedFrac * (steps.length - 1)), { scrub: true });
-      // item 294: keep animation progress at 0% while scrubbing events
-      setStepScrubProgress?.(0);
-      seekStepAnimation?.(0);
+      goToStep(Math.round(frac * (steps.length - 1)));
     });
-  }, [goToStep, steps.length, setStepScrubProgress, seekStepAnimation]);
-
-  // item 289: wheel zoom for the wave zone
-  const handleWaveWheel = useCallback((e) => {
-    if (steps.length === 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const canvas = waveCanvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const cursorFrac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const { start, end } = waveZoomRangeRef.current;
-    const range = end - start;
-    // deltaY > 0 = scroll down = zoom out; < 0 = scroll up = zoom in
-    const factor = e.deltaY > 0 ? 1.25 : 0.8;
-    const newRange = Math.max(2 / steps.length, Math.min(1, range * factor));
-    // Keep cursor's fraction fixed
-    const cursorAbs = start + cursorFrac * range;
-    let newStart = cursorAbs - cursorFrac * newRange;
-    let newEnd = newStart + newRange;
-    if (newStart < 0) { newStart = 0; newEnd = newRange; }
-    if (newEnd > 1) { newEnd = 1; newStart = 1 - newRange; }
-    const next = { start: newStart, end: newEnd };
-    waveZoomRangeRef.current = next;
-    setWaveZoomRange(next);
-    drawWave();
-  }, [steps.length, drawWave]);
+  }, [goToStep, steps.length]);
 
   // ── Centre divider drag: horizontal = split; vertical = detail panel (items 121, 125, 130–133, 142) ──
   // item 142: use pointer events so touch works the same as mouse
@@ -501,7 +358,6 @@ export default function DoubleTimeline({
     draggerHoldOffsetRef.current = { x: 0, y: 0 };
     draggerCenterWidthRef.current = 0;
     undockCursorPosRef.current = { x: e.clientX, y: e.clientY };
-    animAccumDeltaRef.current = { x: 0, y: 0 };  // item 251: reset accumulator before each drag-undock
     onUndockTimeline();
 
     // Track pointer after the FLIP animation to move the freshly-floated strip
@@ -512,9 +368,7 @@ export default function DoubleTimeline({
     const onMove = (ev) => {
       if (docked) return;
       if (undockAnimatingRef.current) {
-        // item 251: accumulate cursor movement so the panel can catch up when the transition ends
-        animAccumDeltaRef.current.x += ev.clientX - lastX;
-        animAccumDeltaRef.current.y += ev.clientY - lastY;
+        // Keep reference point current so delta is small when animation ends
         lastX = ev.clientX;
         lastY = ev.clientY;
         return;
@@ -677,7 +531,6 @@ export default function DoubleTimeline({
       if (!isDragging) {
         if (Math.abs(dx) + Math.abs(accY) < 3) return;
         isDragging = true;
-        centerWasDraggedRef.current = true;  // item 310: flag for click handler
         // item 218: block wave/anim zone pointer events during center drag
         isDividerDraggingRef.current = true;
         // item 132: suppress ALL detail-panel transitions/animations during drag
@@ -743,121 +596,51 @@ export default function DoubleTimeline({
     window.addEventListener('pointercancel', onUp);
   }, [isTimelineUndocked, splitFraction, isDetailOpen, detailHeight, onToggleDetail, onDetailHeightChange, onHideDetailHeader]);
 
-  // item 310: click left half of dragger → events focus; click right half → animation focus
-  const handleCenterZoneClick = useCallback((e) => {
-    if (centerWasDraggedRef.current) { centerWasDraggedRef.current = false; return; }
-    if (e.target.closest('button')) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    setFocusMode((e.clientX - rect.left) < rect.width / 2 ? 'events' : 'animation');
-  }, []);
+  // ── Right timeline: animation scrubber (items 122, 125, 138) ──────────────────────
   // item 138: attach to zone (not track) so playhead and click target span full zone height
   const animZoneRef = useRef(null);
   const animRafRef = useRef(null);  // item 192: rAF throttle for anim scrub
 
   const animSeek = useCallback((e) => {
-    // item 291: use active area rect (inset past settings toggle)
-    const el = animActiveAreaRef.current || animZoneRef.current;
+    const el = animZoneRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    // item 289: map fraction to zoomed range
-    const { start: zStart, end: zEnd } = animZoomRangeRef.current;
-    const mappedPercent = zStart + frac * (zEnd - zStart);
-    setStepScrubProgress?.(mappedPercent);
-    seekStepAnimation?.(mappedPercent / 100);
+    setStepScrubProgress?.(frac * 100);
+    seekStepAnimation?.(frac);
   }, [seekStepAnimation, setStepScrubProgress]);
 
   const handleAnimPointerDown = useCallback((e) => {
     if (isDividerDraggingRef.current) return;  // item 218: ignore if center is being dragged
-    if (isRepeatDraggingRef.current) return;   // ignore if repeat handle is being dragged
     if (isScrubbingTopRef) isScrubbingTopRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
     setFocusMode('animation');  // item 219: click/drag in anim zone → animation focus
     animSeek(e);
   }, [isScrubbingTopRef, animSeek]);
   const handleAnimPointerMove = useCallback((e) => {
-    if (isRepeatDraggingRef.current) return;   // ignore while repeat handle drag owns the pointer
     if (e.buttons !== 1) return;
     const clientX = e.clientX;
     if (animRafRef.current !== null) return;  // already scheduled
     animRafRef.current = requestAnimationFrame(() => {
       animRafRef.current = null;
-      // item 291: use active area rect
-      const el = animActiveAreaRef.current || animZoneRef.current;
+      const el = animZoneRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
       const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-      // item 289: map fraction to zoomed range
-      const { start: zStart, end: zEnd } = animZoomRangeRef.current;
-      const mappedPercent = zStart + frac * (zEnd - zStart);
-      setStepScrubProgress?.(mappedPercent);
-      seekStepAnimation?.(mappedPercent / 100);
+      setStepScrubProgress?.(frac * 100);
+      seekStepAnimation?.(frac);
     });
   }, [seekStepAnimation, setStepScrubProgress]);
   const handleAnimPointerUp = useCallback((e) => {
-    if (isRepeatDraggingRef.current) return;   // ignore: repeat handle drag will release its own capture
     if (isScrubbingTopRef) isScrubbingTopRef.current = false;
     animSeek(e);
   }, [isScrubbingTopRef, animSeek]);
 
-  // item 289: wheel zoom for the anim zone
-  const handleAnimWheel = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // item 291: use active area rect
-    const el = animActiveAreaRef.current || animZoneRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const cursorFrac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const { start, end } = animZoomRangeRef.current;
-    const range = end - start;
-    const factor = e.deltaY > 0 ? 1.25 : 0.8;
-    const newRange = Math.max(1, Math.min(100, range * factor));
-    const cursorAbs = start + cursorFrac * range;
-    let newStart = cursorAbs - cursorFrac * newRange;
-    let newEnd = newStart + newRange;
-    if (newStart < 0) { newStart = 0; newEnd = newRange; }
-    if (newEnd > 100) { newEnd = 100; newStart = 100 - newRange; }
-    const next = { start: newStart, end: newEnd };
-    animZoomRangeRef.current = next;
-    setAnimZoomRange(next);
-  }, []);
-
-  const isAnimPlaying = (playing || isStepAnimRunning) && !isAnimationReplayPaused;
+  const isAnimPlaying = (playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused;
   const stepCount = steps.length;
   const canNavigate = stepCount > 0 && !exporting;
   const isInDelayPhase = delayPhaseMs > 0;
   const annotationText = currentStepData?.annotation || '';
-  const inspectableAnnotationUnit = useMemo(() => parseInspectableUnitFromAnnotation(annotationText), [annotationText]);
-
-  // item 289: computed zoom-aware values for display in JSX
-  const waveIsZoomed = waveZoomRange.start > 0.001 || waveZoomRange.end < 0.999;
-  const animIsZoomed = animZoomRange.start > 0.1 || animZoomRange.end < 99.9;
-  // Wave playhead position within the zoomed range (hidden if outside zoom window)
-  const wavePlayheadFrac = stepCount > 1
-    ? (currentStep / (stepCount - 1) - waveZoomRange.start) / (waveZoomRange.end - waveZoomRange.start)
-    : 0;
-  const wavePlayheadVisible = stepCount > 0 && wavePlayheadFrac >= -0.01 && wavePlayheadFrac <= 1.01;
-  // Anim zone: map stepScrubProgress to zoomed range position
-  const animZoomSpan = animZoomRange.end - animZoomRange.start;
-  const animPlayheadPct = animIsZoomed && animZoomSpan > 0
-    ? ((stepScrubProgress - animZoomRange.start) / animZoomSpan) * 100
-    : stepScrubProgress;
-  const animPlayheadVisible = !animIsZoomed || (stepScrubProgress >= animZoomRange.start - 0.1 && stepScrubProgress <= animZoomRange.end + 0.1);
-  const animFillPct = animIsZoomed && animZoomSpan > 0
-    ? Math.max(0, Math.min(100, ((Math.min(stepScrubProgress, animZoomRange.end) - animZoomRange.start) / animZoomSpan) * 100))
-    : stepScrubProgress;
-  // item 289: attach non-passive wheel listeners for zoom (React wheel events are passive by default)
-  useEffect(() => {
-    const waveEl = waveContainerRef.current;
-    const animEl = animZoneRef.current;
-    if (waveEl) waveEl.addEventListener('wheel', handleWaveWheel, { passive: false });
-    if (animEl) animEl.addEventListener('wheel', handleAnimWheel, { passive: false });
-    return () => {
-      if (waveEl) waveEl.removeEventListener('wheel', handleWaveWheel);
-      if (animEl) animEl.removeEventListener('wheel', handleAnimWheel);
-    };
-  }, [handleWaveWheel, handleAnimWheel]);
 
   // item 216: big play button reflects both event playback and animation state.
   // When animation is running, clicking the big button pauses the animation.
@@ -871,7 +654,38 @@ export default function DoubleTimeline({
     }
   }, [isAnimPlaying, handleStepAnimToggle, handlePlayPause]);
 
-  // item 326: long-press on play button for settings removed — play is a simple click
+  // item 198: long-press on main play button reveals animation settings
+  const playLongPressRef = useRef(null);
+  const playLongPressTriggeredRef = useRef(false);
+  const handlePlayPointerDown = useCallback((e) => {
+    if (e.button !== 0 && e.pointerType !== 'touch') return;
+    playLongPressTriggeredRef.current = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.stopPropagation();
+    playLongPressRef.current = setTimeout(() => {
+      playLongPressRef.current = null;
+      playLongPressTriggeredRef.current = true;
+      onOpenAnimationSettings?.();
+    }, 600);
+  }, [onOpenAnimationSettings]);
+  const handlePlayPointerUp = useCallback((e) => {
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+    if (playLongPressRef.current) {
+      clearTimeout(playLongPressRef.current);
+      playLongPressRef.current = null;
+    }
+    if (!playLongPressTriggeredRef.current && !exporting && stepCount > 0) {
+      handleMainPlayClick();  // item 216: unified play/pause for events + animation
+    }
+    playLongPressTriggeredRef.current = false;
+  }, [handleMainPlayClick, exporting, stepCount]);
+  const handlePlayPointerCancel = useCallback(() => {
+    if (playLongPressRef.current) {
+      clearTimeout(playLongPressRef.current);
+      playLongPressRef.current = null;
+    }
+    playLongPressTriggeredRef.current = false;
+  }, []);
 
   // item 181: FLIP animation when transitioning between docked ↔ undocked
   const prevUndockedRef = useRef(isTimelineUndocked);
@@ -922,19 +736,6 @@ export default function DoubleTimeline({
           setUndockSize((prev) => ({ ...prev, width: desiredFloatingWidth }));
           setTimeout(() => {
             setUndockTransition(null);
-            // item 251: apply cursor movement accumulated during the transition so the panel
-            // follows the mouse pointer without a disconnect after the animation.
-            const delta = animAccumDeltaRef.current;
-            animAccumDeltaRef.current = { x: 0, y: 0 };
-            if (delta.x !== 0 || delta.y !== 0) {
-              const insets = getFloatingSideInsets();
-              const newPos = {
-                x: Math.max(insets.left, Math.min(insets.right - undockSizeRef.current.width, undockPosRef.current.x + delta.x)),
-                y: Math.max(0, undockPosRef.current.y + delta.y),
-              };
-              undockPosRef.current = newPos;
-              setUndockPos({ ...newPos });
-            }
             undockAnimatingRef.current = false;
           }, 420);
         });
@@ -978,8 +779,8 @@ export default function DoubleTimeline({
   const activeStep = currentStepData || steps[currentStep] || null;
   const eventTitle = activeStep
     ? [
-      `Event ${activeStep.stepId ?? currentStep}`,   // item 305: Event number first
       activeStep.prime != null ? `Prime ${activeStep.prime}` : null,
+      `Event ${activeStep.stepId ?? currentStep}`,
       activeStep.operation || null,
     ].filter(Boolean).join(' | ')
     : 'Event timeline';
@@ -1004,25 +805,6 @@ export default function DoubleTimeline({
         opacity: undockTransition === 'leaving-fade' ? 0 : 1,
       }
     : { bottom: `${dockedBottom}px` };
-
-  // item 321: CSS variables derived from timelineColors for focus-state highlights
-  const eventsRgb = hexToRgb(timelineColors?.events);
-  const animRgb   = hexToRgb(timelineColors?.animation);
-  const zoneRgb   = hexToRgb(timelineBg ?? floaterBg);    // item 322/323/342
-  const dragRgb   = hexToRgb(draggerColor); // item 322/323
-  const timelineCssVars = {
-    '--dtl-events-color-bg': `rgba(${eventsRgb.join(',')}, 0.82)`,
-    '--dtl-events-color-hl': `rgba(${eventsRgb.join(',')}, 0.70)`,
-    '--dtl-anim-color-bg':   `rgba(${animRgb.join(',')},   0.82)`,
-    '--dtl-anim-color-hl':   `rgba(${animRgb.join(',')},   0.70)`,
-    '--dtl-zone-bg':         `rgba(${zoneRgb.join(',')}, ${zoneBgOpacity})`,    // item 342: zone background from per-preset timelineBg
-    '--dtl-dragger-color':   `rgba(${dragRgb.join(',')}, 0.88)`,    // item 322/323: dragger base color
-    // item 340/343: override active chart bar colour for light-theme presets
-    ...(timelineColors?.chartActive ? { '--dtl-chart-active-color': timelineColors.chartActive } : {}),
-    // item 342: unified glass background for the entire floater (uses same base as zone but more opaque)
-    '--dtl-floater-unified-bg': `rgba(${zoneRgb.join(',')}, 0.88)`,
-  };
-  const mergedContainerStyle = { ...containerStyle, ...timelineCssVars };
 
   // item 170: resize handlers for the floating widget
   const handleResizeStart = useCallback((direction, e) => {
@@ -1068,45 +850,20 @@ export default function DoubleTimeline({
   return (
     <div
       ref={containerRef}
-      className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}${isDetailPanelFloating ? ' dtl-panel-floating' : ''}${isTimelineUndocked ? ' dtl-timeline-undocked' : ''}${!isTimelineUndocked ? ' dtl-undock-enabled' : ''}${focusMode === 'events' ? ' dtl-focus-events' : ' dtl-focus-animation'}${navDir ? ` dtl-nav-${navDir}` : ''}`}
-      style={mergedContainerStyle}
+      className={`double-timeline${isCollapsed ? ' dtl-collapsed' : ''}${isDetailPanelFloating ? ' dtl-panel-floating' : ''}${isTimelineUndocked ? ' dtl-timeline-undocked' : ''}${!isTimelineUndocked ? ' dtl-undock-enabled' : ''}${focusMode === 'events' ? ' dtl-focus-events' : ' dtl-focus-animation'}`}
+      style={containerStyle}
       onPointerDown={handleContainerPointerDown}
     >
       {/* item 179: event title is full-width above the strip; transparent when docked, solid when undocked */}
       {/* item 207: title bar is a drag handle for undocking when docked */}
       <div className="dtl-event-title-bar" title={eventTitle} onPointerDown={handleTitleBarPointerDown}>
-        {/* item 325: only the text slides; background stays fixed */}
-        {/* item 348: "Event N" part is a button that opens the events panel */}
-        <span className="dtl-title-text">
-          {activeStep ? (
-            <>
-              <button
-                className="dtl-title-event-link"
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onRevealCurrentStepInPanel) {
-                    // item 348: open panel AND scroll to+center the current event
-                    onRevealCurrentStepInPanel();
-                  } else if (isEventsPanelCollapsed && onToggleEventsPanel) {
-                    onToggleEventsPanel();
-                  }
-                }}
-                title="Scroll events panel to this event"
-              >
-                Event {activeStep.stepId ?? currentStep}
-              </button>
-              {activeStep.prime != null && ` | Prime ${activeStep.prime}`}
-              {activeStep.operation && ` | ${activeStep.operation}`}
-            </>
-          ) : 'Event timeline'}
-        </span>
+        {eventTitle}
       </div>
       <div className="dtl-strip">
 
         {/* LEFT: events waveform */}
         <div
-          className={`dtl-zone dtl-wave-zone${waveIsZoomed ? ' dtl-wave-zoomed' : ''}`}
+          className="dtl-zone dtl-wave-zone"
           style={{ flex: `${splitFraction} 1 0`, minWidth: 40 }}
           ref={waveContainerRef}
           onPointerDown={handleWavePointerDown}
@@ -1119,28 +876,12 @@ export default function DoubleTimeline({
           aria-valuemax={stepCount - 1}
           aria-valuenow={currentStep}
         >
-          {/* item 291: active area — inset past the events toggle button */}
-          <div className="dtl-wave-active-area" ref={waveActiveAreaRef}>
-            <canvas ref={waveCanvasRef} className="dtl-wave-canvas" />
-            {wavePlayheadVisible && (
-              <div
-                className="dtl-wave-playhead"
-                style={{ left: `${Math.max(0, Math.min(100, wavePlayheadFrac * 100))}%` }}
-              />
-            )}
-            {waveIsZoomed && (
-              <div className="dtl-zoom-range-indicators">
-                <span className="dtl-zoom-range-start">{Math.round(waveZoomRange.start * (stepCount - 1))}</span>
-                <span className="dtl-zoom-range-end">{Math.round(waveZoomRange.end * (stepCount - 1))}</span>
-              </div>
-            )}
-          </div>
+          <canvas ref={waveCanvasRef} className="dtl-wave-canvas" />
           <div className="dtl-wave-overlay">
             {/* item 159: left arrow toggles the events panel (left sidebar) */}
-            {/* item 353: panel-toggle-arrow gives unified design across all panel toggles */}
             {onToggleEventsPanel && (
               <button
-                className={`dtl-btn dtl-zone-toggle dtl-events-toggle panel-toggle-arrow${!isEventsPanelCollapsed ? ' dtl-active is-open' : ''}`}
+                className={`dtl-btn dtl-zone-toggle dtl-events-toggle${!isEventsPanelCollapsed ? ' dtl-active' : ''}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   // item 193: when closing from timeline toggle, slide right (inward)
@@ -1163,7 +904,6 @@ export default function DoubleTimeline({
         <div
           className="dtl-zone dtl-center-zone"
           onPointerDown={handleDividerPointerDown}
-          onClick={handleCenterZoneClick}
           title="Drag left/right to resize · Drag up/down to expand/collapse detail panel"
         >
           <div className="dtl-transport">
@@ -1183,13 +923,15 @@ export default function DoubleTimeline({
             <button className="dtl-btn dtl-speed" onClick={() => setPlaySpeedPercent?.((v) => Math.max(1, Math.round(v / 1.25)))} disabled={exporting} title="Slower">
               <Minus size={9} />
             </button>
-            {/* Main play button — items 123, 128, 216: unified play/pause for events + animation */}
+            {/* Main play button — items 123, 128; item 198: long-press reveals animation settings; item 216: also reflects animation state */}
             {/* item 241: dtl-repeat-on class added when repeat is active to show a visible indicator */}
             <button
-              className={`dtl-btn dtl-play`}
-              onClick={() => { if (!exporting && stepCount > 0) handleMainPlayClick(); }}
+              className={`dtl-btn dtl-play${isSingleEventRepeatEnabled ? ' dtl-repeat-on' : ''}`}
+              onPointerDown={handlePlayPointerDown}
+              onPointerUp={handlePlayPointerUp}
+              onPointerCancel={handlePlayPointerCancel}
               disabled={exporting || stepCount === 0}
-              title={isAnyPlaying ? 'Pause' : 'Play all events'}
+              title={isAnyPlaying ? 'Pause (long-press for animation settings)' : 'Play all events (long-press for animation settings)'}
             >
               {isAnyPlaying ? <Pause size={16} /> : <Play size={16} />}
             </button>
@@ -1208,7 +950,15 @@ export default function DoubleTimeline({
             }} disabled={!canNavigate} title={focusMode === 'animation' ? 'Animation end' : 'Last event'}>
               <SkipForward size={10} />
             </button>
-            {/* item 290: repeat button moved to animation timeline as draggable handle */}
+            {/* item 206: repeat at far right — separated from play by speed controls to prevent accidental clicks */}
+            <button
+              className={`dtl-btn dtl-repeat-btn${isSingleEventRepeatEnabled ? ' dtl-active' : ''}`}
+              onClick={onToggleRepeat}
+              onPointerDown={(e) => e.stopPropagation()}
+              title={isSingleEventRepeatEnabled ? 'Loop: on — click to disable' : 'Loop: off — click to enable'}
+            >
+              <Repeat size={10} />
+            </button>
           </div>
           {/* item 168: grip at bottom of center zone so dots appear inside the dragger, not above */}
           <div className="dtl-grip" />
@@ -1218,7 +968,7 @@ export default function DoubleTimeline({
         {/* item 138: pointer handlers on zone so click/drag works over full height; playhead is absolute on zone */}
         <div
           ref={animZoneRef}
-          className={`dtl-zone dtl-anim-zone${animIsZoomed ? ' dtl-anim-zoomed' : ''}`}
+          className="dtl-zone dtl-anim-zone"
           style={{ flex: `${1 - splitFraction} 1 0`, minWidth: 40 }}
           onPointerDown={handleAnimPointerDown}
           onPointerMove={handleAnimPointerMove}
@@ -1226,39 +976,16 @@ export default function DoubleTimeline({
           onPointerCancel={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
           title="Click or drag to scrub animation"
         >
-          {/* item 291: active area — inset past the settings toggle on the right */}
-          <div className="dtl-anim-active-area" ref={animActiveAreaRef}>
-            {/* item 289: use zoom-aware position */}
-            {/* item 303: during empty event, CSS animation drives left — no inline style */}
-            {animPlayheadVisible && (
-              <div
-                className={`dtl-anim-playhead${isEmptyEvent && playing ? ' dtl-anim-playhead--empty' : ''}`}
-                style={isEmptyEvent && playing ? undefined : { left: `${Math.max(0, Math.min(100, animPlayheadPct))}%` }}
-              />
-            )}
-            {/* item 154: fill bar that grows 0→100% and fades out during delay phase */}
-            {/* item 240: empty event — same bar but CSS-animated left-fill then fade */}
-            {/* item 289: fill bar is also zoom-aware */}
-            <div
-              key={isEmptyEvent && playing ? `empty-${currentStep}` : 'fill'}
-              className={`dtl-anim-fill${
-                isEmptyEvent && playing
-                  ? ' dtl-anim-fill--empty'
-                  : isInDelayPhase ? ' dtl-anim-fill--fading' : ''
-              }`}
-              style={{ width: `${animFillPct}%`, '--delay-ms': `${delayPhaseMs}ms`,
-                // item 321: animation fill bar uses animation color
-                backgroundColor: (() => { const [r, g, b] = hexToRgb(timelineColors?.animation); return `rgba(${r},${g},${b},0.35)`; })()
-              }}
-            />
-            {/* item 289: zoom range indicators when zoomed in on animation */}
-            {animIsZoomed && (
-              <div className="dtl-zoom-range-indicators">
-                <span className="dtl-zoom-range-start">{parseFloat(animZoomRange.start.toFixed(1))}%</span>
-                <span className="dtl-zoom-range-end">{parseFloat(animZoomRange.end.toFixed(1))}%</span>
-              </div>
-            )}
-          </div>
+          {/* White vertical bar playhead — absolute on zone so it spans full section height (item 138) */}
+          <div
+            className="dtl-anim-playhead"
+            style={{ left: `${stepScrubProgress}%` }}
+          />
+          {/* item 154: fill bar that grows 0→100% and fades out during delay phase */}
+          <div
+            className={`dtl-anim-fill${isInDelayPhase ? ' dtl-anim-fill--fading' : ''}`}
+            style={{ width: `${stepScrubProgress}%`, '--delay-ms': `${delayPhaseMs}ms` }}
+          />
           {/* Header row: items 194, 195: ANIMATION centered, speed to its right */}
           <div className="dtl-anim-header">
             <div className="dtl-anim-header-left">
@@ -1266,28 +993,20 @@ export default function DoubleTimeline({
             </div>
             {/* items 194, 195: ANIMATION label centered, speed to its right */}
             <div className="dtl-anim-center-group">
-              {/* item 240: show NO CHANGES label when playing a step with no animation */}
-              {isEmptyEvent && playing ? (
-                <span className="dtl-no-changes-label">NO CHANGES — NO ANIMATION</span>
-              ) : (
-                <>
-                  <span className="dtl-wave-label dtl-anim-label">Animation</span>
-                  {playSpeedPercent != null && (
-                    <span className="dtl-anim-speed-group">
-                      <span className="dtl-anim-speed-label-text">speed</span>
-                      <span className="dtl-anim-speed">{playSpeedPercent}%</span>
-                    </span>
-                  )}
-                </>
+              <span className="dtl-wave-label dtl-anim-label">Animation</span>
+              {playSpeedPercent != null && (
+                <span className="dtl-anim-speed-group">
+                  <span className="dtl-anim-speed-label-text">speed</span>
+                  <span className="dtl-anim-speed">{playSpeedPercent}%</span>
+                </span>
               )}
             </div>
             {/* item 138: stop propagation so toggle clicks don't trigger a seek */}
             <div className="dtl-anim-header-right" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onPointerCancel={(e) => e.stopPropagation()}>
               {/* item 152/159: right arrow toggles the settings panel (right sidebar) */}
-              {/* item 353: panel-toggle-arrow gives unified design across all panel toggles */}
               {onToggleSettingsPanel && (
                 <button
-                  className={`dtl-btn dtl-zone-toggle dtl-anim-toggle panel-toggle-arrow${!isSettingsCollapsed ? ' dtl-active is-open' : ''}`}
+                  className={`dtl-btn dtl-zone-toggle dtl-anim-toggle${!isSettingsCollapsed ? ' dtl-active' : ''}`}
                   onClick={onToggleSettingsPanel}
                   title={isSettingsCollapsed ? 'Show settings panel' : 'Hide settings panel'}
                 >›</button>
@@ -1300,30 +1019,20 @@ export default function DoubleTimeline({
       </div>
       {/* item 179: annotation strip below the timelines, above the detail body */}
       <div className="dtl-annotation-row">
-        {/* item 324: always reserve 2-line height; when empty, hide background */}
-        {/* item 325: only the text slides; background stays fixed */}
-        <div
-          className={`dtl-annotation-bar${annotationText ? '' : ' dtl-annotation-empty'}${inspectableAnnotationUnit ? ' dtl-annotation-clickable' : ''}`}
-          title={inspectableAnnotationUnit ? `${annotationText}\n\n${inspectableAnnotationUnit.title}` : annotationText}
-          onClick={inspectableAnnotationUnit && onInspectAnnotationUnit ? (e) => {
-            e.stopPropagation();
-            onInspectAnnotationUnit({ type: inspectableAnnotationUnit.type, index: inspectableAnnotationUnit.index });
-          } : undefined}
-        >
-          <span className="dtl-annotation-text">{annotationText}</span>
+        <div className="dtl-annotation-bar" title={annotationText}>
+          {annotationText}
         </div>
         <div className="dtl-center-actions dtl-annotation-actions" onPointerDown={(e) => e.stopPropagation()}>
           <button className="dtl-btn dtl-anim-play" onClick={handleStepAnimToggle} disabled={exporting} title={isAnimPlaying ? 'Pause animation' : 'Play animation'}>
             {isAnimPlaying ? <Pause size={10} /> : <Play size={10} />}
           </button>
           {/* item 200: detail panel toggle — shown when docked; opens/closes the detail panel */}
-          {/* item 353: panel-toggle-arrow gives unified design across all panel toggles */}
           {!isTimelineUndocked && onToggleDetail && (
             <button
-                className={`dtl-btn dtl-zone-toggle dtl-detail-toggle panel-toggle-arrow${isDetailOpen ? ' dtl-active is-open' : ''}`}
+              className={`dtl-btn${isDetailOpen ? ' dtl-active' : ''}`}
               onClick={(e) => { e.stopPropagation(); onToggleDetail(); }}
               title={isDetailOpen ? 'Hide detail panel' : 'Show detail panel'}
-              >{isDetailOpen ? '∨' : '∧'}</button>
+            >▤</button>
           )}
           {/* item 173: collapse timeline toggle removed */}
           {/* item 163: undock button — pops timeline out as freely draggable */}
