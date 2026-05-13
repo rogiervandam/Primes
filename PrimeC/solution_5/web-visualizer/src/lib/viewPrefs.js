@@ -227,14 +227,8 @@ function initialTheme(prefs) {
   return prefs?.theme === 'light' ? 'light' : 'dark';
 }
 
-// `delayBetweenEvents` and `delayBetweenRepeats` both fall back to the legacy
-// single `repeatAnim` setting when the new explicit field is absent.
 function initialDelayMs(prefs, key) {
-  const explicit = clampInt(prefs?.[key], 0, 5000);
-  if (explicit !== null) return explicit;
-  const legacy = clampInt(prefs?.repeatAnim, 0, 5000);
-  if (legacy !== null) return legacy;
-  return 500;
+  return clampInt(prefs?.[key], 0, 5000) ?? 500;
 }
 
 function initialEventDurationMode(prefs) {
@@ -352,17 +346,10 @@ function initialDebugRenderTuning(prefs) {
 }
 
 function initialPanelVisibility(prefs) {
-  // Migrate legacy key: stepsPanelCollapsed → isEventsPanelCollapsed.
-  // Read new key first; fall back to old key for users with saved prefs.
-  const legacyCollapsed = prefs?.stepsPanelCollapsed;
-  const isEventsPanelCollapsed =
-    prefs?.isEventsPanelCollapsed !== undefined
-      ? prefs.isEventsPanelCollapsed !== false
-      : legacyCollapsed !== false; // default: collapsed
   return {
-    isEventsPanelCollapsed,
-    isSettingsCollapsed: prefs?.isSettingsCollapsed !== false,     // default: collapsed
-    isDetailOpen: prefs?.isDetailOpen === true,                    // default: closed
+    isEventsPanelCollapsed: prefs?.isEventsPanelCollapsed !== false,  // default: collapsed
+    isSettingsCollapsed: prefs?.isSettingsCollapsed !== false,         // default: collapsed
+    isDetailOpen: prefs?.isDetailOpen === true,                        // default: closed
   };
 }
 
