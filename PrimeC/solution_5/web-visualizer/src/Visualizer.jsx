@@ -396,6 +396,19 @@ export default function Visualizer({
   const { cancelViewportAnimation } = useViewportAnimationCancel({ viewportAnimRef });
 
   const [currentStep, setCurrentStep] = useState(0);
+
+  // item 416: auto-set mode – range overlay tracks the current/selected step's range
+  const [rangeAutoSet, setRangeAutoSet] = useState(true);
+  useEffect(() => {
+    if (!rangeAutoSet || !isRangeOverlayEnabled) return;
+    const step = steps[currentStep];
+    if (!step) return;
+    const start = step.focusStart != null ? step.focusStart : (step.changedBits?.length > 0 ? Math.min(...step.changedBits) : null);
+    const end   = step.focusStop  != null ? step.focusStop  : (step.changedBits?.length > 0 ? Math.max(...step.changedBits) : null);
+    if (start != null) setRangeOverlayStart(start);
+    if (end   != null) setRangeOverlayEnd(end);
+  }, [rangeAutoSet, isRangeOverlayEnabled, currentStep, steps, setRangeOverlayStart, setRangeOverlayEnd]);
+
   const [playing, setPlaying] = useState(false);
   const [playSpeedPercent, setPlaySpeedPercent] = useState(initialPrefs.playSpeedPercent);
   const playSpeedPercentRef = useRef(playSpeedPercent);
@@ -1532,6 +1545,7 @@ export default function Visualizer({
     // Overlays: range
     isRangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, rangeOverlayUnit,
     setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd, setRangeOverlayUnit,
+    rangeAutoSet, setRangeAutoSet,
     // Overlays: multiples
     isMultiplesOverlayEnabled, multiplesOverlayPrime,
     setIsMultiplesOverlayEnabled, setMultiplesOverlayPrime,
@@ -1616,6 +1630,8 @@ export default function Visualizer({
         query={searchQuery}
         onQueryChange={setSearchQuery}
         onSetRange={activateRangeOverlay}
+        storageModel={storageModel}
+        wheelDefinition={wheelDefinition}
       />
     </div>
     </PanelLayoutProvider>

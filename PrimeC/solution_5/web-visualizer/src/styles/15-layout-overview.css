@@ -351,6 +351,15 @@
   flex-shrink: 0;
 }
 .overlay-reset-btn:hover { color: var(--fg); border-color: var(--accent); }
+/* item 416: active state for auto/manual toggle button */
+.overlay-reset-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg, #fff);
+  font-size: 11px;
+  padding: 2px 7px;
+}
+.overlay-reset-btn--active:hover { opacity: 0.85; }
 
 /* Range overlay unit selector row */
 .overlay-unit-row {

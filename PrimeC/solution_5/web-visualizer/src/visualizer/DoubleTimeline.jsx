@@ -992,6 +992,8 @@ export default function DoubleTimeline({
     ...(timelineColors?.chartActive ? { '--dtl-chart-active-color': timelineColors.chartActive } : {}),
     // item 342: unified glass background for the entire floater (uses same base as zone but more opaque)
     '--dtl-floater-unified-bg': `rgba(${zoneRgb.join(',')}, 0.88)`,
+    // item 419: text color for title bar and annotation text in floating timeline
+    '--dtl-text-color': timelineColors?.textColor || '#e8e8e8',
   };
   const mergedContainerStyle = { ...containerStyle, ...timelineCssVars };
 
@@ -1287,9 +1289,9 @@ export default function DoubleTimeline({
           <button className="dtl-btn dtl-anim-play" onClick={handleStepAnimToggle} disabled={exporting} title={isAnimPlaying ? 'Pause animation' : 'Play animation'}>
             {isAnimPlaying ? <Pause size={10} /> : <Play size={10} />}
           </button>
-          {/* item 200: detail panel toggle — shown when docked; opens/closes the detail panel */}
+          {/* item 200: detail panel toggle — shown when docked or undocked (item 420) */}
           {/* item 353: panel-toggle-arrow gives unified design across all panel toggles */}
-          {!isTimelineUndocked && onToggleDetail && (
+          {onToggleDetail && (
             <button
                 className={`dtl-btn dtl-zone-toggle dtl-detail-toggle panel-toggle-arrow${isDetailOpen ? ' dtl-active is-open' : ''}`}
               onClick={(e) => { e.stopPropagation(); onToggleDetail(); }}

@@ -40,7 +40,8 @@ export function useStepDisplayData({ steps, currentStep, selectedSteps, buildCom
       for (let j = 0; j < s.changedBits.length; j++) union.add(s.changedBits[j]);
     }
 
-    annotation = `Aggregated ${indices.length} selected events (${indices[0]}-${indices[indices.length - 1]})`;
+    const firstAnnotation = steps[indices[0]]?.annotation;
+    annotation = `Aggregated ${indices.length} selected events (${indices[0]}-${indices[indices.length - 1]})${firstAnnotation ? `: ${firstAnnotation}` : ''}`;
 
     const changed = new Uint32Array(Array.from(union).sort((a, b) => a - b));
     const aggMaskSteps = indices

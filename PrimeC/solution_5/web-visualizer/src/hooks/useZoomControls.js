@@ -22,8 +22,8 @@ export function useZoomControls({
   const renderViewport = useCallback((renderer) => {
     setZoom(renderer.zoom);
     renderer.render();
-    renderer.renderMinimap(renderer.canvasWidth, renderer.canvasHeight || 0, getMinimapDetailH());
     updateMinimapAvailability();
+    renderer.renderMinimap(renderer.canvasWidth, renderer.canvasHeight || 0, getMinimapDetailH());
   }, [setZoom, getMinimapDetailH, updateMinimapAvailability]);
 
   const animateToView = useCallback((targetView, duration = 300) => {

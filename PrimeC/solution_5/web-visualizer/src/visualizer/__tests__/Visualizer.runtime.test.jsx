@@ -87,7 +87,9 @@ describe('Visualizer Runtime Integrity', () => {
                                    lowerMsg.includes('document') ||
                                    lowerMsg.includes('canvas') ||
                                    lowerMsg.includes('webgl');
-        return !isEnvironmentError;
+        // Filter out known React SSR false positives (harmless in browser)
+        const isKnownSSRNoise = lowerMsg.includes('uselayouteffect does nothing on the server');
+        return !isEnvironmentError && !isKnownSSRNoise;
       });
 
     expect(

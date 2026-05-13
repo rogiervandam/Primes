@@ -125,6 +125,8 @@ export default function LayoutTab({
   isMultiplesOverlayEnabled = false, multiplesOverlayPrime = 3,
   onMultiplesOverlayToggle, onMultiplesOverlayPrimeChange,
   onRangeOverlayReset,
+  rangeAutoSet = true,
+  onRangeAutoSetChange,
   onMultiplesOverlayReset,
   isMinimapVisible, onShowMinimapChange,
   minimapControlVisible = true,
@@ -965,7 +967,13 @@ export default function LayoutTab({
                   }}
                 />
               </label>
-              <button type="button" className="overlay-reset-btn" onClick={() => onRangeOverlayReset && onRangeOverlayReset()} title="Reset range to current event defaults">⟳</button>
+              {/* item 416: toggle between auto (follows current event) and manual (user input) */}
+              <button
+                type="button"
+                className={`overlay-reset-btn${rangeAutoSet ? ' overlay-reset-btn--active' : ''}`}
+                onClick={() => onRangeAutoSetChange && onRangeAutoSetChange(!rangeAutoSet)}
+                title={rangeAutoSet ? 'Auto: range follows current event — click to switch to manual input' : 'Manual: range is user-defined — click to switch to auto'}
+              >{rangeAutoSet ? 'Auto' : 'Manual'}</button>
             </div>
           </>
         )}

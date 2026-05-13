@@ -337,6 +337,12 @@ export default function DetailPanel({
         : <span className="detail-empty">—</span>,
     },
     {
+      label: 'Range kind',
+      content: step.rangeKind
+        ? <span className="detail-tag block-tag">{step.rangeKind}</span>
+        : <span className="detail-empty">—</span>,
+    },
+    {
       label: 'Step size',
       content: step.factorStep != null ? <span className="detail-tag step-tag">{step.factorStep}</span> : <span className="detail-empty">—</span>,
     },

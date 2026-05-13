@@ -1025,6 +1025,14 @@
   color: rgba(0, 0, 0, 0.70);
 }
 
+/* item 419: user-adjustable text color for title bar and annotation text in floating timeline */
+.dtl-title-text {
+  color: var(--dtl-text-color, inherit);
+}
+.dtl-annotation-text {
+  color: var(--dtl-text-color, inherit);
+}
+
 /* item 348: clickable event-number link inside the title bar */
 .dtl-title-event-link {
   background: none;

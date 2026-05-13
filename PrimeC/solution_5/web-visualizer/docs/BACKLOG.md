@@ -31,13 +31,22 @@ _byteGapX() {  return this.layoutMetrics.byteGapX(); } to reduce the overall lin
 
 416 When range grid view is on and seleting an event, multiple events or playing through events, the grad should display the range on the grid. The reset button for the range in the settings - layout panel should be a toggle between "user input" or "auto set". When set to "user input", the range should be set to the user input and not change when selecting events or playing through events. When set to "auto set", the range should automatically update to the range of the selected event or the current event when playing through events. This way users can choose whether they want to manually control the range or have it automatically adjust based on their interactions with the events.
 
-417 The minimap isn't visible
+417 ✅ The minimap isn't visible
 
 418 When searching and entering a number that isn't mapped to a bit, the search should show a message like "number X is not mapped; nearest bit is Y" and offer to highlight that bit. This way users can still find relevant information even if they don't know the exact mapping of numbers to bits, and it can help them understand the relationships between numbers and bits in the context of the events and annotations.
 
 419 The double timeline in floating has hard to read titles and annotations in light mode on the dark color presets. Make the color for these texts part of the user adjustable timeline colors and of the color presets, to ensure that they are always readable and fit well with the overall color scheme. Each color preset should have a version for light and dark mode, to ensure that the text is always readable and the visualizer is accessible to users with different preferences and needs. This way users can choose the color scheme that works best for them without sacrificing readability or usability.
 
 420 In double timeline float mode, the toggle for the detail panel should als be visible and useable. 
+
+421 The color of the timelines should not completely vanish when inactive, but just fade out a little bit to indicate that they are inactive but still visible. This way users can still see the timelines and their context even when they are not active, and it can help them understand the overall structure and flow of the events and annotations.
+
+422 When de detail panel and events panel are open, i can't click on events that are on the same height as the details panel.
+
+423 The double timeline when floating should not be in front of the detail panel, but above it. Reposition it when detail panel is openend. When the detail panel is open and the double timeline is dragged down into the detail panel, start the docking there.
+
+424 The dragger for repeat mode is missing. There should be a dragger on the animation timeline to set the point at which the animation should loop back to the start. The dragger should be below the animation timeline scrubber. It should have an icon for "repeat" and should be toggleable between "repeat" and "no repeat". When in "repeat" mode, the animation should loop back to the point set by the dragger when it reaches the end (after the "delay between repeats" as set in the animation settings). When in repeat mode, the large play button in the dragger get a little repeat mode icon attached as well in the upper right of the circle. When in "no repeat" mode, the animation should stop at the end, wait for the "delay between events" and go to the next event. This way users can easily control whether they want the animation to loop or not, and they can set the loop point to focus on a specific part of the timeline.
+
 
 
 Giant features
