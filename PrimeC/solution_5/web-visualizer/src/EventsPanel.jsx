@@ -317,7 +317,6 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     collapseEventsHideWidget,
     isAllEventsWidgetHidden,
     showAllEventsWidget,
-    areWidgetsJoined,
     eventsCollapseDir,
     setEventsCollapseDir,
     eventsOpenFromBottom,        // item 349

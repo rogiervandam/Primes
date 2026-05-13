@@ -3,7 +3,6 @@
  *
  * Owns:
  *  - isAllEventsWidgetHidden
- *  - isAllEventsInDetailPanel / areWidgetsJoined
  *  - joinBannerRect / pendingBannerDragStart
  *  - revealStepRequest
  *  - isTimingPanelOpen / timingFocusOp
@@ -17,14 +16,6 @@ export function useWidgetState({ initialPrefs }) {
   // When true, the floating all-events widget is hidden (e.g. after docking
   // to the top bar). Reset when the events panel is collapsed again.
   const [isAllEventsWidgetHidden, setIsAllEventsWidgetHidden] = useState(initialPrefs.isAllEventsWidgetHidden);
-  // When true, the all-events transport is shown inside the detail panel.
-  const [isAllEventsInDetailPanel, setIsAllEventsInDetailPanel] = useState(initialPrefs.isAllEventsInDetailPanel);
-  // When true, the all-events widget and single-event banner are joined.
-  const [areWidgetsJoined, setAreWidgetsJoined] = useState(
-    (initialPrefs.areWidgetsJoined === true && initialPrefs.isEventsPanelCollapsed === true)
-      ? true
-      : false,
-  );
   // Stores the EventTitleBanner DOMRect at the moment of joining.
   const [joinBannerRect, setJoinBannerRect] = useState(null);
   // One-shot drag-start request for EventTitleBanner.
@@ -42,8 +33,6 @@ export function useWidgetState({ initialPrefs }) {
 
   return {
     isAllEventsWidgetHidden, setIsAllEventsWidgetHidden,
-    isAllEventsInDetailPanel, setIsAllEventsInDetailPanel,
-    areWidgetsJoined, setAreWidgetsJoined,
     joinBannerRect, setJoinBannerRect,
     pendingBannerDragStart, setPendingBannerDragStart,
     revealStepRequest, setRevealStepRequest,

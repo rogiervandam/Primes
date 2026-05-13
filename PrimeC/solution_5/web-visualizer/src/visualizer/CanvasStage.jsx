@@ -64,7 +64,6 @@ function CanvasStage({
     currentStep: overlay.currentStep,
     isEventsPanelCollapsed: overlay.isEventsPanelCollapsed,
     stepAnimSlidersContent: overlay.stepAnimSlidersContent,
-    areWidgetsJoined: overlay.areWidgetsJoined,
     pinnedBitIndices: overlay.pinnedBitIndices,
     hoveredBitInfo: overlay.hoveredBitInfo,
     balloonLiveLayout: overlay.balloonLiveLayout,

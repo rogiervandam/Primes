@@ -291,8 +291,6 @@ export default function Visualizer({
 
   const {
     isAllEventsWidgetHidden, setIsAllEventsWidgetHidden,
-    isAllEventsInDetailPanel, setIsAllEventsInDetailPanel,
-    areWidgetsJoined, setAreWidgetsJoined,
     joinBannerRect, setJoinBannerRect,
     pendingBannerDragStart, setPendingBannerDragStart,
     revealStepRequest, setRevealStepRequest,
@@ -302,6 +300,9 @@ export default function Visualizer({
     detailInspectorMode, setDetailInspectorMode,
     detailInspectorQuery, setDetailInspectorQuery,
   } = useWidgetState({ initialPrefs });
+
+  // item 162: all-events transport shown inside the detail panel
+  const [isAllEventsInDetailPanel, setIsAllEventsInDetailPanel] = useState(initialPrefs.isAllEventsInDetailPanel);
 
   const {
     isEventsPanelCollapsed, setIsEventsPanelCollapsed,
@@ -324,7 +325,6 @@ export default function Visualizer({
 
   // item 163: undocked double timeline (floats freely over canvas)
   const [isTimelineUndocked, setIsTimelineUndocked] = useState(false);
-  const [floatingDetailVisible, setFloatingDetailVisible] = useState(false);
 
   // item 243: fly mode — WASD navigation with full mouse look; closes panels on enter
   const [flyModeActive, setFlyModeActive] = useState(false);
@@ -641,7 +641,6 @@ export default function Visualizer({
       setRevealStepRequest,
       setIsSettingsCollapsed,
       setSettingsTabRequest,
-      setAreWidgetsJoined,
       updateDetailOpen,
     },
     detailState: {
@@ -682,7 +681,6 @@ export default function Visualizer({
     delayBetweenRepeats,
     eventTimeTargets,
     isAllEventsWidgetHidden,
-    areWidgetsJoined,
     isAllEventsInDetailPanel,
     isAutoAnimateOnSelect,
     isEventsPanelCollapsed,
@@ -1152,11 +1150,7 @@ export default function Visualizer({
     doZoom,
     resetZoom,
     setTheme,
-    // When the timeline is floating, D should toggle floatingDetailVisible, not the docked detail panel
-    toggleDetailPanel: useCallback(() => {
-      if (isTimelineUndocked) setFloatingDetailVisible((v) => !v);
-      else toggleDetailPanel();
-    }, [isTimelineUndocked, toggleDetailPanel]),
+    toggleDetailPanel,
     toggleEventsPanel,      // item 245
     toggleSettingsPanel,    // item 245
     openRawLog: onOpenRawLog, // item 245
@@ -1314,10 +1308,7 @@ export default function Visualizer({
   ]);
 
   // item 318: toolbar detail-panel toggle must target floating panel when undocked
-  const toggleDetailPanelContextual = useCallback(() => {
-    if (isTimelineUndocked) setFloatingDetailVisible((v) => !v);
-    else toggleDetailPanel();
-  }, [isTimelineUndocked, toggleDetailPanel]);
+  const toggleDetailPanelContextual = toggleDetailPanel;
 
   const panelLayoutContextValue = useMemo(() => ({
     collapseEventsHideWidget,
@@ -1329,8 +1320,7 @@ export default function Visualizer({
     collapseEventsPanelFromTimeline,
     eventsOpenFromBottom,       // item 349
     setEventsOpenFromBottom,    // item 349
-    // item 318: when undocked, isDetailOpen in context reflects floatingDetailVisible
-    isDetailOpen: isTimelineUndocked ? floatingDetailVisible : isDetailOpen,
+    isDetailOpen: isDetailOpen,
     setIsDetailOpen,
     isDetailOpenRef,
     toggleDetailPanel: toggleDetailPanelContextual,
@@ -1342,7 +1332,6 @@ export default function Visualizer({
     isTimingPanelOpen,
     setIsTimingPanelOpen,
     detailHeight,
-    areWidgetsJoined,
   }), [
     collapseEventsHideWidget,
     isEventsPanelCollapsed,
@@ -1354,8 +1343,6 @@ export default function Visualizer({
     eventsOpenFromBottom,
     setEventsOpenFromBottom,
     isDetailOpen,
-    isTimelineUndocked,
-    floatingDetailVisible,
     setIsDetailOpen,
     isDetailOpenRef,
     toggleDetailPanelContextual,
@@ -1367,7 +1354,6 @@ export default function Visualizer({
     isTimingPanelOpen,
     setIsTimingPanelOpen,
     detailHeight,
-    areWidgetsJoined,
   ]);
 
   const { detailInspectorRows, filteredDetailInspectorRows } = useDetailInspectorRows({
@@ -1599,7 +1585,6 @@ export default function Visualizer({
     widgets: {
       allEventsHidden: isAllEventsWidgetHidden,
       allEventsInDetail: isAllEventsInDetailPanel,
-      areJoined: areWidgetsJoined,
       joinBannerRect,
       pendingBannerDragStart,
       revealStepRequest,
@@ -1840,10 +1825,8 @@ export default function Visualizer({
         onDockDetailPanel: () => { setIsDetailPanelFloating(false); setIsDetailOpen(true); },
         // item 163: undock/dock the timeline itself
         isTimelineUndocked,
-        onUndockTimeline: () => { setIsTimelineUndocked(true); setFloatingDetailVisible(false); },
-        onDockTimeline: () => { setIsTimelineUndocked(false); setFloatingDetailVisible(false); },
-        floatingDetailVisible,
-        onToggleFloatingDetail: () => setFloatingDetailVisible((v) => !v),
+        onUndockTimeline: () => setIsTimelineUndocked(true),
+        onDockTimeline: () => setIsTimelineUndocked(false),
         // item 321: timeline strip colors
         timelineColors,
         // item 322/323: floater zone bg and dragger color

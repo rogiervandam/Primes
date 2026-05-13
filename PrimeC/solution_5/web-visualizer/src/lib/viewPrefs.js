@@ -251,10 +251,6 @@ function initialAllEventsWidgetHidden(prefs) {
   return prefs?.isAllEventsWidgetHidden === true;
 }
 
-function initialWidgetsJoined(prefs) {
-  return prefs?.areWidgetsJoined === true;
-}
-
 // Valid preset keys (mirrors COLOR_PRESETS in src/renderer/constants.js).
 // Listed here to avoid a cross-module import from a lib/ utility.
 const VALID_COLOR_PRESET_KEYS = new Set(['default', 'highContrast', 'pastel', 'darkMode']);
@@ -404,7 +400,6 @@ export function getInitialViewState() {
     zoneBgOpacity: (typeof prefs?.zoneBgOpacity === 'number' && prefs.zoneBgOpacity >= 0.05 && prefs.zoneBgOpacity <= 0.95)
       ? prefs.zoneBgOpacity : 0.45,  // item 342
     isAllEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
-    areWidgetsJoined: initialWidgetsJoined(prefs),
     isAllEventsInDetailPanel: prefs?.isAllEventsInDetailPanel === true,  // default: false (item 162)
     // When false, selecting an event will NOT automatically start the
     // per-event animation loop. Default true to preserve prior behavior.

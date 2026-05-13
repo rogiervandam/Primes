@@ -8,8 +8,7 @@
  *    multi-selected events in a tight async loop until the selection
  *    changes or playback starts.
  *
- * 2. **Single-event replay loop** — fires while the single-event widget is in
- *    Play mode (`isSingleEventLoopActive`) or while the user is mid-drag on the
+ * 2. **Single-event replay loop** — fires while the user is mid-drag on the
  *    top-bar scrubber (`isScrubbingTopRef`). Repeats the current step's
  *    animation with the configured between-repeat delay.
  *

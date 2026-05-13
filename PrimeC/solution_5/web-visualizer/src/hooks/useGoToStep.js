@@ -51,9 +51,6 @@ export function useGoToStep({
     // is throttled to ≤10 fps to avoid flooding the component tree.
     const isScrub = options.scrub === true;
     if (!options.keepPlaying && playing) stopPlayback();
-    if (!options.keepPlaying && !options.keepLoop) {
-      // nothing to clear (isSingleEventLoopActive removed)
-    }
     const aggregateScrub = isScrubbingTopRef.current && selectedStepsRef.current.size > 0;
     if (!suppressHighlight) initialHighlightHoldRef.current = false;
 

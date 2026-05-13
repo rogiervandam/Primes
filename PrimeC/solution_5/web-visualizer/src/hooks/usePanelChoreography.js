@@ -21,7 +21,6 @@ import { useCallback } from 'react';
  * @param {function} panelConfig.panelHandlers.setRevealStepRequest
  * @param {function} panelConfig.panelHandlers.setIsSettingsCollapsed
  * @param {function} panelConfig.panelHandlers.setSettingsTabRequest
- * @param {function} panelConfig.panelHandlers.setAreWidgetsJoined
  * @param {function} panelConfig.panelHandlers.updateDetailOpen
  * @param {Object} panelConfig.detailState - Detail panel state
  * @param {number} panelConfig.detailState.height
@@ -51,7 +50,6 @@ export function usePanelChoreography(panelConfig = {}) {
     setRevealStepRequest,
     setIsSettingsCollapsed,
     setSettingsTabRequest,
-    setAreWidgetsJoined,
     updateDetailOpen,
   } = handlers;
 
@@ -61,13 +59,11 @@ export function usePanelChoreography(panelConfig = {}) {
 
   const joinWidgets = useCallback((bannerRect) => {
     setJoinBannerRect(bannerRect || null);
-    setAreWidgetsJoined(true);
-  }, [setJoinBannerRect, setAreWidgetsJoined]);
+  }, [setJoinBannerRect]);
 
   const splitWidgets = useCallback(() => {
-    setAreWidgetsJoined(false);
     setEventTitleSettings((prev) => ({ ...prev, dragOffsetX: 0, dragOffsetY: 0 }));
-  }, [setEventTitleSettings, setAreWidgetsJoined]);
+  }, [setEventTitleSettings]);
 
   const expandEventsPanelFromWidget = useCallback(() => {
     captureResizeAnchor();
@@ -89,11 +85,10 @@ export function usePanelChoreography(panelConfig = {}) {
   const toggleEventsPanel = useCallback(() => {
     captureResizeAnchor();
     setIsEventsPanelCollapsed((wasCollapsed) => {
-      if (wasCollapsed) setAreWidgetsJoined(false);
       return !wasCollapsed;
     });
     setIsAllEventsWidgetHidden(false);
-  }, [captureResizeAnchor, setIsAllEventsWidgetHidden, setIsEventsPanelCollapsed, setAreWidgetsJoined]);
+  }, [captureResizeAnchor, setIsAllEventsWidgetHidden, setIsEventsPanelCollapsed]);
 
   // Collapse the events panel without showing the all-events floater.
   // Used by the ↓ button in EventsPanel so the widget doesn't pop back open.
@@ -111,7 +106,6 @@ export function usePanelChoreography(panelConfig = {}) {
       if (wasCollapsed) {
         opening = true;
         captureResizeAnchor();
-        setAreWidgetsJoined(false);
         return false;
       }
       return wasCollapsed;
@@ -122,7 +116,7 @@ export function usePanelChoreography(panelConfig = {}) {
     } else {
       setRevealStepRequest((n) => n + 1);
     }
-  }, [captureResizeAnchor, setIsEventsPanelCollapsed, setRevealStepRequest, setAreWidgetsJoined]);
+  }, [captureResizeAnchor, setIsEventsPanelCollapsed, setRevealStepRequest]);
 
   const toggleDetailPanel = useCallback(() => {
     captureResizeAnchor();
@@ -167,7 +161,6 @@ export function usePanelChoreography(panelConfig = {}) {
 
   const pushJoinedWidgetToEventsPanel = useCallback(() => {
     captureResizeAnchor();
-    setAreWidgetsJoined(false);
     setIsAllEventsWidgetHidden(false);
     setIsEventsPanelCollapsed(false);
     updateDetailOpen(true);
@@ -182,13 +175,11 @@ export function usePanelChoreography(panelConfig = {}) {
     setIsAllEventsWidgetHidden,
     setEventTitleSettings,
     setIsEventsPanelCollapsed,
-    setAreWidgetsJoined,
     updateDetailOpen,
   ]);
 
   const pushJoinedWidgetToDetailPanel = useCallback(() => {
     captureResizeAnchor();
-    setAreWidgetsJoined(false);
     setIsAllEventsWidgetHidden(true);
     updateDetailOpen(true);
     if (setIsAllEventsInDetailPanel) setIsAllEventsInDetailPanel(true);
@@ -203,15 +194,13 @@ export function usePanelChoreography(panelConfig = {}) {
     setIsAllEventsInDetailPanel,
     setIsAllEventsWidgetHidden,
     setEventTitleSettings,
-    setAreWidgetsJoined,
     updateDetailOpen,
   ]);
 
   const hideJoinedWidget = useCallback(() => {
-    setAreWidgetsJoined(false);
     setIsAllEventsWidgetHidden(true);
     setEventTitleSettings((prev) => ({ ...prev, visible: false }));
-  }, [setIsAllEventsWidgetHidden, setEventTitleSettings, setAreWidgetsJoined]);
+  }, [setIsAllEventsWidgetHidden, setEventTitleSettings]);
 
   return {
     collapseEventsHideWidget,

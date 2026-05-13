@@ -18,10 +18,6 @@ vi.mock('../CanvasLoadingOverlay', () => ({
   default: () => null,
 }));
 
-vi.mock('../JoinedEventsWidget', () => ({
-  default: () => null,
-}));
-
 vi.mock('../DebugToolsPanel', () => ({
   default: () => null,
 }));

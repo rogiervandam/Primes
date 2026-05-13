@@ -91,9 +91,6 @@ export default function DoubleTimeline({
   isTimelineUndocked = false,
   onUndockTimeline,
   onDockTimeline,
-  // when undocked: toggle detail panel visibility (shown in normal position, not inside widget)
-  floatingDetailVisible = false,
-  onToggleFloatingDetail,
   // item 321: timeline strip colors
   timelineColors = { events: '#b87333', animation: '#3a8cb8' },
   // item 322/323: floater zone background and center dragger color
@@ -157,8 +154,6 @@ export default function DoubleTimeline({
   const undockAnimatingRef = useRef(false);  // true during undock FLIP animation; blocks drag position tracking
   const animAccumDeltaRef = useRef({ x: 0, y: 0 });  // item 251: cursor delta accumulated during undock transition
   const preferredBottomGapRef = useRef(96);
-  const prevFloatingDetailVisibleRef = useRef(floatingDetailVisible);
-
   // item 214: undocking is always enabled — no toggle needed
   const undockEnabled = true;
 
@@ -402,9 +397,7 @@ export default function DoubleTimeline({
       };
       // Auto-dock only when the floater actually touches the bottom boundary.
       const panelH = containerRef.current?.getBoundingClientRect().height || 120;
-      const touchBoundary = floatingDetailVisible
-        ? window.innerHeight - (detailHeight || 0)
-        : window.innerHeight;
+      const touchBoundary = window.innerHeight;
       if (newPos.y + panelH >= touchBoundary) {
         docked = true;
         triggerDockAnimation();
@@ -412,10 +405,8 @@ export default function DoubleTimeline({
       }
       undockPosRef.current = newPos;
       setUndockPos({ ...newPos });
-      if (!floatingDetailVisible) {
-        const gap = window.innerHeight - (newPos.y + panelH);
-        preferredBottomGapRef.current = Math.max(8, Math.min(window.innerHeight * 0.8, gap));
-      }
+      const gap = window.innerHeight - (newPos.y + panelH);
+      preferredBottomGapRef.current = Math.max(8, Math.min(window.innerHeight * 0.8, gap));
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
@@ -425,7 +416,7 @@ export default function DoubleTimeline({
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
-  }, [isTimelineUndocked, floatingDetailVisible, onDockTimeline]);
+  }, [isTimelineUndocked, onDockTimeline]);
 
   const getFloatingSideInsets = useCallback(() => {
     const node = containerRef.current;
@@ -451,10 +442,7 @@ export default function DoubleTimeline({
     const insets = getFloatingSideInsets();
     const targetW = Math.max(320, insets.right - insets.left);
     const panelH = containerRef.current?.getBoundingClientRect().height || 120;
-    const touchBoundary = floatingDetailVisible
-      ? window.innerHeight - (detailHeight || 0)
-      : window.innerHeight;
-    const ty = Math.max(0, touchBoundary - panelH);
+    const ty = Math.max(0, window.innerHeight - panelH);
     // Save the current floating width before animating to full width.
     preDockWidthRef.current = undockSizeRef.current.width;
 
@@ -481,7 +469,7 @@ export default function DoubleTimeline({
         onDockTimeline?.();
       }, 180);
     }, 320);
-  }, [onDockTimeline, getFloatingSideInsets, floatingDetailVisible, detailHeight]);
+  }, [onDockTimeline, getFloatingSideInsets]);
 
   // item 207: title bar drag triggers immediate undock when docked (no delay/distance threshold)
   const handleTitleBarPointerDown = useCallback((e) => {
@@ -526,24 +514,19 @@ export default function DoubleTimeline({
 
       const insets = getFloatingSideInsets();
       const panelH = containerRef.current?.getBoundingClientRect().height || 120;
-      const touchBoundary = floatingDetailVisible
-        ? window.innerHeight - (detailHeight || 0)
-        : window.innerHeight;
       const newPos = {
         x: Math.max(insets.left, Math.min(insets.right - undockSizeRef.current.width, undockPosRef.current.x + dx)),
         y: Math.max(0, undockPosRef.current.y + dy),
       };
-      if (newPos.y + panelH >= touchBoundary) {
+      if (newPos.y + panelH >= window.innerHeight) {
         docked = true;
         triggerDockAnimation();
         return;
       }
       undockPosRef.current = newPos;
       setUndockPos({ ...newPos });
-      if (!floatingDetailVisible) {
-        const gap = window.innerHeight - (newPos.y + panelH);
-        preferredBottomGapRef.current = Math.max(8, Math.min(window.innerHeight * 0.8, gap));
-      }
+      const gap = window.innerHeight - (newPos.y + panelH);
+      preferredBottomGapRef.current = Math.max(8, Math.min(window.innerHeight * 0.8, gap));
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
@@ -553,7 +536,7 @@ export default function DoubleTimeline({
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
-  }, [isTimelineUndocked, undockEnabled, onUndockTimeline, splitFraction, floatingDetailVisible, detailHeight, triggerDockAnimation, getFloatingSideInsets]);
+  }, [isTimelineUndocked, undockEnabled, onUndockTimeline, splitFraction, triggerDockAnimation, getFloatingSideInsets]);
 
   const adjustFloatingTimelineBounds = useCallback(({ restoreBottom = false } = {}) => {
     if (!isTimelineUndocked || typeof window === 'undefined') return;
@@ -571,24 +554,14 @@ export default function DoubleTimeline({
 
     nextX = Math.max(insets.left, Math.min(insets.right - nextW, nextX));
 
-    if (restoreBottom && !floatingDetailVisible) {
+    if (restoreBottom) {
       nextY = window.innerHeight - panelH - preferredBottomGapRef.current;
-    }
-
-    if (floatingDetailVisible) {
-      const detailTop = window.innerHeight - (detailHeight || 0);
-      const maxBottom = detailTop - 8;
-      if (nextY + panelH > maxBottom) {
-        nextY = Math.max(8, maxBottom - panelH);
-      }
     }
 
     nextY = Math.max(8, Math.min(window.innerHeight - panelH - 8, nextY));
 
-    if (!floatingDetailVisible) {
-      const gap = window.innerHeight - (nextY + panelH);
-      preferredBottomGapRef.current = Math.max(8, Math.min(window.innerHeight * 0.8, gap));
-    }
+    const gap = window.innerHeight - (nextY + panelH);
+    preferredBottomGapRef.current = Math.max(8, Math.min(window.innerHeight * 0.8, gap));
 
     if (Math.abs(nextW - undockSizeRef.current.width) > 0.5) {
       undockSizeRef.current = { ...undockSizeRef.current, width: nextW };
@@ -600,20 +573,17 @@ export default function DoubleTimeline({
       undockPosRef.current = nextPos;
       setUndockPos(nextPos);
     }
-  }, [isTimelineUndocked, getFloatingSideInsets, floatingDetailVisible, detailHeight]);
+  }, [isTimelineUndocked, getFloatingSideInsets]);
 
   useEffect(() => {
     if (!isTimelineUndocked || typeof window === 'undefined') return;
 
-    const shouldRestoreBottom = prevFloatingDetailVisibleRef.current && !floatingDetailVisible;
-    prevFloatingDetailVisibleRef.current = floatingDetailVisible;
-
-    adjustFloatingTimelineBounds({ restoreBottom: shouldRestoreBottom });
+    adjustFloatingTimelineBounds();
 
     const onResize = () => adjustFloatingTimelineBounds();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [isTimelineUndocked, floatingDetailVisible, detailHeight, isEventsPanelCollapsed, isSettingsCollapsed, adjustFloatingTimelineBounds]);
+  }, [isTimelineUndocked, isEventsPanelCollapsed, isSettingsCollapsed, adjustFloatingTimelineBounds]);
 
   const handleDividerPointerDown = useCallback((e) => {
     // item 163: when undocked, grip drags the timeline position instead
@@ -1349,14 +1319,6 @@ export default function DoubleTimeline({
               }}
               title="Dock timeline back to bottom"
             >⊟</button>
-          )}
-          {/* toggle to show/hide detail panel when undocked */}
-          {isTimelineUndocked && onToggleFloatingDetail && (
-            <button
-              className={`dtl-btn${floatingDetailVisible ? ' dtl-active' : ''}`}
-              onClick={(e) => { e.stopPropagation(); onToggleFloatingDetail(); }}
-              title={floatingDetailVisible ? 'Hide detail panel' : 'Show detail panel'}
-            >{floatingDetailVisible ? '▼' : '▲'}</button>
           )}
           {/* item 214: undock toggle removed — undocking is always possible */}
         </div>
