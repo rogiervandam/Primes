@@ -126,8 +126,8 @@ export default function VisualizerMainContent(props) {
   const { setCachelineSize, setCachelineAnnotation, setCachePreset } = cacheHandlers;
   const { isEnabled: isPrimeOverlayEnabled, handlers: primeHandlers = {} } = overlayPrime;
   const { setEnabled: setIsPrimeOverlayEnabled } = primeHandlers;
-  const { isEnabled: isRangeOverlayEnabled, start: rangeOverlayStart, end: rangeOverlayEnd, handlers: rangeHandlers = {} } = overlayRange;
-  const { setEnabled: setIsRangeOverlayEnabled, setStart: setRangeOverlayStart, setEnd: setRangeOverlayEnd, onToggle: onRangeOverlayToggle, onReset: onRangeOverlayReset } = rangeHandlers;
+  const { isEnabled: isRangeOverlayEnabled, start: rangeOverlayStart, end: rangeOverlayEnd, unit: rangeOverlayUnit, handlers: rangeHandlers = {} } = overlayRange;
+  const { setEnabled: setIsRangeOverlayEnabled, setStart: setRangeOverlayStart, setEnd: setRangeOverlayEnd, setUnit: setRangeOverlayUnit, onToggle: onRangeOverlayToggle, onReset: onRangeOverlayReset } = rangeHandlers;
   const { isEnabled: isMultiplesOverlayEnabled, prime: multiplesOverlayPrime, handlers: multiplesHandlers = {} } = overlayMultiples;
   const { setEnabled: setIsMultiplesOverlayEnabled, setPrime: setMultiplesOverlayPrime, onToggle: onMultiplesOverlayToggle, onReset: onMultiplesOverlayReset } = multiplesHandlers;
   const { isVisible: isMinimapVisible, handlers: minimapHandlers = {} } = overlayMinimap;
@@ -371,12 +371,15 @@ export default function VisualizerMainContent(props) {
           isRangeOverlayEnabled,
           rangeOverlayStart,
           rangeOverlayEnd,
+          rangeOverlayUnit,
           isMultiplesOverlayEnabled,
           multiplesOverlayPrime,
           isMinimapVisible,
           eventTitleSettings,
           outlineSettings: layoutSettings.outlines,
           activeTabRequest: settingsTabRequest,
+          storageModel,
+          wheelDefinition,
         }}
         settingsHandlers={{
           onChange: setLayoutSettings,
@@ -389,6 +392,7 @@ export default function VisualizerMainContent(props) {
           onRangeOverlayToggle,
           onRangeOverlayStartChange: setRangeOverlayStart,
           onRangeOverlayEndChange: setRangeOverlayEnd,
+          onRangeOverlayUnitChange: setRangeOverlayUnit,
           onMultiplesOverlayToggle: onMultiplesOverlayToggle,
           onMultiplesOverlayPrimeChange: setMultiplesOverlayPrime,
           onRangeOverlayReset,

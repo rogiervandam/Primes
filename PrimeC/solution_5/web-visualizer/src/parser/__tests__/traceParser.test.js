@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseTrace } from '../../traceParser.js';
+import { inferMetaFromAnnotation } from '../maskMetadata.js';
 
 // ---------------------------------------------------------------------------
 // Minimal fixtures
@@ -244,5 +245,105 @@ describe('parseTrace — error cases', () => {
       'EVENT function="Init" changed_count=0 changed_bits=[]',
     ].join('\n');
     expect(() => parseTrace(oldText)).toThrow(/TRACE header must be JSON format/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inferMetaFromAnnotation — rangeKind detection
+// ---------------------------------------------------------------------------
+
+describe('inferMetaFromAnnotation — rangeKind', () => {
+  it('returns rangeKind="bit" for annotations with "bitrange"', () => {
+    expect(inferMetaFromAnnotation('applyMask bitrange 64-2687').rangeKind).toBe('bit');
+  });
+
+  it('returns rangeKind="bit" for annotations with "bit range"', () => {
+    expect(inferMetaFromAnnotation('writing bit range 0-127').rangeKind).toBe('bit');
+  });
+
+  it('returns rangeKind="number" for "factor range" annotations', () => {
+    expect(inferMetaFromAnnotation('setting factors step 14 in 9951 factor range (49-10000) for prime 7').rangeKind).toBe('number');
+  });
+
+  it('returns rangeKind="number" for "number range" annotations', () => {
+    expect(inferMetaFromAnnotation('sieve numbers 2 to 100 number range 2-100').rangeKind).toBe('number');
+  });
+
+  it('returns rangeKind="byte" for "byte" annotations', () => {
+    expect(inferMetaFromAnnotation('read 4 bytes 0-3').rangeKind).toBe('byte');
+  });
+
+  it('returns rangeKind="uint64" for uint64 annotations', () => {
+    expect(inferMetaFromAnnotation('load uint64 words 0-3').rangeKind).toBe('uint64');
+  });
+
+  it('returns rangeKind="uint32" for uint32 annotations', () => {
+    expect(inferMetaFromAnnotation('process uint32 chunk 8-15').rangeKind).toBe('uint32');
+  });
+
+  it('returns rangeKind="uint16" for uint16 annotations', () => {
+    expect(inferMetaFromAnnotation('process uint16 range 0-7').rangeKind).toBe('uint16');
+  });
+
+  it('returns rangeKind="uint64v8" for uint64v8 vector annotations', () => {
+    expect(inferMetaFromAnnotation('mask uint64v8 0-3').rangeKind).toBe('uint64v8');
+  });
+
+  it('returns rangeKind="uint32v4" for uint32v4 vector annotations', () => {
+    expect(inferMetaFromAnnotation('mask uint32v4 0-3').rangeKind).toBe('uint32v4');
+  });
+
+  it('returns rangeKind="bit" (default) for unrecognised annotations', () => {
+    expect(inferMetaFromAnnotation('init sieve 0-1000').rangeKind).toBe('bit');
+    expect(inferMetaFromAnnotation('').rangeKind).toBe('bit');
+    expect(inferMetaFromAnnotation(null).rangeKind).toBe('bit');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// rangeKind on parsed steps
+// ---------------------------------------------------------------------------
+
+describe('parseTrace — rangeKind on steps', () => {
+  it('sets rangeKind="bit" when JSON provides explicit start/stop (overrides annotation keyword)', () => {
+    const trace = parseTrace([
+      'TRACE { "version": 7, "format": "text", "sieve_size": 100, "bit_count": 50, "storage_model": "half" }',
+      'setting factor range 49-100 { "traceline": 1, "function": "Mark", "start": 49, "stop": 99, "changed_bits": [] }',
+    ].join('\n'));
+    expect(trace.steps[0].rangeKind).toBe('bit');
+  });
+
+  it('sets rangeKind="number" when annotation says "factor range" and JSON has no start/stop', () => {
+    const trace = parseTrace([
+      'TRACE { "version": 7, "format": "text", "sieve_size": 100, "bit_count": 50, "storage_model": "half" }',
+      'setting factor range 49-100 { "traceline": 1, "function": "Mark", "changed_bits": [] }',
+    ].join('\n'));
+    expect(trace.steps[0].rangeKind).toBe('number');
+  });
+
+  it('sets rangeKind="bit" for default annotation with no unit keyword', () => {
+    const trace = parseTrace([
+      'TRACE { "version": 7, "format": "text", "sieve_size": 100, "bit_count": 50, "storage_model": "half" }',
+      'Init step { "traceline": 1, "function": "Init", "changed_bits": [] }',
+    ].join('\n'));
+    expect(trace.steps[0].rangeKind).toBe('bit');
+  });
+
+  it('focusStart is null for a number-range step with no explicit focus_start in JSON', () => {
+    const trace = parseTrace([
+      'TRACE { "version": 7, "format": "text", "sieve_size": 100, "bit_count": 50, "storage_model": "half" }',
+      'setting factor range 49-100 { "traceline": 1, "function": "Mark", "changed_bits": [] }',
+    ].join('\n'));
+    // start=49 is a number, not a bit index — focusStart should be null
+    expect(trace.steps[0].focusStart).toBeNull();
+  });
+
+  it('focusStart equals start for a bit-range step with no explicit focus_start', () => {
+    const trace = parseTrace([
+      'TRACE { "version": 7, "format": "text", "sieve_size": 100, "bit_count": 50, "storage_model": "half" }',
+      'applyMask bitrange 4-24 { "traceline": 1, "function": "Mark", "changed_bits": [] }',
+    ].join('\n'));
+    expect(trace.steps[0].focusStart).toBe(4);
+    expect(trace.steps[0].focusStop).toBe(24);
   });
 });

@@ -4,7 +4,7 @@
  * Owns:
  *  - isHeatMapEnabled / cachelineAnnotation
  *  - isPrimeOverlayEnabled
- *  - isRangeOverlayEnabled / rangeOverlayStart / rangeOverlayEnd
+ *  - isRangeOverlayEnabled / rangeOverlayStart / rangeOverlayEnd / rangeOverlayUnit
  *  - isMultiplesOverlayEnabled / multiplesOverlayPrime
  *  - cachelineSize / cachePreset
  */
@@ -18,6 +18,8 @@ export function useOverlays() {
   const [isRangeOverlayEnabled, setIsRangeOverlayEnabled] = useState(false);
   const [rangeOverlayStart, setRangeOverlayStart] = useState(0);
   const [rangeOverlayEnd, setRangeOverlayEnd] = useState(0);
+  // 'bits' | 'bytes' | 'groups' | 'numbers' — display/input unit for the range overlay
+  const [rangeOverlayUnit, setRangeOverlayUnit] = useState('bits');
   const [isMultiplesOverlayEnabled, setIsMultiplesOverlayEnabled] = useState(false);
   const [multiplesOverlayPrime, setMultiplesOverlayPrime] = useState(3);
   const [cachelineSize, setCachelineSize] = useState(64);
@@ -30,6 +32,7 @@ export function useOverlays() {
     isRangeOverlayEnabled, setIsRangeOverlayEnabled,
     rangeOverlayStart, setRangeOverlayStart,
     rangeOverlayEnd, setRangeOverlayEnd,
+    rangeOverlayUnit, setRangeOverlayUnit,
     isMultiplesOverlayEnabled, setIsMultiplesOverlayEnabled,
     multiplesOverlayPrime, setMultiplesOverlayPrime,
     cachelineSize, setCachelineSize,

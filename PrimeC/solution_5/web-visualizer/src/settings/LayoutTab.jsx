@@ -1,5 +1,5 @@
 import React from 'react';
-import { BIT_LAYOUTS, BYTE_LAYOUTS, CACHELINE_SIZES, CACHE_PRESETS } from '../SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS, CACHELINE_SIZES, CACHE_PRESETS, bitToNumber, numberToBit } from '../SieveRenderer';
 import { useDraftInput } from '../hooks/ui_state';
 import { useSettingsBundle } from './useSettingsBundle';
 import {
@@ -120,6 +120,7 @@ export default function LayoutTab({
   cachelineAnnotation = 'none', onCachelineAnnotationChange,
   isPrimeOverlayEnabled, onPrimeOverlayToggle,
   isRangeOverlayEnabled = false, rangeOverlayStart = 0, rangeOverlayEnd = 0,
+  rangeOverlayUnit = 'bits', onRangeOverlayUnitChange,
   onRangeOverlayToggle, onRangeOverlayStartChange, onRangeOverlayEndChange,
   isMultiplesOverlayEnabled = false, multiplesOverlayPrime = 3,
   onMultiplesOverlayToggle, onMultiplesOverlayPrimeChange,
@@ -129,6 +130,7 @@ export default function LayoutTab({
   minimapControlVisible = true,
   onHeatMapToggle,
   outlineSettings, onOutlineChange,
+  storageModel, wheelDefinition,
   isWindowsPlatform = false,
 }) {
   const { s, set, setMany, incr, decr } = useSettingsBundle(settings, onChange);
@@ -137,14 +139,49 @@ export default function LayoutTab({
   const [customGroupDraft, setCustomGroupDraft] = React.useState('');
   const [openSpacingControl, setOpenSpacingControl] = React.useState(null);
 
+  // Group size in bits (used for 'groups' unit conversion in range overlay)
+  const groupBits = s.vectorMode === 'custom'
+    ? Math.max(1, parseInt(s.customGroupBits || '8', 10) || 8)
+    : Math.max(1, (s.vectorGroup || 1) * (s.vectorBaseBits || 64));
+
+  // Convert a bit index to the current display unit value
+  const bitToUnit = React.useCallback((bitIdx, unit) => {
+    if (unit === 'bytes') return Math.floor(bitIdx / 8);
+    if (unit === 'groups') return Math.floor(bitIdx / groupBits);
+    if (unit === 'numbers') {
+      const num = bitToNumber(bitIdx, storageModel, wheelDefinition);
+      return num != null ? num : bitIdx;
+    }
+    return bitIdx; // 'bits'
+  }, [groupBits, storageModel, wheelDefinition]);
+
+  // Convert a display unit value back to a bit index
+  const unitToBit = React.useCallback((val, unit) => {
+    const n = Math.max(0, val);
+    if (unit === 'bytes') return n * 8;
+    if (unit === 'groups') return n * groupBits;
+    if (unit === 'numbers') {
+      // Try the given number first, then decrement until we find a mapped bit.
+      // Caps at 100 attempts to avoid an infinite loop for large gaps.
+      for (let candidate = n; candidate >= Math.max(0, n - 100); candidate -= 1) {
+        const bit = numberToBit(candidate, storageModel, wheelDefinition);
+        if (bit != null && bit >= 0) return bit;
+      }
+      return Math.max(0, n);
+    }
+    return n; // 'bits'
+  }, [groupBits, storageModel, wheelDefinition]);
+
+  // Unit-aware range overlay inputs: internal state is always bit indices,
+  // displayed/entered values are in the selected unit.
   const rangeStart = useDraftInput(
-    rangeOverlayStart,
-    (n) => onRangeOverlayStartChange && onRangeOverlayStartChange(n),
+    bitToUnit(rangeOverlayStart, rangeOverlayUnit),
+    (n) => onRangeOverlayStartChange && onRangeOverlayStartChange(unitToBit(n, rangeOverlayUnit)),
     { clamp: (n) => Math.max(0, n) },
   );
   const rangeEnd = useDraftInput(
-    rangeOverlayEnd,
-    (n) => onRangeOverlayEndChange && onRangeOverlayEndChange(n),
+    bitToUnit(rangeOverlayEnd, rangeOverlayUnit),
+    (n) => onRangeOverlayEndChange && onRangeOverlayEndChange(unitToBit(n, rangeOverlayUnit)),
     { clamp: (n) => Math.max(0, n) },
   );
   const multiplesPrime = useDraftInput(
@@ -882,39 +919,55 @@ export default function LayoutTab({
         </div>
         {/* Range overlay controls */}
         {isRangeOverlayEnabled && (
-          <div className="settings-row overlay-inline-controls overlay-input-row">
-            <label className="overlay-inline-field overlay-input-label" title="First bit index in range (inclusive)">
-              <span>Range start (bit)</span>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                className="overlay-number-input"
-                value={rangeStart.draft}
-                onChange={(e) => rangeStart.setDraft(e.target.value)}
-                onBlur={(e) => rangeStart.commit(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') rangeStart.commit(e.currentTarget.value);
-                }}
-              />
-            </label>
-            <label className="overlay-inline-field overlay-input-label" title="Last bit index in range (inclusive)">
-              <span>Range end (bit)</span>
-              <input
-                type="number"
-                min={0}
-                step={1}
-                className="overlay-number-input"
-                value={rangeEnd.draft}
-                onChange={(e) => rangeEnd.setDraft(e.target.value)}
-                onBlur={(e) => rangeEnd.commit(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') rangeEnd.commit(e.currentTarget.value);
-                }}
-              />
-            </label>
-            <button type="button" className="overlay-reset-btn" onClick={() => onRangeOverlayReset && onRangeOverlayReset()} title="Reset range to current event defaults">⟳</button>
-          </div>
+          <>
+            <div className="settings-row overlay-inline-controls overlay-unit-row">
+              <span className="overlay-unit-label">Unit:</span>
+              {['bits', 'bytes', 'groups', 'numbers'].map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  className={`overlay-unit-btn${rangeOverlayUnit === u ? ' active' : ''}`}
+                  onClick={() => onRangeOverlayUnitChange && onRangeOverlayUnitChange(u)}
+                  title={`Show range as ${u}`}
+                >
+                  {u === 'numbers' ? 'Nums' : u.charAt(0).toUpperCase() + u.slice(1)}
+                </button>
+              ))}
+            </div>
+            <div className="settings-row overlay-inline-controls overlay-input-row">
+              <label className="overlay-inline-field overlay-input-label" title={`First ${rangeOverlayUnit} index in range (inclusive)`}>
+                <span>Range start ({rangeOverlayUnit === 'numbers' ? 'num' : rangeOverlayUnit.slice(0, -1)})</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  className="overlay-number-input"
+                  value={rangeStart.draft}
+                  onChange={(e) => rangeStart.setDraft(e.target.value)}
+                  onBlur={(e) => rangeStart.commit(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') rangeStart.commit(e.currentTarget.value);
+                  }}
+                />
+              </label>
+              <label className="overlay-inline-field overlay-input-label" title={`Last ${rangeOverlayUnit} index in range (inclusive)`}>
+                <span>Range end ({rangeOverlayUnit === 'numbers' ? 'num' : rangeOverlayUnit.slice(0, -1)})</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  className="overlay-number-input"
+                  value={rangeEnd.draft}
+                  onChange={(e) => rangeEnd.setDraft(e.target.value)}
+                  onBlur={(e) => rangeEnd.commit(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') rangeEnd.commit(e.currentTarget.value);
+                  }}
+                />
+              </label>
+              <button type="button" className="overlay-reset-btn" onClick={() => onRangeOverlayReset && onRangeOverlayReset()} title="Reset range to current event defaults">⟳</button>
+            </div>
+          </>
         )}
         {/* Multiples overlay controls */}
         {isMultiplesOverlayEnabled && (

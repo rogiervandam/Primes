@@ -81,8 +81,8 @@ export function useVisualizerPropBundles({
   isPrimeOverlayEnabled, setIsPrimeOverlayEnabled,
 
   // ── Overlays: range ───────────────────────────────────────────────────────
-  isRangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd,
-  setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd,
+  isRangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, rangeOverlayUnit,
+  setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd, setRangeOverlayUnit,
 
   // ── Overlays: multiples ───────────────────────────────────────────────────
   isMultiplesOverlayEnabled, multiplesOverlayPrime,
@@ -375,10 +375,12 @@ export function useVisualizerPropBundles({
         isEnabled: isRangeOverlayEnabled,
         start: rangeOverlayStart,
         end: rangeOverlayEnd,
+        unit: rangeOverlayUnit,
         handlers: {
           setEnabled: setIsRangeOverlayEnabled,
           setStart: setRangeOverlayStart,
           setEnd: setRangeOverlayEnd,
+          setUnit: setRangeOverlayUnit,
           onToggle: (enabled) => {
             if (enabled && !isRangeOverlayEnabled) {
               const step = steps[currentStep];

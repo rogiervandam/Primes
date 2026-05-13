@@ -352,6 +352,39 @@
 }
 .overlay-reset-btn:hover { color: var(--fg); border-color: var(--accent); }
 
+/* Range overlay unit selector row */
+.overlay-unit-row {
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.overlay-unit-label {
+  color: var(--fg-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.overlay-unit-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  height: 22px;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+.overlay-unit-btn:hover { color: var(--fg); border-color: var(--accent); }
+.overlay-unit-btn.active {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* Legend tab content */
 .legend-tab-content {
   padding: 4px 0 8px;

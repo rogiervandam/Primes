@@ -96,12 +96,15 @@ export default function SettingsPanel({
     isRangeOverlayEnabled = false,
     rangeOverlayStart = 0,
     rangeOverlayEnd = 0,
+    rangeOverlayUnit = 'bits',
     isMultiplesOverlayEnabled = false,
     multiplesOverlayPrime = 3,
     isMinimapVisible,
     eventTitleSettings,
     outlineSettings,
     activeTabRequest,
+    storageModel,
+    wheelDefinition,
   } = settingsState;
 
   const {
@@ -114,6 +117,7 @@ export default function SettingsPanel({
     onRangeOverlayToggle,
     onRangeOverlayStartChange,
     onRangeOverlayEndChange,
+    onRangeOverlayUnitChange,
     onMultiplesOverlayToggle,
     onMultiplesOverlayPrimeChange,
     onRangeOverlayReset,
@@ -310,8 +314,9 @@ export default function SettingsPanel({
             isHeatMapEnabled={isHeatMapEnabled} onHeatMapToggle={onHeatMapToggle}
             cachelineAnnotation={cachelineAnnotation} onCachelineAnnotationChange={onCachelineAnnotationChange}
             isPrimeOverlayEnabled={isPrimeOverlayEnabled} onPrimeOverlayToggle={onPrimeOverlayToggle}
-            isRangeOverlayEnabled={isRangeOverlayEnabled} rangeOverlayStart={rangeOverlayStart} rangeOverlayEnd={rangeOverlayEnd}
-            onRangeOverlayToggle={onRangeOverlayToggle} onRangeOverlayStartChange={onRangeOverlayStartChange} onRangeOverlayEndChange={onRangeOverlayEndChange}
+            isRangeOverlayEnabled={isRangeOverlayEnabled} rangeOverlayStart={rangeOverlayStart} rangeOverlayEnd={rangeOverlayEnd} rangeOverlayUnit={rangeOverlayUnit}
+            onRangeOverlayToggle={onRangeOverlayToggle} onRangeOverlayStartChange={onRangeOverlayStartChange} onRangeOverlayEndChange={onRangeOverlayEndChange} onRangeOverlayUnitChange={onRangeOverlayUnitChange}
+            storageModel={storageModel} wheelDefinition={wheelDefinition}
             isMultiplesOverlayEnabled={isMultiplesOverlayEnabled} multiplesOverlayPrime={multiplesOverlayPrime}
             onMultiplesOverlayToggle={onMultiplesOverlayToggle} onMultiplesOverlayPrimeChange={onMultiplesOverlayPrimeChange}
             onRangeOverlayReset={onRangeOverlayReset} onMultiplesOverlayReset={onMultiplesOverlayReset}
