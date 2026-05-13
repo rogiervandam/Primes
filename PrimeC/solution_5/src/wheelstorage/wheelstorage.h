@@ -19,7 +19,7 @@
         return (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
     }
 
-    // wheel_bit_estimate_next returns the bit index for a given number index, and if it is divisible by any of the wheel primes, return the next nearest that isn't
+    // wheel_bit_estimate_next returns the bit index for a given number index, and if that number is divisible by any of the wheel primes, returns the next nearest bit
     // used for trace and logging
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     wheel_bit_estimate_next(counter_t number_index) {
@@ -34,7 +34,7 @@
         // return (factor_start + wheelmask_bitpoint[wheel_index] );
     }
 
-    // wheel_bit_estimate_last returns the bit index for a given number index, and if it is divisible by any of the wheel primes, return the previous nearest that isn't
+    // wheel_bit_estimate_last returns the bit index for a given number index, and if it is divisible by any of the wheel primes, return the previous nearest bit
     // used for trace and logging
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     wheel_bit_estimate_last(counter_t number_index) {
