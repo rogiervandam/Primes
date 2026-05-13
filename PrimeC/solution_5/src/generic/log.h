@@ -72,7 +72,7 @@
           timer_lapstart(timer);
 
 #define logStop(level, bitstorage, timer, printf_args...) \
-          { if (option.trace_level >= level) log_event(((level)+1), bitstorage, timer_function_names[timer], timer_laptime_function(timer), printf_args);  \
+          { if (option.trace_level >= level) primes_trace_set_context(level+1); log_event(((level)+1), bitstorage, timer_function_names[timer], timer_laptime_function(timer), printf_args);  \
             if (option.trace_level >= level) primes_trace_clear_context(); }
 
 #ifndef COMPILE_TRACE

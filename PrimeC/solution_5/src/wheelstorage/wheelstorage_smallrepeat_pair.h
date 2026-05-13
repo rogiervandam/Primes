@@ -23,7 +23,8 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
     logStart8(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair, "marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", 
         (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number, (uintmax_t)((safe_diff(stop_number,start_number))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(stop_number,start_number))/(uintmax_t)(bitcount_type(bitbucket_t)*step)) );
     
-        log8("Number range unique (stop_number_unique: %ju), (stop_number_unique2: %ju)", (uintmax_t)stop_number_unique, (uintmax_t)stop_number_unique2);
+        log8("Range_unique1: number range %ju-%ju", (uintmax_t)start_number, (uintmax_t)stop_number_unique);
+        log8("Range_unique2: number range %ju-%ju", (uintmax_t)start_number, (uintmax_t)stop_number_unique2);
 
     for (counter_t index = start_number; index <= stop_number_unique; index += step) {
         const counter_t wheel_bit = wheel_bit_calc(index);
