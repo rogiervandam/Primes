@@ -1,7 +1,7 @@
 import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus,
-  PanelLeft, PanelRight,
+  PanelLeft, PanelBottom, PanelRight,
 } from '../Icons';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
 
@@ -1294,7 +1294,7 @@ export default function DoubleTimeline({
                 className={`dtl-btn dtl-zone-toggle dtl-detail-toggle panel-toggle-arrow${isDetailOpen ? ' dtl-active is-open' : ''}`}
               onClick={(e) => { e.stopPropagation(); onToggleDetail(); }}
               title={isDetailOpen ? 'Hide detail panel' : 'Show detail panel'}
-              >{isDetailOpen ? '∨' : '∧'}</button>
+              ><PanelBottom size={13} /></button>
           )}
           {/* item 173: collapse timeline toggle removed */}
           {/* item 163: undock button — pops timeline out as freely draggable */}
