@@ -3,6 +3,10 @@
 Use this as the short product backlog. For maintenance strategy and completed
 refactor history, read `docs/AI_MAINTENANCE.md`.
 
+400 On startup don't show the double timeline until after the 2d-3d transform
+401 The inspector for byte/group/cacheline doesn't work realiably when i click the grid. It seems to be off by one or two cells, and sometimes it doesn't show up at all. This makes it hard to analyze the events and marked numbers accurately. I need to investigate why this is happening and fix the issue as soon as possible.
+
+
 
 Giant features
 A Make it possible to open more than one trace at the same time, and switch between them with tabs in the top bar. This way users can compare different traces or work on multiple traces without having to close and reopen them.
