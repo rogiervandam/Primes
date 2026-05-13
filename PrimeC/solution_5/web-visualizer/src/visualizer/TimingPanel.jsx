@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useFloatingPanel } from './hooks/ui_state';
+import { useFloatingPanel } from '../hooks/ui_state';
 
 /**
  * Format nanoseconds to a compact human-readable string.

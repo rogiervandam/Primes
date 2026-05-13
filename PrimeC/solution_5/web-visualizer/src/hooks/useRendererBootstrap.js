@@ -396,7 +396,11 @@ export function useRendererBootstrap({
     if (!renderer) return undefined;
 
     if (!glCanvas) {
-      setIsGlUnavailable(true);
+      // item 403: canvas not yet mounted (transient during mode-switch remount) — do
+      // not flag GL as unavailable here or a false-positive banner appears on every
+      // reload/mode change in modes 5-8.  The genuine unavailability check below
+      // (gl.attach) handles the permanent case once the canvas element is present.
+      setIsGlUnavailable(false);
       return undefined;
     }
 

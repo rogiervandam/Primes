@@ -1,6 +1,7 @@
 import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus,
+  PanelLeft, PanelRight,
 } from '../Icons';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
 
@@ -1122,7 +1123,7 @@ export default function DoubleTimeline({
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 title={isEventsPanelCollapsed ? 'Show events panel' : 'Hide events panel'}
-              >‹</button>
+              ><PanelLeft size={13} /></button>
             )}
             <span className="dtl-wave-label">Events</span>
             <span className="dtl-wave-counter">{currentStep}/{Math.max(0, stepCount - 1)}</span>
@@ -1260,7 +1261,7 @@ export default function DoubleTimeline({
                   className={`dtl-btn dtl-zone-toggle dtl-anim-toggle panel-toggle-arrow${!isSettingsCollapsed ? ' dtl-active is-open' : ''}`}
                   onClick={onToggleSettingsPanel}
                   title={isSettingsCollapsed ? 'Show settings panel' : 'Hide settings panel'}
-                >›</button>
+                ><PanelRight size={13} /></button>
               )}
             </div>
           </div>

@@ -1,11 +1,11 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback, startTransition } from 'react';
-import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from './Icons';
-import { bumpRender, recordStepCallback, setEventNodeCount } from './lib/debugCounters';
+import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from '../Icons';
+import { bumpRender, recordStepCallback, setEventNodeCount } from '../lib/debugCounters';
 import { formatNs } from './TimingPanel';
-import { isWindowAvailable } from './lib/browser.js';
-import { usePlaybackContext } from './contexts/PlaybackContext';
-import { useActiveStepContext } from './contexts/ActiveStepContext';
-import { usePanelLayoutContext } from './contexts/PanelLayoutContext';
+import { isWindowAvailable } from '../lib/browser.js';
+import { usePlaybackContext } from '../contexts/PlaybackContext';
+import { useActiveStepContext } from '../contexts/ActiveStepContext';
+import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
 
 /**
  * Convert a flat list of steps (each with a `depth` field, 0-based) into

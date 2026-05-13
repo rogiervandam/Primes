@@ -419,6 +419,9 @@
   display: flex; align-items: center; gap: 4px;
   font-size: 11px; color: var(--fg-dim);
   min-width: 10em;
+  /* item 402: position:relative so the absolute color input scrolls with the label
+     instead of staying fixed relative to the sidebar when the pane is scrolled. */
+  position: relative;
 }
 .color-label input[type="color"] {
   width: 42px; height: 22px; border: 1px solid var(--border-light);

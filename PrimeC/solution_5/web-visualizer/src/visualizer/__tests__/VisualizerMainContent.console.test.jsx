@@ -2,12 +2,24 @@ import React from 'react';
 import { describe, it, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
 
-vi.mock('../../EventsPanel', () => ({
+vi.mock('../EventsPanel', () => ({
   default: () => null,
 }));
 
-vi.mock('../../SettingsPanel', () => ({
+vi.mock('../SettingsPanel', () => ({
   default: () => null,
+}));
+
+vi.mock('../DetailPanel', () => ({
+  default: () => null,
+}));
+
+vi.mock('../../contexts/PanelLayoutContext', () => ({
+  usePanelLayoutContext: () => ({
+    eventsOpenFromBottom: false,
+    isDetailOpen: false,
+    detailHeight: 280,
+  }),
 }));
 
 vi.mock('../CanvasStage', () => ({

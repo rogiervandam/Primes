@@ -1,7 +1,7 @@
 import React from 'react';
 import BitHistoryBalloons from './BitHistoryBalloons';
 import DetailInspectorOverlay from './DetailInspectorOverlay';
-import TimingPanel from '../TimingPanel';
+import TimingPanel from './TimingPanel';
 import GroupInspector from './GroupInspector';
 
 /**
