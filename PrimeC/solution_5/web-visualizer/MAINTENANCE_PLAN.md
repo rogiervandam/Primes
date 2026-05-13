@@ -48,23 +48,62 @@ The single-event loop/repeat/slider state is threaded through **19+ files** (Vis
 
 ---
 
-### 1.3  Floating Events / Undocked Timeline
+### 1.3  Floating Detail Panel, Joined Widget & Single-Event Leftovers
 
-`isTimelineUndocked` and `floatingDetailVisible` (items 163 and 157) add branching complexity throughout Visualizer.jsx (keyboard shortcuts, toolbar toggle, PanelLayoutContext, prop assembly). Confirm whether these docking/undocking features are still needed:
+Three distinct leftover features that are no longer needed. **Undocking the double timeline (`isTimelineUndocked`, undock/dock controls in `DoubleTimeline.jsx`) is intentionally kept.**
 
-- Visualizer.jsx: `isTimelineUndocked`, `floatingDetailVisible`, `onUndockTimeline`, `onDockTimeline`, `onToggleFloatingDetail` (~10 references, lines 336–1911).
-- The `DoubleTimeline.jsx` has undock/dock controls (1451 lines — largest component).
+#### 1.3a  Floating Detail Panel (`floatingDetailVisible`)
 
-**If removing:**
-1. Remove `useState` declarations (lines 337–338).
-2. Remove the keyboard-shortcut branch for undocked `D` key (line 1184–1188).
-3. Remove the `toolbarToggleDetail` callback branch (lines 1350–1354).
-4. Remove the `isDetailOpen` ternary from `PanelLayoutContext` (line 1367).
-5. Simplify `panelState` object (lines 1629 area) — remove `isTimelineUndocked`, `floatingDetailVisible`.
-6. Remove undock/dock/floating props from `visualizerMainContentProps` (lines ~1907–1911).
-7. Remove the corresponding undock controls from `DoubleTimeline.jsx`.
+When the timeline is undocked, `floatingDetailVisible` provides a second toggle that shows/hides the detail panel inside the floating widget. This sub-feature is not needed — the normal `isDetailOpen` path is sufficient even when undocked.
 
-**Estimated savings:** ~40 lines Visualizer.jsx; significant simplification of DoubleTimeline.jsx.
+- ~33 references across `Visualizer.jsx`, `DoubleTimeline.jsx`, `VisualizerMainContent.jsx`.
+
+**Removal steps:**
+1. Remove `const [floatingDetailVisible, setFloatingDetailVisible] = useState(false)` from `Visualizer.jsx`.
+2. Remove the keyboard-shortcut branch that toggles `floatingDetailVisible` when undocked (D key, `Visualizer.jsx` lines ~1155–1160).
+3. Remove the `isDetailOpen` ternary in `PanelLayoutContext` that switches on `isTimelineUndocked` (line ~1333): replace with plain `isDetailOpen`.
+4. Remove `floatingDetailVisible` and `toggleDetailPanelContextual` from `panelLayoutContextValue` deps (line ~1358).
+5. Remove `floatingDetailVisible` and `onToggleFloatingDetail` props from the `doubleTimeline` prop bundle in `visualizerMainContentProps` (lines ~1845).
+6. In `VisualizerMainContent.jsx`: remove the `floatingDetailVisible` extraction and the `isTimelineUndocked ? floatingDetailVisible : isDetailOpen` / `isTimelineUndocked ? onToggleFloatingDetail : toggleDetailPanel` ternaries from `detailState` / `detailHandlers`.
+7. In `DoubleTimeline.jsx`: remove the `floatingDetailVisible` prop, its `useRef`, and the "toggle floating detail" button from JSX. Remove `floatingDetailVisible` from all function deps arrays.
+
+**Estimated savings:** ~33 lines logic + ~10 lines JSX button.
+
+---
+
+#### 1.3b  Joined Widget (`areWidgetsJoined` / `JoinedEventsWidget`)
+
+`JoinedEventsWidget.jsx` is already removed from the render tree (replaced by the detail panel — see comment in `VisualizerMainContent.jsx` line ~367). However, all supporting state and prop plumbing is still alive: `areWidgetsJoined`, `setAreWidgetsJoined`, `isAllEventsInDetailPanel`, and the file `JoinedEventsWidget.jsx` itself (plus `JoinedWidgetHeader.jsx`).
+
+- ~64 references: `Visualizer.jsx`, `useWidgetState.js`, `useViewPrefsSync.js`, `viewPrefs.js`, `EventsPanel.jsx`, `VisualizerMainContent.jsx` (dead comment), CSS `18-joined-widget.css`.
+
+**Removal steps:**
+1. Remove `areWidgetsJoined` / `setAreWidgetsJoined` from `useWidgetState.js` return value and `useState` call.
+2. Remove `isAllEventsInDetailPanel` from `useWidgetState.js` (or the hook that holds it).
+3. Remove all destructuring / usage of `areWidgetsJoined` in `Visualizer.jsx` (lines ~295, ~685, ~1345, ~1370, ~1602).
+4. Remove `areWidgetsJoined` from `useViewPrefsSync.js` params and write payload (lines ~32, ~66).
+5. Remove `areWidgetsJoined` / `initialWidgetsJoined` from `viewPrefs.js` (lines ~255, ~407).
+6. Remove `areWidgetsJoined` prop and any joined-widget branching from `EventsPanel.jsx` (line ~320).
+7. Remove `eventTitleVisible` prop threading in `EventsPanel.jsx` (line ~125, ~1137) if it exists solely to support the joined widget toggle.
+8. Delete `src/visualizer/JoinedEventsWidget.jsx` and `src/visualizer/JoinedWidgetHeader.jsx`.
+9. Delete `src/styles/18-joined-widget.css` and remove its `@import` from the CSS index.
+
+**Estimated savings:** ~64 lines of state/prop plumbing + 2 deleted files.
+
+---
+
+#### 1.3c  Single-Event Control Leftovers
+
+Step 1.1 removed the main `isSingleEvent*` state but left behind dead comments and outdated JSDoc in hooks. Clean these up:
+
+- `useGoToStep.js` line ~55: comment `// nothing to clear (isSingleEventLoopActive removed)` — delete the comment.
+- `usePlaybackLoop.js` JSDoc line ~12: still mentions `isSingleEventLoopActive` — update the JSDoc.
+- Any other `// isSingleEvent` comments scattered in hooks.
+
+**Removal steps:**
+1. `grep -rn "isSingleEvent" src/` and remove every remaining comment or dead code block.
+
+**Estimated savings:** negligible lines, but reduces confusion.
 
 ---
 
