@@ -4,7 +4,7 @@ import { SieveRenderer } from './SieveRenderer';
 import { hexToRgb, labelTextColor } from './renderer/drawingHelpers';
 import { BitGridGLWorker, isWorkerGLSupported } from './renderer/gl/BitGridGLWorker';
 import { GlyphTextGLCore } from './renderer/gl/GlyphTextGLCore';
-import { COLOR_PRESETS } from './renderer/constants';  // item 342: preset timelineBg lookup
+
 import EventsPanel from './EventsPanel';
 import DetailPanel from './DetailPanel';
 import SettingsPanel from './SettingsPanel';
@@ -86,6 +86,8 @@ import {
   useViewPrefsSync,
   useVisualizerEffects,
 } from './hooks/utils';
+import { useVisualizerStateBundle } from './hooks/useVisualizerStateBundle';
+import { useVisualizerPropBundles } from './hooks/useVisualizerPropBundles';
 import { useBitInfo } from './hooks/useBitInfo';
 import StatusBanners from './visualizer/StatusBanners';
 import {
@@ -363,10 +365,7 @@ export default function Visualizer({
   const [eventsCollapseDir, setEventsCollapseDir] = useState('left');
   // item 349: true when the events panel was opened via the nearby-events bottom arrow
   const [eventsOpenFromBottom, setEventsOpenFromBottom] = useState(false);
-  const collapseEventsPanelFromTimeline = useCallback(() => {
-    setEventsCollapseDir('right');
-    setIsEventsPanelCollapsed(true);
-  }, [setIsEventsPanelCollapsed]);
+  const collapseEventsPanelFromTimeline = useCallback(() => { setEventsCollapseDir('right'); setIsEventsPanelCollapsed(true); }, [setIsEventsPanelCollapsed]);
 
   const {
     pinnedBitIndices, setPinnedBitIndices,
@@ -508,12 +507,7 @@ export default function Visualizer({
     return { ok: true, message: 'Snapshot applied' };
   }, [setCamera3DTransform, setCamera3DContainerStyle, getMinimapDetailH]);
 
-  const { updateMinimapAvailability } = useMinimapAvailability({
-    rendererRef,
-    containerRef,
-    isMinimapVisible,
-    setIsMinimapAvailable,
-  });
+  const { updateMinimapAvailability } = useMinimapAvailability({ rendererRef, containerRef, isMinimapVisible, setIsMinimapAvailable });
 
   const {
     getCanvasTargetSize,
@@ -556,19 +550,9 @@ export default function Visualizer({
 
   const { computeBitInfo } = useBitInfo({ rendererRef, stepsRef, wheelDefinition });
 
-  const { updateDetailOpen, updateDetailHeight } = useDetailPanelStateSync({
-    isDetailOpenRef,
-    setIsDetailOpen,
-    setIsDetailHeaderHidden,
-    detailHeightRef,
-    setDetailHeight,
-  });
+  const { updateDetailOpen, updateDetailHeight } = useDetailPanelStateSync({ isDetailOpenRef, setIsDetailOpen, setIsDetailHeaderHidden, detailHeightRef, setDetailHeight });
 
   const { stopPlayback } = useStopPlayback({ setPlaying, playTimeoutRef, playTimerRef });
-
-  // item 215: no-op stub; enableRepeat was for single-event repeat which is removed
-  // eslint-disable-next-line no-unused-vars
-  const enableRepeat = useCallback(() => {}, []);
 
   const stopSeqAnim = useCallback(() => {
     if (seqTimerRef.current) {
@@ -593,11 +577,7 @@ export default function Visualizer({
   // (stable) canvas content across the screen.
   useCanvasAnchorSync({ containerRef, wrapperCanvasRef, setCanvasAnchorPx });
 
-  const { clearScheduledLayoutRefresh, schedulePostLayoutRefresh } = useLayoutRefreshScheduler({
-    layoutRefreshTimeoutRef,
-    layoutRefreshRaf1Ref,
-    layoutRefreshRaf2Ref,
-  });
+  const { clearScheduledLayoutRefresh, schedulePostLayoutRefresh } = useLayoutRefreshScheduler({ layoutRefreshTimeoutRef, layoutRefreshRaf1Ref, layoutRefreshRaf2Ref });
 
   const { applyViewportFit } = useViewportFit();
 
@@ -607,10 +587,7 @@ export default function Visualizer({
    * (see §5 minefield: pendingResizeAnchorRef). Each panel toggle handler
    * calls this once immediately before its setState call.
    */
-  const { captureResizeAnchor } = useCaptureResizeAnchor({
-    pendingResizeAnchorRef,
-    captureViewportAnchor,
-  });
+  const { captureResizeAnchor } = useCaptureResizeAnchor({ pendingResizeAnchorRef, captureViewportAnchor });
 
   const {
     collapseEventsHideWidget,
@@ -936,12 +913,7 @@ export default function Visualizer({
   // Placed here so navigateToBit is in scope for the hook's dep arrays.
   // activateRangeOverlay: set and enable the range overlay from a search query.
   // item 254: use navigateToRange so the camera zooms to show the full range.
-  const activateRangeOverlay = useCallback((startBit, endBit) => {
-    setIsRangeOverlayEnabled(true);
-    setRangeOverlayStart(startBit);
-    setRangeOverlayEnd(endBit);
-    navigateToRange(startBit, endBit);
-  }, [setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd, navigateToRange]);
+  const activateRangeOverlay = useCallback((startBit, endBit) => { setIsRangeOverlayEnabled(true); setRangeOverlayStart(startBit); setRangeOverlayEnd(endBit); navigateToRange(startBit, endBit); }, [setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd, navigateToRange]);
 
   const {
     searchQuery, setSearchQuery,
@@ -959,13 +931,7 @@ export default function Visualizer({
   // Use stableGoToStep here so handleStepSelection's identity does not change
   // every step during playback (goToStep itself depends on currentStep, which
   // would otherwise cascade into EventsPanel re-rendering on every step).
-  const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({
-    stopPlayback,
-    goToStep: stableGoToStep,
-    globalPausedRef,
-    setIsAnimationReplayPaused,
-    setSelectedSteps,
-  });
+  const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({ stopPlayback, goToStep: stableGoToStep, globalPausedRef, setIsAnimationReplayPaused, setSelectedSteps });
 
   useSelectionOrchestration({
     steps,
@@ -1178,25 +1144,14 @@ export default function Visualizer({
   // State and handler live in useSearchState (src/hooks/useSearchState.js),
   // wired above after navigateToBit.
 
-  const { currentStepData, surroundingEvents } = useStepDisplayData({
-    steps,
-    currentStep,
-    selectedSteps,
-    buildCombinedSelectionOverlay,
-  });
+  const { currentStepData, surroundingEvents } = useStepDisplayData({ steps, currentStep, selectedSteps, buildCombinedSelectionOverlay });
 
   // Reset agg mask step index when selection changes so detail panel shows index 0
   useEffect(() => {
     aggMaskStepSetterRef.current(0);
   }, [selectedSteps]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { renderCanvasStyle, mergedCamera3DContainerStyle } = useCanvasStyles({
-    canvasAnchorPx,
-    introPhase,
-    camera3DContainerStyle,
-    canvasColors,
-    theme,
-  });
+  const { renderCanvasStyle, mergedCamera3DContainerStyle } = useCanvasStyles({ canvasAnchorPx, introPhase, camera3DContainerStyle, canvasColors, theme });
 
   const themeContextValue = useMemo(() => ({
     theme,
@@ -1366,11 +1321,7 @@ export default function Visualizer({
     steps,  // item 224+225: passed to build bit→event index inside hook
   });
 
-  const { openDetailInspector } = useDetailInspectorActions({
-    setDetailInspectorMode,
-    setDetailInspectorQuery,
-    setIsDetailInspectorOpen,
-  });
+  const { openDetailInspector } = useDetailInspectorActions({ setDetailInspectorMode, setDetailInspectorQuery, setIsDetailInspectorOpen });
 
   const { getBitBalloonGeometry, getVisibleBalloonStyles } = useBalloonGeometry({
     rendererRef,
@@ -1433,735 +1384,191 @@ export default function Visualizer({
   });
 
   // ============================================================================
-  // ORGANIZED STATE STRUCTURE (Phase 1 refactoring)
-  // Groups all scattered variables into semantic domains for clarity.
-  // All hook calls are complete at this point, so all variables are available.
+  // 2.1: Semantic state bundles (→ src/hooks/useVisualizerStateBundle.js)
+  // Bundles are available for DevTools inspection; not consumed in this file.
   // ============================================================================
-
-  // Canvas rendering infrastructure
-  const canvasState = {
-    refs: {
-      minimap: minimapCanvasRef,
-      container: containerRef,
-      renderer: rendererRef,
-      glCanvas: glCanvasRef,
-      glRenderer: glRendererRef,
-      glyphCanvas: glyphCanvasRef,
-      glyph2DCanvas: glyph2DCanvasRef,
-      glyphRenderer: glyphRendererRef,
-      wrapperCanvas: wrapperCanvasRef,
-      glCssUnlockToken: glCssUnlockTokenRef,
-      glCssUnlockRaf: glCssUnlockRafRef,
-      glCssUnlockTimeout: glCssUnlockTimeoutRef,
-      glCssLockState: glCssLockStateRef,
-      pendingRenderRaf: pendingRenderRafRef,
-    },
-    is3DEnabled: mode3D,
-    camera: {
-      ref: camera3DRef,
-      transform: camera3DTransform,
-      containerStyle: camera3DContainerStyle,
-      key: cameraKey,
-    },
-  };
-
-  // UI frame lifecycle (intro animation, loading overlay, chrome visibility)
-  const uiFrameState = {
-    introPhase,
-    isUiChromeVisible,
-    loadingOverlayPhase,
-    isTopbarPlaybackReady,
-    overlayBarPct,
-    refs: {
-      introTiltStarted: introTiltStartedRef,
-      overlayStartTime: overlayStartTimeRef,
-      pendingIntroAfterOverlay: pendingIntroAfterOverlayRef,
-      loadComplete: loadCompleteRef,
-      loadProgress: loadProgressRef,
-    },
-  };
-
-  // Animation runtime configuration (timing, intervals, progression)
-  const animationState = {
-    config: {
-      mode: animMode,
-      style: animStyle,
-      delayBetweenEvents,
-      eventTimeTargets,
-      eventDurationMode,
-      bitAnimInterval,
-      maskAnimInterval,
-      stepSpeedValue,
-      maskSpeedValue,
-    },
-    runtime: {
-      bitAnimationMode,
-      isAutoAnimateOnSelect,
-      isAnimationReplayPaused,
-      isStepAnimRunning,
-      stepScrubProgress,
-      delayPhaseMs,
-    },
-    refs: {
-      eventTimeTargets: eventTimeTargetsRef,
-      eventDurationMode: eventDurationModeRef,
-      bitsAtTimeRatio: bitsAtTimeRatioRef,
-      timeRatioAtBitIndex: timeRatioAtBitIndexRef,
-      computeEventDuration: computeEventDurationRef,
-      globalPaused: globalPausedRef,
-      seekGen: seekGenRef,
-      animBusyUntil: animBusyUntilRef,
-      isScrubbingTop: isScrubbingTopRef,
-      stepScrubProgress: stepScrubProgressRef,
-      stepScrubProgressValue: stepScrubProgressValueRef,
-      setIsStepAnimRunning: setIsStepAnimRunningRef,
-      isStepAnimRunningForScheduler: isStepAnimRunningRefForScheduler,
-      stepResumeStartIndex: stepResumeStartIndexRef,
-      stepResumeMaskProgress: stepResumeMaskProgressRef,
-      currentAnimInterval: currentAnimIntervalRef,
-      currentMaskAnimInterval: currentMaskAnimIntervalRef,
-      pausedStepAnimLoop: pausedStepAnimLoopRef,
-      selectedAnimLoop: selectedAnimLoopRef,
-    },
-  };
-
-  // Playback control state (play/pause, speed, current step)
-  const playbackState = {
-    isPlaying: playing,
-    currentStep,
-    speed: playSpeedPercent,
-    refs: {
-      speed: playSpeedPercentRef,
-      timer: playTimerRef,
-      timeout: playTimeoutRef,
-      currentStep: currentStepRef,
-      steps: stepsRef,
-    },
-  };
-
-  // Visual theme and canvas rendering appearance
-  const themeState = {
-    colorPreset,
-    customColors,
-    canvasColors,
-    gridOpacity,
-    zoom,
-    refs: {
-      debugGlOffsetX: debugGlOffsetXRef,
-      debugGlOffsetY: debugGlOffsetYRef,
-      debugGlAutoOffsetY: debugGlAutoOffsetYRef,
-      glDebugLastUpdate: glDebugLastUpdateRef,
-    },
-  };
-
-  // Panel layout and UI panel states (Events, Settings, Detail, Minimap)
-  const panelState = {
-    events: {
-      isCollapsed: isEventsPanelCollapsed,
-      width: panelWidth,
-    },
-    settings: {
-      isCollapsed: isSettingsCollapsed,
-      activeTab: settingsActiveTab,
-      tabRequest: settingsTabRequest,
-    },
-    detail: {
-      isOpen: isDetailOpen,
-      height: detailHeight,
-      width: detailWidth,
-      refs: {
-        isOpen: isDetailOpenRef,
-        height: detailHeightRef,
-      },
-      // item 155: header hidden when dragged all the way down
-      isHeaderHidden: isDetailHeaderHidden,
-      // item 157: floating detail panel
-      isFloating: isDetailPanelFloating,
-    },
-    minimap: {
-      isVisible: isMinimapVisible,
-      isAvailable: isMinimapAvailable,
-    },
-    widgets: {
-      allEventsHidden: isAllEventsWidgetHidden,
-      allEventsInDetail: isAllEventsInDetailPanel,
-      joinBannerRect,
-      pendingBannerDragStart,
-      revealStepRequest,
-    },
-    refs: {
-      layoutRefreshTimeout: layoutRefreshTimeoutRef,
-      layoutRefreshRaf1: layoutRefreshRaf1Ref,
-      layoutRefreshRaf2: layoutRefreshRaf2Ref,
-      canvasAnchor: canvasAnchorPx,
-      pendingResizeAnchor: pendingResizeAnchorRef,
-      deferred: deferredPanelStateRef,
-      viewportAnim: viewportAnimRef,
-    },
-  };
-
-  // Overlay feature states (heat map, prime, range, multiples, balloons)
-  const overlayState = {
-    heatMap: {
-      isEnabled: isHeatMapEnabled,
-    },
-    prime: {
-      isEnabled: isPrimeOverlayEnabled,
-    },
-    range: {
-      isEnabled: isRangeOverlayEnabled,
-      start: rangeOverlayStart,
-      end: rangeOverlayEnd,
-    },
-    multiples: {
-      isEnabled: isMultiplesOverlayEnabled,
-      prime: multiplesOverlayPrime,
-    },
-    balloons: {
-      areEnabled: areBalloonsEnabled,
-      isClickEnabled: isBalloonClickEnabled,
-      isHoverEnabled: isBalloonHoverEnabled,
-      pinnedIndices: pinnedBitIndices,
-      hoveredBitInfo,
-      liveLayout: balloonLiveLayout,
-      refs: {
-        layoutRaf: balloonLayoutRafRef,
-        layoutTimer: balloonLiveLayoutTimerRef,
-        lastHoveredIdx: lastHoveredIdxRef,
-      },
-    },
-    cache: {
-      cachelineSize,
-      cachelineAnnotation,
-      cachePreset,
-    },
-  };
-
-  // Bit state (current data + selection)
-  const bitState = {
-    refs: {
-      state: bitStateRef,
-      checkpoints: bitStateCheckpointsRef,
-      dirty: bitStateDirtyRef,
-    },
-    selected: {
-      steps: selectedSteps,
-      refs: selectedStepsRef,
-    },
-  };
-
-  // 3D Camera controls
-  const cameraState = {
-    is3D: mode3D,
-    ref: camera3DRef,
-    transform: camera3DTransform,
-    containerStyle: camera3DContainerStyle,
+  // eslint-disable-next-line no-unused-vars
+  const {
+    canvasState, uiFrameState, animationState, playbackState, themeState,
+    panelState, overlayState, bitState, cameraState, debugState, uiState,
+    timingPanelState, detailInspectorState, animationTimingRefs, uiElementRefs,
+    platformInfo, uiLogic,
+  } = useVisualizerStateBundle({
+    // Canvas refs
+    minimapCanvasRef, containerRef, rendererRef,
+    glCanvasRef, glRendererRef, glyphCanvasRef, glyph2DCanvasRef, glyphRendererRef, wrapperCanvasRef,
+    glCssUnlockTokenRef, glCssUnlockRafRef, glCssUnlockTimeoutRef, glCssLockStateRef, pendingRenderRafRef,
+    // 3D camera
+    mode3D, camera3DRef, camera3DTransform, camera3DContainerStyle, cameraKey,
+    // UI frame
+    introPhase, isUiChromeVisible, loadingOverlayPhase, isTopbarPlaybackReady, overlayBarPct,
+    introTiltStartedRef, overlayStartTimeRef, pendingIntroAfterOverlayRef, loadCompleteRef, loadProgressRef,
+    // Animation config
+    animMode, animStyle, delayBetweenEvents, eventTimeTargets, eventDurationMode,
+    bitAnimInterval, maskAnimInterval, stepSpeedValue, maskSpeedValue,
+    // Animation runtime
+    bitAnimationMode, isAutoAnimateOnSelect, isAnimationReplayPaused, isStepAnimRunning,
+    stepScrubProgress, delayPhaseMs,
+    // Animation refs
+    eventTimeTargetsRef, eventDurationModeRef, bitsAtTimeRatioRef, timeRatioAtBitIndexRef,
+    computeEventDurationRef, globalPausedRef, seekGenRef, animBusyUntilRef,
+    isScrubbingTopRef, stepScrubProgressRef, stepScrubProgressValueRef,
+    setIsStepAnimRunningRef, isStepAnimRunningRefForScheduler,
+    stepResumeStartIndexRef, stepResumeMaskProgressRef,
+    currentAnimIntervalRef, currentMaskAnimIntervalRef, pausedStepAnimLoopRef, selectedAnimLoopRef,
+    // Playback
+    playing, currentStep, playSpeedPercent,
+    playSpeedPercentRef, playTimerRef, playTimeoutRef, currentStepRef, stepsRef,
+    // Theme
+    colorPreset, customColors, canvasColors, gridOpacity, zoom,
+    debugGlOffsetXRef, debugGlOffsetYRef, debugGlAutoOffsetYRef, glDebugLastUpdateRef,
+    // Panel: events
+    isEventsPanelCollapsed, panelWidth,
+    // Panel: settings
+    isSettingsCollapsed, settingsActiveTab, settingsTabRequest,
+    // Panel: detail
+    isDetailOpen, detailHeight, detailWidth, isDetailOpenRef, detailHeightRef,
+    isDetailHeaderHidden, isDetailPanelFloating,
+    // Panel: minimap
+    isMinimapVisible, isMinimapAvailable,
+    // Panel: widgets
+    isAllEventsWidgetHidden, isAllEventsInDetailPanel,
+    joinBannerRect, pendingBannerDragStart, revealStepRequest,
+    // Panel: refs
+    layoutRefreshTimeoutRef, layoutRefreshRaf1Ref, layoutRefreshRaf2Ref,
+    canvasAnchorPx, pendingResizeAnchorRef, deferredPanelStateRef, viewportAnimRef,
+    // Overlays
+    isHeatMapEnabled, isPrimeOverlayEnabled,
+    isRangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd,
+    isMultiplesOverlayEnabled, multiplesOverlayPrime,
+    areBalloonsEnabled, isBalloonClickEnabled, isBalloonHoverEnabled,
+    pinnedBitIndices, hoveredBitInfo, balloonLiveLayout,
+    balloonLayoutRafRef, balloonLiveLayoutTimerRef, lastHoveredIdxRef,
+    cachelineSize, cachelineAnnotation, cachePreset,
+    // Bit state
+    bitStateRef, bitStateCheckpointsRef, bitStateDirtyRef, selectedSteps, selectedStepsRef,
+    // Debug
+    isDebugToolsOpen, isGlUnavailable, glDebugInfo,
+    debugLayerMode, debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY,
+    isDebugCalibrationMode, debugRenderTuning,
+    // UI
+    isTraceInfoVisible, isShortcutsHelpVisible, layoutSettings, eventTitleSettings, storageModel, autoFitColumnCount,
+    // Timing panel
+    isTimingPanelOpen, timingFocusOp,
+    // Detail inspector
+    isDetailInspectorOpen, detailInspectorMode, detailInspectorQuery,
+    // Animation timing refs
+    rippleRef, seqTimerRef, runEffectCancelRef, triggerAnimationRef, stopSeqAnimRef,
+    initialFitDoneRef, initialHighlightHoldRef,
+    // UI element refs
+    traceInfoPopoverRef, traceInfoToggleRef,
+    // Platform
+    isMacPlatform, isWindowsPlatform, isElectron,
+    // Tilt
     isTiltActive,
-  };
-
-  // Debug tools state
-  const debugState = {
-    isToolsOpen: isDebugToolsOpen,
-    isGlUnavailable,
-    glDebugInfo,
-    debugLayerMode,
-    debugGlOffsetX,
-    debugGlOffsetY,
-    debugGlAutoOffsetY,
-    isDebugCalibrationMode,
-    debugRenderTuning,
-  };
-
-  // UI chrome visibility & settings
-  const uiState = {
-    isTraceInfoVisible,
-    isShortcutsHelpVisible,
-    layoutSettings,
-    eventTitleSettings,
-    storageModel,
-    autoFitColumnCount,
-  };
-
-  // Timing Panel state
-  const timingPanelState = {
-    isOpen: isTimingPanelOpen,
-    focusOp: timingFocusOp,
-  };
-
-  // Detail Inspector state
-  const detailInspectorState = {
-    isOpen: isDetailInspectorOpen,
-    mode: detailInspectorMode,
-    query: detailInspectorQuery,
-  };
-
-  // Animation timing refs (internal sequencing)
-  const animationTimingRefs = {
-    ripple: rippleRef,
-    sequenceTimer: seqTimerRef,
-    runEffectCancel: runEffectCancelRef,
-    triggerAnimation: triggerAnimationRef,
-    stopSequence: stopSeqAnimRef,
-    initialFitDone: initialFitDoneRef,
-    initialHighlightHold: initialHighlightHoldRef,
-  };
-
-  // UI element refs (popovers, overlays)
-  const uiElementRefs = {
-    traceInfoPopover: traceInfoPopoverRef,
-    traceInfoToggle: traceInfoToggleRef,
-  };
-
-  // Platform detection
-  const platformInfo = {
-    isMac: isMacPlatform,
-    isWindows: isWindowsPlatform,
-    isElectron,
-  };
-
-  // Derived values for UI logic
-  const uiLogic = {
-    areControlsHidden,
-    balloonMode,
-  };
-
-  // Local aliases from organized state domains to reduce flat-name noise.
-  const eventsPanelState = panelState.events;
-  const detailPanelState = panelState.detail;
-  const settingsPanelState = panelState.settings;
-  const widgetsPanelState = panelState.widgets;
-  const balloonsOverlayState = overlayState.balloons;
+    // Derived
+    areControlsHidden, balloonMode,
+  });
 
   // ============================================================================
-  // PHASE 2: CONSOLIDATED PROPS FOR CHILD COMPONENTS
-  // Groups 120+ scattered props into organized objects for VisualizerMainContent
+  // 2.2: Props bundles for child components (→ src/hooks/useVisualizerPropBundles.js)
   // ============================================================================
-
-  const visualizerMainContentProps = {
-    // Canvas & rendering infrastructure
-    canvas: {
-      mode3D,
-      refs: {
-        container: containerRef,
-        glCanvas: glCanvasRef,
-        glyphCanvas: glyphCanvasRef,
-        glyph2DCanvas: glyph2DCanvasRef,
-        wrapperCanvas: wrapperCanvasRef,
-        renderer: rendererRef,
-        glRenderer: glRendererRef,
-        camera3D: camera3DRef,
-      },
-      styles: {
-        merged3D: mergedCamera3DContainerStyle,
-        render: renderCanvasStyle,
-      },
-      camera3D: {
-        transform: camera3DTransform,
-      },
-      zoom,
-      isMacPlatform,
-      isWindowsPlatform,
-    },
-
-    // UI frame & chrome
-    uiFrame: {
-      isUiChromeVisible,
-      introPhase,
-      loadingOverlayPhase,
-      overlayBarPct,
-      handleIntroTransitionEnd,
-    },
-
-    // Playback state & control
-    playback: {
-      steps,
-      currentStep: playbackState.currentStep,
-      selectedSteps,
-      playing: playbackState.isPlaying,
-      handlers: {
-        selection: handleStepSelection,
-        multiSelection: handleMultiStepSelect,
-        stop: stopPlayback,
-        goToStep,
-      },
-    },
-
-    // Animation & content rendering
-    animation: {
-      content: {
-        allEventsTransport: allEventsTransportContent,
-      },
-      surroundingEvents,
-      currentStepData,
-      aggMaskStepIndex,
-      aggMaskStepSetterRef,
-      // DoubleTimeline raw props (backlog #120)
-      doubleTimeline: {
-        stepScrubProgress,
-        seekStepAnimation,
-        setStepScrubProgress,
-        handleStepAnimToggle,
-        isStepAnimRunning,
-        isAnimationReplayPaused,
-        onOpenAnimationSettings: openAnimationSettings,
-        exporting,
-        // item 159: left/right panel toggles in the timeline
-        isEventsPanelCollapsed,
-        onToggleEventsPanel: toggleEventsPanel,
-        onCollapseEventsPanelFromTimeline: collapseEventsPanelFromTimeline,
-        // item 348: reveal (open + scroll-to-center) current step in events panel
-        onRevealCurrentStepInPanel: revealCurrentStepInPanel,
-        isSettingsCollapsed,
-        onToggleSettingsPanel: toggleSettingsPanel,
-        // item 154: delay phase for fill+fade animation
-        delayPhaseMs,
-        // item 155: hide/reveal detail panel header
-        isDetailHeaderHidden,
-        onHideDetailHeader: () => setIsDetailHeaderHidden(true),
-        onRevealDetailHeader: () => setIsDetailHeaderHidden(false),
-        // item 157: float/dock detail panel
-        isDetailPanelFloating,
-        onFloatDetailPanel: () => setIsDetailPanelFloating(true),
-        onDockDetailPanel: () => { setIsDetailPanelFloating(false); setIsDetailOpen(true); },
-        // item 163: undock/dock the timeline itself
-        isTimelineUndocked,
-        onUndockTimeline: () => setIsTimelineUndocked(true),
-        onDockTimeline: () => setIsTimelineUndocked(false),
-        // item 321: timeline strip colors
-        timelineColors,
-        // item 322/323: floater zone bg and dragger color
-        floaterBg,
-        draggerColor,
-        // item 342: per-preset zone tint background (derived from active color preset)
-        timelineBg: colorPreset ? (COLOR_PRESETS[colorPreset]?.timelineBg ?? null) : null,
-        // item 342: user-adjustable zone background opacity
-        zoneBgOpacity,
-      },
-    },
-
-    // Panels & layout
-    panels: {
-      events: {
-        isCollapsed: eventsPanelState.isCollapsed,
-        width: eventsPanelState.width,
-        isAllEventsWidgetHidden: widgetsPanelState.allEventsHidden,
-        handlers: {
-          toggle: toggleEventsPanel,
-          setCollapsed: setIsEventsPanelCollapsed,
-          setPanelWidth,
-          enableRepeat,  // item 215 — stable callback defined above
-        },
-      },
-      detail: {
-        isOpen: detailPanelState.isOpen,
-        isOpenRef: detailPanelState.refs.isOpen,
-        height: detailPanelState.height,
-        width: detailPanelState.width,
-        // item 155: header hidden state
-        isHeaderHidden: detailPanelState.isHeaderHidden,
-        // item 157: floating panel state
-        isFloating: detailPanelState.isFloating,
-        handlers: {
-          toggle: toggleDetailPanel,
-          setOpen: setIsDetailOpen,
-          updateHeight: updateDetailHeight,
-          setWidth: setDetailWidth,
-          // item 157: dock the floating panel back to the bottom
-          dock: () => { setIsDetailPanelFloating(false); setIsDetailOpen(true); },
-        },
-      },
-      settings: {
-        isCollapsed: isSettingsCollapsed,
-        tabRequest: settingsPanelState.tabRequest,
-        handlers: {
-          setActiveTab: setSettingsActiveTab,
-          setLayoutSettings,
-        },
-      },
-      timing: {
-        isOpen: isTimingPanelOpen,
-        focusOp: timingFocusOp,
-        handlers: {
-          setOpen: setIsTimingPanelOpen,
-          setFocusOp: setTimingFocusOp,
-        },
-      },
-    },
-
-    // Event title & widget management
-    eventTitle: {
-      settings: eventTitleSettings,
-      handlers: {
-        setSettings: setEventTitleSettings,
-        showAboveCurrentDetail: showEventTitleAboveCurrentDetail,
-        showAboveClosedDetail: showEventTitleAboveClosedDetail,
-      },
-    },
-
-    // Widget management (events + detail integration)
-    widgets: {
-      state: {
-        areJoined: widgetsPanelState.areJoined,
-        joinBannerRect: widgetsPanelState.joinBannerRect,
-        pendingBannerDragStart: widgetsPanelState.pendingBannerDragStart,
-        revealStepRequest: widgetsPanelState.revealStepRequest,
-      },
-      handlers: {
-        expandEventsPanel: expandEventsPanelFromWidget,
-        dockEventsToTopBar: dockEventsWidgetToTopBar,
-        dockEventsToDetail: dockEventsWidgetToDetailPanel,
-        pushEventsToPanel: pushJoinedWidgetToEventsPanel,
-        pushEventsToDetail: pushJoinedWidgetToDetailPanel,
-        hideJoined: hideJoinedWidget,
-        split: splitWidgets,
-        join: joinWidgets,
-        setPendingDragStart: setPendingBannerDragStart,
-        // item 162: separate toggle for all-events floater in detail panel
-        toggleAllEventsFloater: () => setIsAllEventsInDetailPanel((v) => !v),
-        isAllEventsInDetailPanel,
-      },
-    },
-
-    // Overlays (balloons, heat map, overlays)
-    overlays: {
-      balloons: {
-        pinnedIndices: balloonsOverlayState.pinnedIndices,
-        hoveredBitInfo: balloonsOverlayState.hoveredBitInfo,
-        liveLayout: balloonsOverlayState.liveLayout,
-        cachelineSize: overlayState.cache.cachelineSize,
-        handlers: {
-          setPinnedIndices: setPinnedBitIndices,
-          computeBitInfo,
-          getVisibleStyles: getVisibleBalloonStyles,
-        },
-      },
-      // item 331: group inspector state & config
-      groupInspector: {
-        unit: groupInspectorUnit,
-        effectiveGroupBits,
-        storageModel,
-        wheelDefinition,
-        bitLayout: layoutSettings.bitLayout || '4x2',
-        byteLayout: layoutSettings.byteLayout || '4x2',
-        bitCount: header?.bitCount,
-        handlers: {
-          open: openGroupInspector,
-          close: closeGroupInspector,
-        },
-      },
-      heatMap: {
-        isEnabled: isHeatMapEnabled,
-        handlers: {
-          setEnabled: setIsHeatMapEnabled,
-        },
-      },
-      cache: {
-        cachelineSize,
-        cachelineAnnotation,
-        cachePreset,
-        handlers: {
-          setCachelineSize,
-          setCachelineAnnotation,
-          setCachePreset,
-        },
-      },
-      prime: {
-        isEnabled: isPrimeOverlayEnabled,
-        handlers: {
-          setEnabled: setIsPrimeOverlayEnabled,
-        },
-      },
-      range: {
-        isEnabled: isRangeOverlayEnabled,
-        start: rangeOverlayStart,
-        end: rangeOverlayEnd,
-        handlers: {
-          setEnabled: setIsRangeOverlayEnabled,
-          setStart: setRangeOverlayStart,
-          setEnd: setRangeOverlayEnd,
-          onToggle: (enabled) => {
-            if (enabled && !isRangeOverlayEnabled) {
-              const step = steps[currentStep];
-              if (step) {
-                const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
-                const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
-                setRangeOverlayStart(start);
-                setRangeOverlayEnd(end);
-              }
-            }
-            setIsRangeOverlayEnabled(enabled);
-          },
-          onReset: () => {
-            const step = steps[currentStep];
-            if (step) {
-              const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
-              const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
-              setRangeOverlayStart(start);
-              setRangeOverlayEnd(end);
-            }
-          },
-        },
-      },
-      multiples: {
-        isEnabled: isMultiplesOverlayEnabled,
-        prime: multiplesOverlayPrime,
-        handlers: {
-          setEnabled: setIsMultiplesOverlayEnabled,
-          setPrime: setMultiplesOverlayPrime,
-          onToggle: (enabled) => {
-            if (enabled && !isMultiplesOverlayEnabled) {
-              const step = steps[currentStep];
-              if (step && step.prime != null && step.prime >= 2) {
-                setMultiplesOverlayPrime(step.prime);
-              }
-            }
-            setIsMultiplesOverlayEnabled(enabled);
-          },
-          onReset: () => {
-            const step = steps[currentStep];
-            if (step && step.prime != null && step.prime >= 2) {
-              setMultiplesOverlayPrime(step.prime);
-            }
-          },
-        },
-      },
-      minimap: {
-        isVisible: isMinimapVisible,
-        handlers: {
-          setVisible: setIsMinimapVisible,
-        },
-      },
-    },
-
-    // Detail Inspector
-    detailInspector: {
-      isOpen: isDetailInspectorOpen,
-      mode: detailInspectorMode,
-      query: detailInspectorQuery,
-      rows: detailInspectorRows,
-      filteredRows: filteredDetailInspectorRows,
-      handlers: {
-        open: openDetailInspector,
-        setOpen: setIsDetailInspectorOpen,
-        setQuery: setDetailInspectorQuery,
-      },
-    },
-
-    // Data & context
-    data: {
-      steps,
-      currentStep,
-      currentStepData,
-      stepStats,
-      storageModel,
-      wheelDefinition,
-      layoutSettings,
-      benchmarkTimingData,
-      benchmarkTimingFileName,
-      sourceRef,
-      currentStepSourceLine: stepToLine[currentStep],
-    },
-
-    // Navigation & references
-    navigation: {
-      revealStepRequest,
-      revealCurrentStepInPanel,
-      onOpenRawLog,
-      onImportBenchmarkTiming,
-      autoFitColumnCount,
-    },
-
+  const { visualizerMainContentProps, toolbarProps } = useVisualizerPropBundles({
+    // Canvas & rendering
+    mode3D,
+    containerRef, glCanvasRef, glyphCanvasRef, glyph2DCanvasRef, wrapperCanvasRef,
+    rendererRef, glRendererRef, camera3DRef,
+    mergedCamera3DContainerStyle, renderCanvasStyle,
+    camera3DTransform,
+    zoom,
+    isMacPlatform, isWindowsPlatform,
+    // UI frame
+    isUiChromeVisible, introPhase, loadingOverlayPhase, overlayBarPct,
+    handleIntroTransitionEnd,
+    // Playback
+    steps, currentStep, selectedSteps, playing,
+    handleStepSelection, handleMultiStepSelect, stopPlayback, goToStep,
+    // Animation & content
+    allEventsTransportContent, surroundingEvents, currentStepData,
+    aggMaskStepIndex, aggMaskStepSetterRef,
+    stepScrubProgress, seekStepAnimation, setStepScrubProgress, handleStepAnimToggle,
+    isStepAnimRunning, isAnimationReplayPaused, openAnimationSettings, exporting,
+    isEventsPanelCollapsed, toggleEventsPanel, collapseEventsPanelFromTimeline,
+    revealCurrentStepInPanel, isSettingsCollapsed, toggleSettingsPanel, delayPhaseMs,
+    isDetailHeaderHidden, setIsDetailHeaderHidden,
+    isDetailPanelFloating, setIsDetailPanelFloating, setIsDetailOpen,
+    isTimelineUndocked, setIsTimelineUndocked,
+    timelineColors, floaterBg, draggerColor, colorPreset, zoneBgOpacity,
+    // Panels: events
+    panelWidth, isAllEventsWidgetHidden,
+    setIsEventsPanelCollapsed, setPanelWidth,
+    // Panels: detail
+    detailWidth,
+    toggleDetailPanel, updateDetailHeight, setDetailWidth,
+    // Panels: settings
+    settingsTabRequest, setSettingsActiveTab, setLayoutSettings,
+    // Panels: timing
+    isTimingPanelOpen, timingFocusOp, setIsTimingPanelOpen, setTimingFocusOp,
+    // Event title
+    eventTitleSettings, setEventTitleSettings,
+    showEventTitleAboveCurrentDetail, showEventTitleAboveClosedDetail,
+    // Widgets
+    joinBannerRect, pendingBannerDragStart, revealStepRequest,
+    expandEventsPanelFromWidget, dockEventsWidgetToTopBar, dockEventsWidgetToDetailPanel,
+    pushJoinedWidgetToEventsPanel, pushJoinedWidgetToDetailPanel, hideJoinedWidget,
+    splitWidgets, joinWidgets, setPendingBannerDragStart,
+    setIsAllEventsInDetailPanel, isAllEventsInDetailPanel,
+    // Overlays: balloons
+    pinnedBitIndices, hoveredBitInfo, balloonLiveLayout, cachelineSize,
+    setPinnedBitIndices, computeBitInfo, getVisibleBalloonStyles,
+    // Overlays: group inspector
+    groupInspectorUnit, effectiveGroupBits, storageModel, wheelDefinition,
+    layoutSettings, header, openGroupInspector, closeGroupInspector,
+    // Overlays: heat map / cache / prime
+    isHeatMapEnabled, setIsHeatMapEnabled,
+    cachelineAnnotation, cachePreset, setCachelineSize, setCachelineAnnotation, setCachePreset,
+    isPrimeOverlayEnabled, setIsPrimeOverlayEnabled,
+    // Overlays: range
+    isRangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd,
+    setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd,
+    // Overlays: multiples
+    isMultiplesOverlayEnabled, multiplesOverlayPrime,
+    setIsMultiplesOverlayEnabled, setMultiplesOverlayPrime,
+    // Overlays: minimap
+    isMinimapVisible, setIsMinimapVisible,
+    // Detail inspector
+    isDetailInspectorOpen, detailInspectorMode, detailInspectorQuery,
+    detailInspectorRows, filteredDetailInspectorRows,
+    openDetailInspector, setIsDetailInspectorOpen, setDetailInspectorQuery,
+    // Data / context
+    stepStats, benchmarkTimingData, benchmarkTimingFileName,
+    sourceRef, stepToLine, autoFitColumnCount,
+    // Navigation
+    onOpenRawLog, onImportBenchmarkTiming,
     // Debug tools
-    debug: {
-      isToolsOpen: isDebugToolsOpen,
-      theme,
-      isGlUnavailable,
-      glDebugInfo,
-      debugLayerMode,
-      renderMode,
-      renderModeRestartNonce,
-      debugGlModeOverride,
-      debugWorkerGlyphMode,
-      debugGlOffsetX,
-      debugGlOffsetY,
-      debugGlAutoOffsetY,
-      isDebugCalibrationMode,
-      debugRenderTuning,
-      handlers: {
-        setDebugLayerMode,
-        setRenderMode,
-        restartRenderMode,
-        setDebugGlModeOverride,
-        setDebugWorkerGlyphMode,
-        setDebugGlOffsetX,
-        setDebugGlOffsetY,
-        setDebugGlAutoOffsetY,
-        setIsDebugCalibrationMode,
-        setDebugRenderTuning,
-        applySnapshot: applyDebugSnapshot,
-        forceGlRedraw,
-      },
-    },
-  };
-
-  const toolbarProps = {
-    platform: {
-      isMacPlatform,
-      isWindowsPlatform,
-      isElectron,
-    },
-    traceInfo: {
-      effectiveTitle,
-      isTraceInfoVisible,
-      setIsTraceInfoVisible,
-      traceInfoToggleRef,
-      traceInfoPopoverRef,
-      storageModel,
-      setStorageModel,
-      header,
-      traceInfoSections,
-      onFetchRawSource: fetchRawSource,
-      lineToStep,
-      onJumpToStep,
-      rawScrollToLine,
-      onClearRawScrollToLine,
-      currentStepSourceLine: stepToLine[currentStep],
-      onClose,
-      onOpenRawLog,  // item 221: quick open log button in top bar
-    },
-    search: {
-      isSearchOpen,
-      setIsSearchOpen,
-      searchQuery,
-      setSearchQuery,
-      searchResult,
-      handleSearch,
-      isSpotlightOpen,
-      openSpotlight: useCallback(() => {
-        setIsSpotlightOpen(true);
-        setIsSearchOpen(true);
-      }, [setIsSearchOpen]),
-    },
-    view: {
-      zoom,
-      doZoom,
-      resetZoom,
-      isTiltActive,
-      isTiltButtonEnabled,
-      toggleTilt,
-    },
-    debug: {
-      isDebugToolsOpen,
-      setIsDebugToolsOpen,
-    },
-    exportState: {
-      exporting,
-      exportPng,
-      exportVideo,
-      cancelExport,
-      exportProgress,
-    },
-  };
+    isDebugToolsOpen, theme,
+    isGlUnavailable, glDebugInfo, debugLayerMode,
+    renderMode, renderModeRestartNonce, debugGlModeOverride, debugWorkerGlyphMode,
+    debugGlOffsetX, debugGlOffsetY, debugGlAutoOffsetY,
+    isDebugCalibrationMode, debugRenderTuning,
+    setDebugLayerMode, setRenderMode, restartRenderMode,
+    setDebugGlModeOverride, setDebugWorkerGlyphMode,
+    setDebugGlOffsetX, setDebugGlOffsetY, setDebugGlAutoOffsetY,
+    setIsDebugCalibrationMode, setDebugRenderTuning,
+    applyDebugSnapshot, forceGlRedraw,
+    // Toolbar: trace info
+    effectiveTitle, isTraceInfoVisible, setIsTraceInfoVisible,
+    traceInfoToggleRef, traceInfoPopoverRef,
+    setStorageModel, traceInfoSections, fetchRawSource, lineToStep,
+    onJumpToStep, rawScrollToLine, onClearRawScrollToLine, onClose,
+    // Toolbar: search
+    isSearchOpen, setIsSearchOpen, searchQuery, setSearchQuery,
+    searchResult, handleSearch, isSpotlightOpen, setIsSpotlightOpen,
+    // Toolbar: view / platform
+    isElectron, doZoom, resetZoom, isTiltActive, isTiltButtonEnabled, toggleTilt,
+    // Toolbar: export
+    setIsDebugToolsOpen, exportPng, exportVideo, cancelExport, exportProgress,
+  });
 
   return (
     <ThemeProvider value={themeContextValue}>

@@ -5,6 +5,7 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 400 On startup don't show the double timeline until after the 2d-3d transform
 401 The inspector for byte/group/cacheline doesn't work realiably when i click the grid. It seems to be off by one or two cells, and sometimes it doesn't show up at all. This makes it hard to analyze the events and marked numbers accurately. I need to investigate why this is happening and fix the issue as soon as possible.
+402 on the settings - colors tab, the buttons to adjust the color stick to the bottom when scrolling the pane.
 
 
 

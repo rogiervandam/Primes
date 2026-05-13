@@ -34,7 +34,7 @@ export default function VisualizerMainContent(props) {
   useEffect(() => { bumpRender('VMC'); });
 
   // item 349: read eventsOpenFromBottom to suppress left-column space when panel is a bottom overlay
-  const { eventsOpenFromBottom } = usePanelLayoutContext();
+  const { eventsOpenFromBottom, isDetailOpen, detailHeight } = usePanelLayoutContext();
 
   // Destructure organized prop objects
   const {
@@ -74,8 +74,8 @@ export default function VisualizerMainContent(props) {
   // Panels
   const { events: panelsEvents = {}, detail: panelsDetail = {}, settings: panelsSettings = {}, timing: panelsTiming = {} } = panels;
   const { isCollapsed: isEventsPanelCollapsed, width: panelWidth, isAllEventsWidgetHidden, handlers: eventsHandlers = {} } = panelsEvents;
-  const { toggle: toggleEventsPanel, setCollapsed: setIsEventsPanelCollapsed, setPanelWidth, enableRepeat } = eventsHandlers;
-  const { isOpen: isDetailOpen, isOpenRef: isDetailOpenRef, height: detailHeight, width: detailWidth, isHeaderHidden: isDetailHeaderHidden, isFloating: isDetailPanelFloating, handlers: detailHandlers = {} } = panelsDetail;
+  const { toggle: toggleEventsPanel, setCollapsed: setIsEventsPanelCollapsed, setPanelWidth } = eventsHandlers;
+  const { width: detailWidth, isHeaderHidden: isDetailHeaderHidden, isFloating: isDetailPanelFloating, handlers: detailHandlers = {} } = panelsDetail;
   const { toggle: toggleDetailPanel, setOpen: setIsDetailOpen, updateHeight: updateDetailHeight, setWidth: setDetailWidth, dock: dockDetailPanel } = detailHandlers;
   const { tabRequest: settingsTabRequest, isCollapsed: isSettingsCollapsed, handlers: settingsHandlers = {} } = panelsSettings;
   const { setActiveTab: setSettingsActiveTab, setLayoutSettings } = settingsHandlers;
@@ -175,12 +175,12 @@ export default function VisualizerMainContent(props) {
     onUserScroll: undefined,
     onExternalOpFilterConsumed: () => setTimingFocusOp(''),
     onShowEventTitle: showEventTitleAboveCurrentDetail,
-    onEnableRepeat: enableRepeat,
+    onEnableRepeat: undefined,
     onInspectAnnotationUnit: openGroupInspector,
   }), [handleStepSelection, handleMultiStepSelect, setPanelWidth,
       expandEventsPanelFromWidget, dockEventsWidgetToTopBar,
       dockEventsWidgetToDetailPanel, joinWidgets,
-      setTimingFocusOp, showEventTitleAboveCurrentDetail, enableRepeat, openGroupInspector]);
+      setTimingFocusOp, showEventTitleAboveCurrentDetail, openGroupInspector]);
 
   return (
     <div
@@ -244,8 +244,6 @@ export default function VisualizerMainContent(props) {
           cachelineSize,
           setPinnedBitIndices,
           handleStepSelection,
-          isDetailOpen,
-          detailHeight,
           toggleDetailPanel,
           pendingBannerDragStart,
           onConsumePendingBannerDragStart: () => setPendingBannerDragStart(null),

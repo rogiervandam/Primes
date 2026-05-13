@@ -113,7 +113,14 @@ Step 1.1 removed the main `isSingleEvent*` state but left behind dead comments a
 
 ---
 
-## Phase 2 — Reduce Visualizer.jsx (2308 → ~1400 lines)
+## Phase 2 — Reduce Visualizer.jsx (2308 → ~1400 lines) ✅ DONE
+
+**Actual result:** Visualizer.jsx reduced from 2221 → 1626 lines. Phase 2.1–2.5 all complete.
+- 2.1: Extracted state-assembly into `useVisualizerStateBundle.js`
+- 2.2: Extracted props-assembly into `useVisualizerPropBundles.js`  
+- 2.3: Inlined 8 multi-line hook args with ≤5 props
+- 2.4: Collapsed trivial callbacks; removed `enableRepeat` no-op from full prop chain
+- 2.5: `isDetailOpen`/`detailHeight` now read from `PanelLayoutContext` in VMC; removed dead prop-drilling through CanvasStage overlay
 
 ### 2.1  Extract the State-Assembly Block into a Hook
 

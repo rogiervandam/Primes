@@ -68,8 +68,6 @@ function CanvasStage({
     hoveredBitInfo: overlay.hoveredBitInfo,
     balloonLiveLayout: overlay.balloonLiveLayout,
     cachelineSize: overlay.cachelineSize,
-    isDetailOpen: overlay.isDetailOpen,
-    detailHeight: overlay.detailHeight,
     pendingBannerDragStart: overlay.pendingBannerDragStart,
     isDetailInspectorOpen: overlay.isDetailInspectorOpen,
     detailInspectorMode: overlay.detailInspectorMode,
