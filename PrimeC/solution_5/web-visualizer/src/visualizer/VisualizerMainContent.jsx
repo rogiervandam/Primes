@@ -68,8 +68,8 @@ export default function VisualizerMainContent(props) {
   const { selection: handleStepSelection, multiSelection: handleMultiStepSelect, stop: stopPlayback, goToStep } = playbackHandlers;
 
   // Animation
-  const { content: animContent = {}, currentStepBanner, surroundingEvents, currentStepData, aggMaskStepIndex = 0, aggMaskStepSetterRef, doubleTimeline: doubleTimelineProps = {} } = animation;
-  const { stepAnimSliders: stepAnimSlidersContent, stepAnimSlidersDocked: stepAnimSlidersDockedContent, allEventsTransport: allEventsTransportContent } = animContent;
+  const { content: animContent = {}, surroundingEvents, currentStepData, aggMaskStepIndex = 0, aggMaskStepSetterRef, doubleTimeline: doubleTimelineProps = {} } = animation;
+  const { allEventsTransport: allEventsTransportContent } = animContent;
 
   // Panels
   const { events: panelsEvents = {}, detail: panelsDetail = {}, settings: panelsSettings = {}, timing: panelsTiming = {} } = panels;
@@ -113,8 +113,8 @@ export default function VisualizerMainContent(props) {
 
   // Widgets
   const { state: widgetsState = {}, handlers: widgetHandlers = {} } = widgets;
-  const { areJoined: areWidgetsJoined, isSingleEventRevealed: isSingleEventWidgetRevealed, joinBannerRect, pendingBannerDragStart, revealStepRequest } = widgetsState;
-  const { expandEventsPanel: expandEventsPanelFromWidget, dockEventsToTopBar: dockEventsWidgetToTopBar, dockEventsToDetail: dockEventsWidgetToDetailPanel, pushEventsToPanel: pushJoinedWidgetToEventsPanel, pushEventsToDetail: pushJoinedWidgetToDetailPanel, hideJoined: hideJoinedWidget, split: splitWidgets, join: joinWidgets, setPendingDragStart: setPendingBannerDragStart, toggleAllEventsFloater, isAllEventsInDetailPanel, toggleSingleEventSlider, isSingleEventSliderInPanel } = widgetHandlers;
+  const { areJoined: areWidgetsJoined, joinBannerRect, pendingBannerDragStart, revealStepRequest } = widgetsState;
+  const { expandEventsPanel: expandEventsPanelFromWidget, dockEventsToTopBar: dockEventsWidgetToTopBar, dockEventsToDetail: dockEventsWidgetToDetailPanel, pushEventsToPanel: pushJoinedWidgetToEventsPanel, pushEventsToDetail: pushJoinedWidgetToDetailPanel, hideJoined: hideJoinedWidget, split: splitWidgets, join: joinWidgets, setPendingDragStart: setPendingBannerDragStart, toggleAllEventsFloater, isAllEventsInDetailPanel } = widgetHandlers;
 
   // Overlays
   const { balloons: overlayBalloons = {}, heatMap: overlayHeatMap = {}, cache: overlayCache = {}, prime: overlayPrime = {}, range: overlayRange = {}, multiples: overlayMultiples = {}, minimap: overlayMinimap = {}, groupInspector: overlayGroupInspector = {} } = overlays;
@@ -228,15 +228,13 @@ export default function VisualizerMainContent(props) {
           eventTitleSettings,
           setEventTitleSettings,
           eventTitleStyle,
-          currentStepBanner,
-          surroundingEvents,
           currentStepData,
           currentStep,
           goToStep,
           revealCurrentStepInPanel,
           isEventsPanelCollapsed,
           setIsEventsPanelCollapsed,
-          stepAnimSlidersContent,
+          stepAnimSlidersContent: undefined,
           areWidgetsJoined,
           onJoinWidgets: joinWidgets,
           pinnedBitIndices,
@@ -280,7 +278,6 @@ export default function VisualizerMainContent(props) {
         intro={{
           introPhase,
           onIntroTransitionEnd: handleIntroTransitionEnd,
-          isSingleEventWidgetRevealed,
         }}
       />
       </div>{/* end .canvas-column */}
@@ -312,13 +309,11 @@ export default function VisualizerMainContent(props) {
               isHeaderHidden: isTimelineUndocked ? true : isDetailHeaderHidden,
               isFloating: isDetailPanelFloating,
               isAllEventsInDetailPanel: false,
-              isSingleEventSliderInPanel: false,
             }}
             detailConfig={{
               storageModel,
               wheelDefinition,
               benchmarkTimingData,
-              eventAnimSliders: stepAnimSlidersDockedContent || stepAnimSlidersContent,
               allEventsTransport: allEventsTransportContent,
               surroundingEvents,  // item 318: always pass (was undefined when undocked)
             }}
@@ -338,7 +333,6 @@ export default function VisualizerMainContent(props) {
               onOpenRawLog,
               onAggMaskStepChange: aggMaskStepSetterRef ? (idx) => aggMaskStepSetterRef.current?.(idx) : undefined,
               onToggleAllEventsFloater: undefined,
-              onToggleSingleEventSlider: undefined,
               onDockDetailPanel: dockDetailPanel,
             }}
           />

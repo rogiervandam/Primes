@@ -6,7 +6,6 @@ export function useSeekStepAnimation({
   stopSeqAnim,
   pausedStepAnimLoopRef,
   selectedAnimLoopRef,
-  setIsSingleEventLoopActive,
   setIsAnimationReplayPaused,
   setDelayPhaseMsRef,
   rendererRef,
@@ -34,7 +33,6 @@ export function useSeekStepAnimation({
       clearTimeout(selectedAnimLoopRef.current);
       selectedAnimLoopRef.current = null;
     }
-    setIsSingleEventLoopActive(false);
     setIsAnimationReplayPaused(true);
     setDelayPhaseMsRef.current(null);
     const r = rendererRef.current;
@@ -324,7 +322,6 @@ export function useSeekStepAnimation({
     stopSeqAnim,
     pausedStepAnimLoopRef,
     selectedAnimLoopRef,
-    setIsSingleEventLoopActive,
     setIsAnimationReplayPaused,
     setDelayPhaseMsRef,
     rendererRef,

@@ -2,7 +2,7 @@
  * useWidgetState — owns floating-widget and overlay-panel visibility state.
  *
  * Owns:
- *  - isAllEventsWidgetHidden / isSingleEventWidgetRevealed
+ *  - isAllEventsWidgetHidden
  *  - isAllEventsInDetailPanel / areWidgetsJoined
  *  - joinBannerRect / pendingBannerDragStart
  *  - revealStepRequest
@@ -17,12 +17,8 @@ export function useWidgetState({ initialPrefs }) {
   // When true, the floating all-events widget is hidden (e.g. after docking
   // to the top bar). Reset when the events panel is collapsed again.
   const [isAllEventsWidgetHidden, setIsAllEventsWidgetHidden] = useState(initialPrefs.isAllEventsWidgetHidden);
-  // Hidden until the user first hits play or selects an event.
-  const [isSingleEventWidgetRevealed, setIsSingleEventWidgetRevealed] = useState(false);
   // When true, the all-events transport is shown inside the detail panel.
   const [isAllEventsInDetailPanel, setIsAllEventsInDetailPanel] = useState(initialPrefs.isAllEventsInDetailPanel);
-  // When true, the single-event animation slider is shown inside the detail panel (item 162).
-  const [isSingleEventSliderInPanel, setIsSingleEventSliderInPanel] = useState(initialPrefs.isSingleEventSliderInPanel ?? false);
   // When true, the all-events widget and single-event banner are joined.
   const [areWidgetsJoined, setAreWidgetsJoined] = useState(
     (initialPrefs.areWidgetsJoined === true && initialPrefs.isEventsPanelCollapsed === true)
@@ -46,9 +42,7 @@ export function useWidgetState({ initialPrefs }) {
 
   return {
     isAllEventsWidgetHidden, setIsAllEventsWidgetHidden,
-    isSingleEventWidgetRevealed, setIsSingleEventWidgetRevealed,
     isAllEventsInDetailPanel, setIsAllEventsInDetailPanel,
-    isSingleEventSliderInPanel, setIsSingleEventSliderInPanel,
     areWidgetsJoined, setAreWidgetsJoined,
     joinBannerRect, setJoinBannerRect,
     pendingBannerDragStart, setPendingBannerDragStart,

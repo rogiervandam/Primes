@@ -1,6 +1,6 @@
 import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import {
-  Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus, Repeat,
+  Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus,
 } from '../Icons';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
 
@@ -60,9 +60,6 @@ export default function DoubleTimeline({
   playing = false,
   isStepAnimRunning = false,
   isAnimationReplayPaused = false,
-  isSingleEventLoopActive = false,
-  isSingleEventRepeatEnabled = false,
-  onToggleRepeat,
   handleStepAnimToggle,
   onOpenAnimationSettings,
   exporting = false,
@@ -97,9 +94,6 @@ export default function DoubleTimeline({
   // when undocked: toggle detail panel visibility (shown in normal position, not inside widget)
   floatingDetailVisible = false,
   onToggleFloatingDetail,
-  // item 290: repeat handle on animation timeline
-  repeatFraction = 0,
-  onRepeatFractionChange,
   // item 321: timeline strip colors
   timelineColors = { events: '#b87333', animation: '#3a8cb8' },
   // item 322/323: floater zone background and center dragger color
@@ -296,7 +290,7 @@ export default function DoubleTimeline({
   const isDividerDraggingRef = useRef(false);  // item 218: block zone interactions during center drag
   // Ref so wave pointer handlers can read the current playing state without stale closures
   const isAnimPlayingRef = useRef(false);
-  isAnimPlayingRef.current = (playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused;
+  isAnimPlayingRef.current = (playing || isStepAnimRunning) && !isAnimationReplayPaused;
   // Ref so repeat-handle handler can check playhead proximity without a stale closure
   const stepScrubProgressRef = useRef(stepScrubProgress);
   stepScrubProgressRef.current = stepScrubProgress;
@@ -829,40 +823,7 @@ export default function DoubleTimeline({
     setAnimZoomRange(next);
   }, []);
 
-  // item 290: repeat handle drag on the animation timeline
-  const handleRepeatHandlePointerDown = useCallback((e) => {
-    if (!onRepeatFractionChange) return;
-    // item 293: if the anim playhead is within 10px of the repeat handle, treat the
-    // click as a seek rather than a repeat-handle drag so the playhead takes priority.
-    const el = animActiveAreaRef.current || animZoneRef.current;
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      const { start: zStart, end: zEnd } = animZoomRangeRef.current;
-      const playheadX = rect.left + ((stepScrubProgressRef.current - zStart) / (zEnd - zStart)) * rect.width;
-      if (Math.abs(e.clientX - playheadX) < 10) return;  // let event bubble to zone → seek
-    }
-    e.stopPropagation();
-    e.currentTarget.setPointerCapture(e.pointerId);
-    isRepeatDraggingRef.current = true;
-    // item 291: use active area rect
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const onMove = (ev) => {
-      const frac = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
-      const { start: zStart, end: zEnd } = animZoomRangeRef.current;
-      const mappedPercent = Math.round(zStart + frac * (zEnd - zStart));
-      onRepeatFractionChange(Math.max(0, Math.min(99, mappedPercent)));
-    };
-    const onUp = () => {
-      isRepeatDraggingRef.current = false;
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  }, [onRepeatFractionChange]);
-
-  const isAnimPlaying = (playing || isStepAnimRunning || isSingleEventLoopActive) && !isAnimationReplayPaused;
+  const isAnimPlaying = (playing || isStepAnimRunning) && !isAnimationReplayPaused;
   const stepCount = steps.length;
   const canNavigate = stepCount > 0 && !exporting;
   const isInDelayPhase = delayPhaseMs > 0;
@@ -886,12 +847,6 @@ export default function DoubleTimeline({
   const animFillPct = animIsZoomed && animZoomSpan > 0
     ? Math.max(0, Math.min(100, ((Math.min(stepScrubProgress, animZoomRange.end) - animZoomRange.start) / animZoomSpan) * 100))
     : stepScrubProgress;
-  // item 290: repeat handle position in zoomed range
-  const repeatHandlePct = animIsZoomed && animZoomSpan > 0
-    ? ((repeatFraction - animZoomRange.start) / animZoomSpan) * 100
-    : repeatFraction;
-  const repeatHandleVisible = !animIsZoomed || (repeatFraction >= animZoomRange.start - 0.1 && repeatFraction <= animZoomRange.end + 0.1);
-
   // item 289: attach non-passive wheel listeners for zoom (React wheel events are passive by default)
   useEffect(() => {
     const waveEl = waveContainerRef.current;
@@ -1231,7 +1186,7 @@ export default function DoubleTimeline({
             {/* Main play button — items 123, 128, 216: unified play/pause for events + animation */}
             {/* item 241: dtl-repeat-on class added when repeat is active to show a visible indicator */}
             <button
-              className={`dtl-btn dtl-play${isSingleEventRepeatEnabled ? ' dtl-repeat-on' : ''}`}
+              className={`dtl-btn dtl-play`}
               onClick={() => { if (!exporting && stepCount > 0) handleMainPlayClick(); }}
               disabled={exporting || stepCount === 0}
               title={isAnyPlaying ? 'Pause' : 'Play all events'}
@@ -1277,11 +1232,7 @@ export default function DoubleTimeline({
             {/* item 303: during empty event, CSS animation drives left — no inline style */}
             {animPlayheadVisible && (
               <div
-                className={`dtl-anim-playhead${
-                  isEmptyEvent && playing
-                    ? (isSingleEventRepeatEnabled ? ' dtl-anim-playhead--empty-repeat' : ' dtl-anim-playhead--empty')
-                    : ''
-                }`}
+                className={`dtl-anim-playhead${isEmptyEvent && playing ? ' dtl-anim-playhead--empty' : ''}`}
                 style={isEmptyEvent && playing ? undefined : { left: `${Math.max(0, Math.min(100, animPlayheadPct))}%` }}
               />
             )}
@@ -1292,7 +1243,7 @@ export default function DoubleTimeline({
               key={isEmptyEvent && playing ? `empty-${currentStep}` : 'fill'}
               className={`dtl-anim-fill${
                 isEmptyEvent && playing
-                  ? (isSingleEventRepeatEnabled ? ' dtl-anim-fill--empty-repeat' : ' dtl-anim-fill--empty')
+                  ? ' dtl-anim-fill--empty'
                   : isInDelayPhase ? ' dtl-anim-fill--fading' : ''
               }`}
               style={{ width: `${animFillPct}%`, '--delay-ms': `${delayPhaseMs}ms`,
@@ -1307,31 +1258,6 @@ export default function DoubleTimeline({
                 <span className="dtl-zoom-range-end">{parseFloat(animZoomRange.end.toFixed(1))}%</span>
               </div>
             )}
-            {/* item 290: draggable repeat handle — shows where single-event repeat restarts from */}
-            {repeatHandleVisible && (
-              <div
-                className={`dtl-repeat-handle${isSingleEventRepeatEnabled ? ' dtl-repeat-handle--active' : ''}`}
-                style={{ left: `${Math.max(0, Math.min(100, repeatHandlePct))}%` }}
-                onPointerDown={handleRepeatHandlePointerDown}
-                onClick={(e) => { e.stopPropagation(); onToggleRepeat?.(); }}
-                title={isSingleEventRepeatEnabled
-                  ? `Loop on — repeat from ${repeatFraction}% (click to disable, drag to move)`
-                  : `Loop off — repeat point at ${repeatFraction}% (click to enable, drag to move)`}
-              >
-                <Repeat size={9} />
-              </div>
-            )}
-            {/* item 290: repeat range fill — shows the portion from repeat point to end when active */}
-            {isSingleEventRepeatEnabled && repeatFraction > 0 && repeatHandleVisible && (
-              <div
-                className="dtl-repeat-range"
-                style={{
-                  left: `${Math.max(0, Math.min(100, repeatHandlePct))}%`,
-                  right: '0',
-                }}
-              />
-            )}
-
           </div>
           {/* Header row: items 194, 195: ANIMATION centered, speed to its right */}
           <div className="dtl-anim-header">

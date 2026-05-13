@@ -49,7 +49,6 @@ export function useAnimationPipeline({
     setIsStepAnimRunningRef,
     stopSeqAnimRef,
     triggerAnimationRef,
-    isSingleEventLoopActiveRef,
     selectedAnimLoopRef,
     stepScrubProgressValueRef,
     stepResumeStartIndexRef,
@@ -179,7 +178,7 @@ export function useAnimationPipeline({
     const rawProgress = stepScrubProgressValueRef.current; // 0-100
     const startFraction = (rawProgress > 2 && rawProgress < 98) ? rawProgress / 100 : 0;
 
-    if (isSingleEventLoopActiveRef.current || selectedAnimLoopRef.current) {
+    if (selectedAnimLoopRef.current) {
       // item 256: cancel the in-flight animation and immediately restart it
       // from the current scrub position using the new mode/style/interval.
       seekGenRef.current += 1;

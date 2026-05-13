@@ -10,14 +10,13 @@
  *  - deferredPanelStateRef (panel open-states deferred until after intro)
  *
  * Effects included:
- *  - Phase F: restore isEventsPanelCollapsed + isSettingsCollapsed after introPhase==='visible'
- *  - Detail-panel restore after isSingleEventWidgetRevealed
+ *  - Phase F: restore isEventsPanelCollapsed + isSettingsCollapsed + isDetailOpen after introPhase==='visible'
  *
- * @param {{ initialPrefs: object, introPhase: string, isSingleEventWidgetRevealed: boolean }} params
+ * @param {{ initialPrefs: object, introPhase: string }} params
  */
 import { useState, useRef, useEffect } from 'react';
 
-export function usePanelState({ initialPrefs, introPhase, isSingleEventWidgetRevealed }) {
+export function usePanelState({ initialPrefs, introPhase }) {
   // Forced closed on mount; restored after intro animation finishes.
   const [isEventsPanelCollapsed, setIsEventsPanelCollapsed] = useState(true);
   const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(true);
@@ -59,18 +58,8 @@ export function usePanelState({ initialPrefs, introPhase, isSingleEventWidgetRev
     deferred.applied = true;
     if (!deferred.isEventsPanelCollapsed) setIsEventsPanelCollapsed(false);
     if (!deferred.isSettingsCollapsed) setIsSettingsCollapsed(false);
-    // Detail panel is only restored once the user shows intent (see effect below).
-  }, [introPhase]);
-
-  // Restore the detail panel open state after the user first plays or selects an event.
-  const detailPanelRestoredRef = useRef(false);
-  useEffect(() => {
-    if (!isSingleEventWidgetRevealed) return;
-    if (detailPanelRestoredRef.current) return;
-    detailPanelRestoredRef.current = true;
-    const deferred = deferredPanelStateRef.current;
     if (deferred.isDetailOpen) setIsDetailOpen(true);
-  }, [isSingleEventWidgetRevealed]);
+  }, [introPhase]);
 
   return {
     isEventsPanelCollapsed, setIsEventsPanelCollapsed,

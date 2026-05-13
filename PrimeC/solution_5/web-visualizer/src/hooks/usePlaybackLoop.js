@@ -37,10 +37,8 @@
  * @param {React.MutableRefObject} opts.pausedStepAnimLoopRef
  * @param {React.MutableRefObject} opts.playTimeoutRef
  * @param {React.MutableRefObject} opts.playTimerRef
- * @param {React.MutableRefObject} opts.isSingleEventLoopActiveRef
  * @param {React.MutableRefObject} opts.isScrubbingTopRef
  * @param {React.MutableRefObject} opts.initialHighlightHoldRef
- * @param {React.MutableRefObject} opts.delayBetweenRepeatsRef
  * @param {React.MutableRefObject} opts.stepResumeStartIndexRef
  * @param {React.MutableRefObject} opts.stepResumeMaskProgressRef
  * @param {React.MutableRefObject} opts.setIsStepAnimRunningRef
@@ -52,7 +50,6 @@
  * @param {number}      opts.currentStep
  * @param {Set<number>} opts.selectedSteps
  * @param {boolean}     opts.isAnimationReplayPaused
- * @param {boolean}     opts.isSingleEventLoopActive
  * @param {React.MutableRefObject} [opts.isAutoAnimateOnSelectRef] - When false, skip the auto-repeat loop
  * @param {boolean}     [opts.isAutoAnimateOnSelect] - State mirror for dep array
  *
@@ -79,18 +76,14 @@ export function usePlaybackLoop({ ...flatArgs }) {
     pausedStepAnimLoopRef,
     playTimeoutRef,
     playTimerRef,
-    isSingleEventLoopActiveRef,
     isScrubbingTopRef,
     initialHighlightHoldRef,
-    delayBetweenRepeatsRef,
     delayBetweenEventsRef,   // item 217: auto-advance delay when repeat is disabled
     stepResumeStartIndexRef,
     stepResumeMaskProgressRef,
     setIsStepAnimRunningRef,
     isStepAnimRunningRefForScheduler,
     isAutoAnimateOnSelectRef,
-    isSingleEventRepeatEnabledRef,
-    repeatFractionRef,  // item 290: fraction 0-100 where repeat restarts from
   } = loopRefs;
 
   const {
@@ -99,13 +92,11 @@ export function usePlaybackLoop({ ...flatArgs }) {
     currentStep,
     selectedSteps,
     isAnimationReplayPaused,
-    isSingleEventLoopActive,
   } = loopState;
 
   const {
     setPlaying,
     setCurrentStep,
-    setIsSingleEventLoopActive,
   } = loopHandlers;
 
   const {
@@ -157,19 +148,16 @@ export function usePlaybackLoop({ ...flatArgs }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSteps, steps, playing, isAnimationReplayPaused, isAutoAnimateOnSelect]);
 
-  // ── Effect 2: When paused on a single step, keep replaying that step's animation ──
+  // ── Effect 2: While mid-drag on the top-bar scrubber, keep triggering the animation ──
   useEffect(() => {
     if (pausedStepAnimLoopRef.current) {
       clearTimeout(pausedStepAnimLoopRef.current);
       pausedStepAnimLoopRef.current = null;
     }
 
-    // The single-event widget's auto-replay only runs when the user explicitly
-    // pressed Play on it (isSingleEventLoopActive=true), OR while the user is
-    // mid-drag on the top-bar scrubber (isScrubbingTopRef.current). All-events
-    // playback (`playing`) has its own scheduler so we stay out of its way.
+    // Only run while the user is mid-drag on the top-bar scrubber.
     if (playing || isAnimationReplayPaused || selectedSteps.size > 0 || initialHighlightHoldRef.current) return;
-    if (!isSingleEventLoopActive && !isScrubbingTopRef.current) return;
+    if (!isScrubbingTopRef.current) return;
     const step = steps[currentStep];
     if (!step || !step.changedBits || step.changedBits.length === 0) return;
 
@@ -177,41 +165,20 @@ export function usePlaybackLoop({ ...flatArgs }) {
     let cancelled = false;
 
     const loop = async () => {
-      // First iteration honors the resume hints (set by the banner Play
-      // button); subsequent iterations restart from 0 after the replay delay.
       const useStartIndex = stepResumeStartIndexRef.current || 0;
       const useStartProgress = stepResumeMaskProgressRef.current || 0;
       stepResumeStartIndexRef.current = 0;
       stepResumeMaskProgressRef.current = 0;
-      // Read triggerAnimation through its ref so this effect doesn't tear down
-      // and restart whenever the speed slider (bitAnimInterval) changes.
       const triggerFn = triggerAnimationRef.current;
       if (!triggerFn) return;
       await triggerFn(changed, {
         adaptiveDuration: true,
-        // Between repeats inside the single-event widget: use the configured
-        // delayBetweenRepeats. Mid-drag scrub: 0 (each drag tick re-triggers).
-        delayMs: isScrubbingTopRef.current ? 0 : (delayBetweenRepeatsRef.current || 0),
+        delayMs: 0,
         startIndex: useStartIndex,
         startProgress: useStartProgress,
       });
-      if (!isScrubbingTopRef.current && isSingleEventRepeatEnabledRef && isSingleEventRepeatEnabledRef.current === false) {
-        // item 217: repeat disabled → auto-advance to the next event after the configured delay
-        setIsSingleEventLoopActive(false);
-        const delay = delayBetweenEventsRef?.current ?? 0;
-        setTimeout(() => {
-          if (!isSingleEventLoopActiveRef.current) {
-            goToStepRef.current?.(currentStep + 1);
-          }
-        }, delay);
-        return;
-      }
       if (cancelled || playing || isAnimationReplayPaused || selectedSteps.size > 0) return;
-      if (!isSingleEventLoopActiveRef.current && !isScrubbingTopRef.current) return;
-      // Note: seekGenRef is intentionally NOT checked here. seekStepAnimation sets
-      // cancelled=true via effect cleanup; that path is handled above. A seekGenRef
-      // bump from the [animMode,animStyle] effect means animation style changed —
-      // we want the loop to restart with the new style, not exit.
+      if (!isScrubbingTopRef.current) return;
       pausedStepAnimLoopRef.current = setTimeout(loop, 0);
     };
 
@@ -224,10 +191,9 @@ export function usePlaybackLoop({ ...flatArgs }) {
         pausedStepAnimLoopRef.current = null;
       }
     };
-    // triggerAnimation intentionally omitted: it is rebuilt whenever the speed
-    // slider changes, and we don't want to interrupt an in-flight reveal.
+    // triggerAnimation intentionally omitted.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, selectedSteps, steps, currentStep, isAnimationReplayPaused, isSingleEventLoopActive, setIsSingleEventLoopActive]);
+  }, [playing, selectedSteps, steps, currentStep, isAnimationReplayPaused]);
 
   // ── Effect 3: All-events play/pause scheduler ────────────────────────────
   //
@@ -276,49 +242,25 @@ export function usePlaybackLoop({ ...flatArgs }) {
 
       setCurrentStep((prev) => {
         // item 240: if the current step has no animation content, add a delay before
-        // advancing (no-repeat) or repeating (repeat mode), and show "NO CHANGES" UI.
+        // advancing, and show "NO CHANGES" UI.
         const curStep = steps[prev];
         const hasNoAnimation = !curStep || (
           !(curStep.changedBits?.length > 0) &&
           !(curStep.maskWriteOrderWords?.length > 0)
         );
         if (hasNoAnimation) {
-          const emptyDelay = isSingleEventRepeatEnabledRef?.current
-            ? 2000  // item 240: 2-second hold in repeat mode
-            : (delayBetweenEventsRef?.current ?? 0);
+          const emptyDelay = delayBetweenEventsRef?.current ?? 0;
           // Block the scheduler for the duration of the delay using animBusyUntilRef.
-          // This prevents the scheduler from immediately re-entering this callback.
           animBusyUntilRef.current = performance.now() + Math.max(emptyDelay, 1);
-          if (isSingleEventRepeatEnabledRef?.current) {
-            const repeatStartProgress = (repeatFractionRef?.current ?? 0) / 100;
-            const repeatOpts = repeatStartProgress > 0
-              ? { keepPlaying: true, startProgress: repeatStartProgress }
-              : { keepPlaying: true };
-            setTimeout(() => {
-              if (!globalPausedRef.current) goToStepRef.current?.(prev, repeatOpts);
-            }, emptyDelay);
-            return prev;  // stay on current step during delay
-          } else {
-            const next = prev + 1;
-            if (next >= steps.length) {
-              setPlaying(false);
-              return prev;
-            }
-            setTimeout(() => {
-              if (!globalPausedRef.current) goToStepRef.current?.(next, { keepPlaying: true });
-            }, emptyDelay);
-            return prev;  // stay on current step until goToStep fires after delay
+          const next = prev + 1;
+          if (next >= steps.length) {
+            setPlaying(false);
+            return prev;
           }
-        }
-        // item 226: when repeat is on, replay current event instead of advancing
-        if (isSingleEventRepeatEnabledRef?.current) {
-          // item 290: restart from the repeat fraction point if set
-          const repeatStartProgress = (repeatFractionRef?.current ?? 0) / 100;
-          const repeatOpts = repeatStartProgress > 0
-            ? { keepPlaying: true, startProgress: repeatStartProgress }
-            : { keepPlaying: true };
-          setTimeout(() => goToStepRef.current?.(prev, repeatOpts), 0);
-          return prev;
+          setTimeout(() => {
+            if (!globalPausedRef.current) goToStepRef.current?.(next, { keepPlaying: true });
+          }, emptyDelay);
+          return prev;  // stay on current step until goToStep fires after delay
         }
         const next = prev + 1;
         if (next >= steps.length) {

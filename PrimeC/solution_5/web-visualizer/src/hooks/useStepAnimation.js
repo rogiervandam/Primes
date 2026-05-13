@@ -3,7 +3,6 @@
  *
  * Owns:
  *  - bitAnimationMode ('bit' | 'mask' | 'combined') + ref
- *  - isSingleEventLoopActive + ref
  *  - isAutoAnimateOnSelect + ref
  *  - isAnimationReplayPaused
  *  - isScrubbingTopRef
@@ -23,14 +22,6 @@ export function useStepAnimation({ initialPrefs }) {
   const [bitAnimationMode, setBitAnimationMode] = useState('bit');
   const bitAnimationModeRef = useRef('bit');
   bitAnimationModeRef.current = bitAnimationMode;
-
-  const [isSingleEventLoopActive, setIsSingleEventLoopActive] = useState(false);
-  const isSingleEventLoopActiveRef = useRef(false);
-  isSingleEventLoopActiveRef.current = isSingleEventLoopActive;
-
-  const [isSingleEventRepeatEnabled, setIsSingleEventRepeatEnabled] = useState(initialPrefs.isSingleEventRepeatEnabled !== false);
-  const isSingleEventRepeatEnabledRef = useRef(initialPrefs.isSingleEventRepeatEnabled !== false);
-  isSingleEventRepeatEnabledRef.current = isSingleEventRepeatEnabled;
 
   const [isAutoAnimateOnSelect, setIsAutoAnimateOnSelect] = useState(initialPrefs.isAutoAnimateOnSelect);
   const isAutoAnimateOnSelectRef = useRef(initialPrefs.isAutoAnimateOnSelect);
@@ -77,8 +68,6 @@ export function useStepAnimation({ initialPrefs }) {
 
   return {
     bitAnimationMode, setBitAnimationMode, bitAnimationModeRef,
-    isSingleEventLoopActive, setIsSingleEventLoopActive, isSingleEventLoopActiveRef,
-    isSingleEventRepeatEnabled, setIsSingleEventRepeatEnabled, isSingleEventRepeatEnabledRef,
     isAutoAnimateOnSelect, setIsAutoAnimateOnSelect, isAutoAnimateOnSelectRef,
     isAnimationReplayPaused, setIsAnimationReplayPaused,
     isScrubbingTopRef,

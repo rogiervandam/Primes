@@ -1,15 +1,15 @@
 import { useMemo } from 'react';
 
 /**
- * Derives the three display-data values used by the event title banner,
- * surrounding-events context, and detail panel from the current step state.
+ * Derives the display-data values used by the surrounding-events context,
+ * and detail panel from the current step state.
  *
  * @param {object} params
  * @param {Array}    params.steps
  * @param {number}   params.currentStep
  * @param {Set}      params.selectedSteps
  * @param {function} params.buildCombinedSelectionOverlay
- * @returns {{ currentStepData, currentStepBanner, surroundingEvents }}
+ * @returns {{ currentStepData, surroundingEvents }}
  */
 export function useStepDisplayData({ steps, currentStep, selectedSteps, buildCombinedSelectionOverlay }) {
   const currentStepData = useMemo(() => {
@@ -64,43 +64,6 @@ export function useStepDisplayData({ steps, currentStep, selectedSteps, buildCom
     };
   }, [steps, currentStep, selectedSteps, buildCombinedSelectionOverlay]);
 
-  const currentStepBanner = useMemo(() => {
-    const s = currentStepData;
-    if (!s) {
-      return {
-        line1: `Event ${currentStep} | No event selected`,
-        annotationLines: [],
-        bitsChanged: 0,
-        title: 'No event selected',
-      };
-    }
-
-    const functionName = s.operation || 'Unknown';
-    const eventId = s.stepId ?? currentStep;
-    const primePart = s.prime != null ? ` | Prime ${s.prime}` : '';
-    const line1 = `Event ${eventId} | ${functionName}${primePart}`;
-
-    // Build annotation lines: first line is metadata, then each line of s.annotation.
-    const annotationLines = [];
-    const metaParts = [];
-    if (s.factorStep != null) metaParts.push(`Step size ${s.factorStep}`);
-    if (s.start != null && s.stop != null) metaParts.push(`Range ${s.start}–${s.stop}`);
-    if (metaParts.length > 0) annotationLines.push(metaParts.join(' | '));
-    if (s.annotation) {
-      const annLines = s.annotation.split('\n').filter(Boolean);
-      annotationLines.push(...annLines);
-    }
-
-    const bitsChanged = Number(s.numChanged) || 0;
-
-    return {
-      line1,
-      annotationLines,
-      bitsChanged,
-      title: [line1, ...annotationLines, bitsChanged > 0 ? `+${bitsChanged} bits changed` : ''].filter(Boolean).join(' | '),
-    };
-  }, [currentStep, currentStepData]);
-
   // Compact summary list for the surrounding events (-2, -1, +1, +2) shown in
   // the event-title widget so the user can see the local context of the
   // current event without having to open the full events panel.
@@ -137,5 +100,5 @@ export function useStepDisplayData({ steps, currentStep, selectedSteps, buildCom
     return out;
   }, [steps, currentStep]);
 
-  return { currentStepData, currentStepBanner, surroundingEvents };
+  return { currentStepData, surroundingEvents };
 }

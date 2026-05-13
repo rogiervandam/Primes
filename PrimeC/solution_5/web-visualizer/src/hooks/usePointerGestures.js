@@ -268,8 +268,8 @@ export function usePointerGestures({
       if (!r) return;
       // Don't capture pointer for interactive overlays inside the canvas area.
       // Without this, setPointerCapture() swallows the pointerup so buttons
-      // in .step-focus-banner and .bit-history-panel never fire click events.
-      if (e.target.closest('.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .joined-events-widget')) return;
+      // in .bit-history-panel never fire click events.
+      if (e.target.closest('.bit-history-panel, .detail-inspector-overlay, .joined-events-widget')) return;
       // item 141: track all pointers; ignore 3rd+ finger
       activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
       // item 329: three-finger drag activates 3D tilt gesture
@@ -515,7 +515,7 @@ export function usePointerGestures({
         }
         return !!hit.closest(
           '.toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, ' +
-          '.step-focus-banner, .events-panel-floating-title, .joined-events-widget, ' +
+          '.events-panel-floating-title, .joined-events-widget, ' +
           '.minimap-overlay-canvas, .trace-info-popover, .debug-tools-panel, ' +
           '.bit-history-panel, .double-timeline'
         );
@@ -619,7 +619,7 @@ export function usePointerGestures({
         // popups when the user is interacting with the widget itself.
         const t = e.target;
         if (t && typeof t.closest === 'function' && t.closest(
-          '.step-focus-banner, .bit-history-panel, .detail-inspector-overlay, .toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover, .debug-tools-panel, .joined-events-widget'
+          '.bit-history-panel, .detail-inspector-overlay, .toolbar, .events-panel, .settings-sidebar, .detail-panel, .timing-panel, .trace-info-popover, .debug-tools-panel, .joined-events-widget'
         )) {
           clearInteraction();
           return;

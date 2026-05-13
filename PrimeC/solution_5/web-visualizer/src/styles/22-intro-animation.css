@@ -118,7 +118,6 @@
 .main-content .events-panel,
 .main-content .settings-sidebar,
 .main-content .detail-panel,
-.main-content .step-focus-banner,
 .main-content .joined-events-widget {
   transition: opacity 240ms ease, transform 260ms ease;
 }
@@ -126,7 +125,6 @@
 .main-content.ui-chrome-hidden .events-panel,
 .main-content.ui-chrome-hidden .settings-sidebar,
 .main-content.ui-chrome-hidden .detail-panel,
-.main-content.ui-chrome-hidden .step-focus-banner,
 .main-content.ui-chrome-hidden .joined-events-widget {
   opacity: 0;
   pointer-events: none;
@@ -135,7 +133,6 @@
 .main-content.ui-chrome-visible .events-panel,
 .main-content.ui-chrome-visible .settings-sidebar,
 .main-content.ui-chrome-visible .detail-panel,
-.main-content.ui-chrome-visible .step-focus-banner,
 .main-content.ui-chrome-visible .joined-events-widget {
   opacity: 1;
 }

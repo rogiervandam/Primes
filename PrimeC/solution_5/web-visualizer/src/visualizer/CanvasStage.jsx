@@ -18,7 +18,7 @@ import CanvasOverlayManager from './CanvasOverlayManager';
  * @param {object}   props.canvasStyles            - Canvas styling (camera3DContainerStyle, renderCanvasStyle)
  * @param {object}   props.overlay                 - CanvasOverlayManager props (all overlay-related state/handlers)
  * @param {object}   props.detail                  - DetailPanel props (all detail-related state/handlers)
- * @param {object}   props.intro                   - Intro animation state (introPhase, onIntroTransitionEnd, isSingleEventWidgetRevealed)
+ * @param {object}   props.intro                   - Intro animation state (introPhase, onIntroTransitionEnd)
  *
  */
 function CanvasStage({
@@ -55,14 +55,11 @@ function CanvasStage({
   const {
     introPhase = 'visible',
     onIntroTransitionEnd,
-    isSingleEventWidgetRevealed = true,
   } = intro;
 
   const overlayState = {
     eventTitleSettings: overlay.eventTitleSettings,
     eventTitleStyle: overlay.eventTitleStyle,
-    currentStepBanner: overlay.currentStepBanner,
-    surroundingEvents: overlay.surroundingEvents,
     currentStepData: overlay.currentStepData,
     currentStep: overlay.currentStep,
     isEventsPanelCollapsed: overlay.isEventsPanelCollapsed,
@@ -84,7 +81,6 @@ function CanvasStage({
     steps: overlay.steps,
     benchmarkTimingData: overlay.benchmarkTimingData,
     benchmarkTimingFileName: overlay.benchmarkTimingFileName,
-    isSingleEventWidgetRevealed,
     // item 331: group inspector
     groupInspectorUnit: overlay.groupInspectorUnit,
     groupInspectorEffectiveGroupBits: overlay.groupInspectorEffectiveGroupBits,

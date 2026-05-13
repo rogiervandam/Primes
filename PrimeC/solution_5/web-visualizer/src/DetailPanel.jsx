@@ -40,7 +40,7 @@ function layoutPos(layout, index) {
  * 
  * @param {object}   props
  * @param {object}   props.detailState              - Panel state (step, stepIndex, open, height, width, playing, stepStats, bitLayout, byteLayout, eventTitleVisible, sourceLineNumber, hasRawSource)
- * @param {object}   props.detailConfig             - Panel config (storageModel, wheelDefinition, benchmarkTimingData, eventAnimSliders, allEventsTransport)
+ * @param {object}   props.detailConfig             - Panel config (storageModel, wheelDefinition, benchmarkTimingData, allEventsTransport)
  * @param {object}   props.detailHandlers           - Panel handlers (onToggle, onHeightChange, onWidthChange, onInspectChangedBits, onInspectMarkedNumbers, onShowEventTitle, onHideEventTitle, onOpenRawLog)
  * 
  */
@@ -67,16 +67,14 @@ export default function DetailPanel({
     isHeaderHidden = false,
     // item 157: floating panel
     isFloating = false,
-    // item 162: separate show-states for all-events floater and single-event slider
+    // item 162: show-state for all-events floater
     isAllEventsInDetailPanel = false,
-    isSingleEventSliderInPanel = false,
   } = detailState;
 
   const {
     storageModel,
     wheelDefinition,
     benchmarkTimingData,
-    eventAnimSliders,
     allEventsTransport,
     surroundingEvents,   /* item 178: nearby events section */
   } = detailConfig;
@@ -93,9 +91,8 @@ export default function DetailPanel({
     onAggMaskStepChange,
     // item 350: open group inspector from detail panel (no balloons needed)
     onInspectAnnotationUnit,
-    // item 162: separate toggle buttons for all-events floater and single-event slider
+    // item 162: separate toggle button for all-events floater
     onToggleAllEventsFloater,
-    onToggleSingleEventSlider,
     // item 157: dock floating panel back to the bottom
     onDockDetailPanel,
   } = detailHandlers;
@@ -103,11 +100,9 @@ export default function DetailPanel({
   // item 178: goToStep from playback context for nearby-events navigation
   const { goToStep } = usePlaybackContext();
 
-  // item 162: dock row shows floater when isAllEventsInDetailPanel=true, slider when isSingleEventSliderInPanel=true
-  // Both can be shown simultaneously; neither shown by default
+  // item 162: dock row shows floater when isAllEventsInDetailPanel=true
   const showAllEventsInPanel = isAllEventsInDetailPanel && !!allEventsTransport;
-  const showSingleEventInPanel = isSingleEventSliderInPanel && !!eventAnimSliders;
-  const hasDockContent = showAllEventsInPanel || showSingleEventInPanel;
+  const hasDockContent = showAllEventsInPanel;
   // Benchmark timing row matching the current step's operation (if any)
   const benchmarkOpTiming = useMemo(() => {
     if (!step || !benchmarkTimingData || !Array.isArray(benchmarkTimingData.timings)) return null;
@@ -683,18 +678,9 @@ export default function DetailPanel({
                 {allEventsTransport}
               </div>
             )}
-            {showSingleEventInPanel && eventAnimSliders && (
-              <div
-                className="detail-panel-all-events-transport"
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                {eventAnimSliders}
-              </div>
-            )}
           </div>
         )*/}
-        {/* item 162: left toggle = all-events floater, right toggle = single-event slider */}
+        {/* item 162: left toggle = all-events floater */}
         <div className="detail-panel-widget-toggles">
           {onToggleAllEventsFloater && (
             <button
@@ -702,13 +688,6 @@ export default function DetailPanel({
               onClick={(e) => { e.stopPropagation(); onToggleAllEventsFloater(); }}
               title={showAllEventsInPanel ? 'Hide all-events transport' : 'Show all-events transport'}
             >≡</button>
-          )}
-          {onToggleSingleEventSlider && (
-            <button
-              className={`detail-panel-widget-btn${showSingleEventInPanel ? ' detail-panel-widget-btn--active' : ''}`}
-              onClick={(e) => { e.stopPropagation(); onToggleSingleEventSlider(); }}
-              title={showSingleEventInPanel ? 'Hide single-event slider' : 'Show single-event slider'}
-            >▷</button>
           )}
         </div>
         {/* item 157: dock button — only shown when floating */}

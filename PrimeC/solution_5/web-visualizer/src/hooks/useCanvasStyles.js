@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 /**
- * Computes the three CSS style objects used to position and style the canvas
+ * Computes the two CSS style objects used to position and style the canvas
  * and its surrounding container.
  *
  * @param {object} params
@@ -10,8 +10,7 @@ import { useMemo } from 'react';
  * @param {object}      params.camera3DContainerStyle - Base container style from use3DCamera
  * @param {object|null} params.canvasColors          - Per-theme canvas background overrides
  * @param {string}      params.theme                 - Current theme ('dark' | 'light')
- * @param {object}      params.eventTitleSettings    - Event title banner settings (scale, dragOffsetX/Y)
- * @returns {{ renderCanvasStyle, mergedCamera3DContainerStyle, eventTitleStyle }}
+ * @returns {{ renderCanvasStyle, mergedCamera3DContainerStyle }}
  */
 export function useCanvasStyles({
   canvasAnchorPx,
@@ -19,7 +18,6 @@ export function useCanvasStyles({
   camera3DContainerStyle,
   canvasColors,
   theme,
-  eventTitleSettings,
 }) {
   const renderCanvasStyle = useMemo(() => (
     // Unified: canvas is ALWAYS the oversized centered plane,
@@ -84,22 +82,5 @@ export function useCanvasStyles({
     return { ...base, background: bgCss };
   }, [camera3DContainerStyle, canvasAnchorPx, canvasColors, theme]);
 
-  const eventTitleStyle = useMemo(() => {
-    const scale = Math.max(0.7, Math.min(1.6, (eventTitleSettings.scale || 100) / 100));
-    const ox = Number.isFinite(eventTitleSettings.dragOffsetX) ? eventTitleSettings.dragOffsetX : 0;
-    const oy = Number.isFinite(eventTitleSettings.dragOffsetY) ? eventTitleSettings.dragOffsetY : 0;
-    return {
-      fontSize: `${14 * scale}px`,
-      // padding: `${Math.round(10 * scale)}px ${Math.round(14 * scale)}px`,
-      // Width stays stable across events so the sliders don't jump around.
-      width: `${Math.round(420 * scale)}px`,
-      maxWidth: `min(${Math.round(600 * scale)}px, calc(100% - 160px))`,
-      minHeight: `${Math.round(150 * scale)}px`,
-      // Anchored by bottom-left (see CSS .step-focus-banner: bottom/left fixed).
-      // Drag offset nudges from the anchored origin.
-      transform: `translate(${ox}px, ${oy}px)`,
-    };
-  }, [eventTitleSettings]);
-
-  return { renderCanvasStyle, mergedCamera3DContainerStyle, eventTitleStyle };
+  return { renderCanvasStyle, mergedCamera3DContainerStyle };
 }

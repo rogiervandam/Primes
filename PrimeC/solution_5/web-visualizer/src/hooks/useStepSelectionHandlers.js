@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 
 export function useStepSelectionHandlers({
   stopPlayback,
-  setIsSingleEventWidgetRevealed,
   goToStep,
   globalPausedRef,
   setIsAnimationReplayPaused,
@@ -10,9 +9,8 @@ export function useStepSelectionHandlers({
 }) {
   const handleStepSelection = useCallback((stepIndex) => {
     stopPlayback();
-    setIsSingleEventWidgetRevealed(true);
     goToStep(stepIndex);
-  }, [stopPlayback, goToStep, setIsSingleEventWidgetRevealed]);
+  }, [stopPlayback, goToStep]);
 
   const handleMultiStepSelect = useCallback((nextSelection) => {
     stopPlayback();

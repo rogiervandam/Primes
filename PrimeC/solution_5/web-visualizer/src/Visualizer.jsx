@@ -13,8 +13,6 @@ import Toolbar from './visualizer/Toolbar';
 import ExportProgress from './visualizer/ExportProgress';
 import CanvasStage from './visualizer/CanvasStage';
 import VisualizerMainContent from './visualizer/VisualizerMainContent';
-import EventTitleBanner from './visualizer/EventTitleBanner';
-import JoinedEventsWidget from './visualizer/JoinedEventsWidget';
 import DetailInspectorOverlay from './visualizer/DetailInspectorOverlay';
 import BitHistoryBalloons from './visualizer/BitHistoryBalloons';
 import KeyboardShortcutsOverlay from './visualizer/KeyboardShortcutsOverlay';
@@ -226,7 +224,6 @@ export default function Visualizer({
     animMode, setAnimMode,
     animStyle, setAnimStyle,
     delayBetweenEvents, setDelayBetweenEvents, delayBetweenEventsRef,
-    delayBetweenRepeats, setDelayBetweenRepeats, delayBetweenRepeatsRef,
     eventTimeTargets, setEventTimeTargets, eventTimeTargetsRef,
     eventDurationMode, setEventDurationMode, eventDurationModeRef,
     bitAnimInterval, setBitAnimInterval,
@@ -235,12 +232,11 @@ export default function Visualizer({
     stepSpeedValue, maskSpeedValue, setStepSpeedValue, setMaskSpeedValue,
     cycleAnimStyle, cycleAnimMode, animStyleInfo, animModeInfo,
     animateBitsMode, setAnimateBitsMode, animateBitsModeRef,  // item 244
+    delayBetweenRepeats, setDelayBetweenRepeats,
   } = useAnimationConfig({ initialPrefs });
 
   const {
     bitAnimationMode, setBitAnimationMode, bitAnimationModeRef,
-    isSingleEventLoopActive, setIsSingleEventLoopActive, isSingleEventLoopActiveRef,
-    isSingleEventRepeatEnabled, setIsSingleEventRepeatEnabled, isSingleEventRepeatEnabledRef,
     isAutoAnimateOnSelect, setIsAutoAnimateOnSelect, isAutoAnimateOnSelectRef,
     isAnimationReplayPaused, setIsAnimationReplayPaused,
     isScrubbingTopRef,
@@ -252,11 +248,6 @@ export default function Visualizer({
     pausedStepAnimLoopRef, selectedAnimLoopRef,
     handleBitAnimationModeChange,
   } = useStepAnimation({ initialPrefs });
-
-  // item 290: repeat start fraction (0-100) — where animation restarts when single-event repeat is on
-  const [repeatFraction, setRepeatFraction] = useState(() => Number(initialPrefs.repeatFraction) || 100);
-  const repeatFractionRef = useRef(repeatFraction);
-  repeatFractionRef.current = repeatFraction;
 
   // Tracks which sub-event's mask is currently shown during aggregated event animation/scrubbing.
   // Updated by animation hooks; used by DetailPanel to show the correct mask for each step.
@@ -300,9 +291,7 @@ export default function Visualizer({
 
   const {
     isAllEventsWidgetHidden, setIsAllEventsWidgetHidden,
-    isSingleEventWidgetRevealed, setIsSingleEventWidgetRevealed,
     isAllEventsInDetailPanel, setIsAllEventsInDetailPanel,
-    isSingleEventSliderInPanel, setIsSingleEventSliderInPanel,
     areWidgetsJoined, setAreWidgetsJoined,
     joinBannerRect, setJoinBannerRect,
     pendingBannerDragStart, setPendingBannerDragStart,
@@ -331,7 +320,7 @@ export default function Visualizer({
     isDetailHeaderHidden, setIsDetailHeaderHidden,
     // item 157: floating detail panel
     isDetailPanelFloating, setIsDetailPanelFloating,
-  } = usePanelState({ initialPrefs, introPhase, isSingleEventWidgetRevealed });
+  } = usePanelState({ initialPrefs, introPhase });
 
   // item 163: undocked double timeline (floats freely over canvas)
   const [isTimelineUndocked, setIsTimelineUndocked] = useState(false);
@@ -577,8 +566,9 @@ export default function Visualizer({
 
   const { stopPlayback } = useStopPlayback({ setPlaying, playTimeoutRef, playTimerRef });
 
-  // item 215: stable callback so EventsPanel memo is not broken on every re-render
-  const enableRepeat = useCallback(() => setIsSingleEventRepeatEnabled(true), []);
+  // item 215: no-op stub; enableRepeat was for single-event repeat which is removed
+  // eslint-disable-next-line no-unused-vars
+  const enableRepeat = useCallback(() => {}, []);
 
   const stopSeqAnim = useCallback(() => {
     if (seqTimerRef.current) {
@@ -694,8 +684,6 @@ export default function Visualizer({
     isAllEventsWidgetHidden,
     areWidgetsJoined,
     isAllEventsInDetailPanel,
-    isSingleEventSliderInPanel,
-    isSingleEventRepeatEnabled,
     isAutoAnimateOnSelect,
     isEventsPanelCollapsed,
     isSettingsCollapsed,
@@ -798,7 +786,6 @@ export default function Visualizer({
     stopSeqAnim,
     pausedStepAnimLoopRef,
     selectedAnimLoopRef,
-    setIsSingleEventLoopActive,
     setIsAnimationReplayPaused,
     setDelayPhaseMsRef,
     rendererRef,
@@ -828,8 +815,6 @@ export default function Visualizer({
     currentStep,
     playing,
     stopPlayback,
-    isSingleEventLoopActiveRef,
-    setIsSingleEventLoopActive,
     isScrubbingTopRef,
     selectedStepsRef,
     initialHighlightHoldRef,
@@ -852,8 +837,6 @@ export default function Visualizer({
     pinnedBitIndices,
     effectiveGroupBits,
     animateBitsModeRef,  // item 244: 'changed' | 'targeted'
-    isSingleEventRepeatEnabledRef,  // item 281
-    delayBetweenRepeats,            // item 281
   });
 
   // Stable wrapper — goToStep recreates on every render (currentStep in deps).
@@ -902,7 +885,6 @@ export default function Visualizer({
       setIsStepAnimRunningRef,
       stopSeqAnimRef,
       triggerAnimationRef,
-      isSingleEventLoopActiveRef,
       selectedAnimLoopRef,
       stepScrubProgressValueRef,
       stepResumeStartIndexRef,
@@ -981,7 +963,6 @@ export default function Visualizer({
   // would otherwise cascade into EventsPanel re-rendering on every step).
   const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({
     stopPlayback,
-    setIsSingleEventWidgetRevealed,
     goToStep: stableGoToStep,
     globalPausedRef,
     setIsAnimationReplayPaused,
@@ -991,7 +972,6 @@ export default function Visualizer({
   useSelectionOrchestration({
     steps,
     initialHighlightHoldRef,
-    setIsSingleEventWidgetRevealed,
     goToStep,
     selectedSteps,
     rendererRef,
@@ -1016,18 +996,14 @@ export default function Visualizer({
       pausedStepAnimLoopRef,
       playTimeoutRef,
       playTimerRef,
-      isSingleEventLoopActiveRef,
       isScrubbingTopRef,
       initialHighlightHoldRef,
-      delayBetweenRepeatsRef,
       delayBetweenEventsRef,   // item 217: auto-advance to next event when repeat disabled
       stepResumeStartIndexRef,
       stepResumeMaskProgressRef,
       setIsStepAnimRunningRef,
       isStepAnimRunningRefForScheduler,
       isAutoAnimateOnSelectRef,
-      isSingleEventRepeatEnabledRef,
-      repeatFractionRef,  // item 290
     },
     loopState: {
       playing,
@@ -1035,12 +1011,10 @@ export default function Visualizer({
       currentStep,
       selectedSteps,
       isAnimationReplayPaused,
-      isSingleEventLoopActive,
     },
     loopHandlers: {
       setPlaying,
       setCurrentStep,
-      setIsSingleEventLoopActive,
     },
     loopConfig: {
       isAutoAnimateOnSelect,
@@ -1059,17 +1033,14 @@ export default function Visualizer({
   //  - Playing: set pause flag (in-flight loops freeze in place) and stop the
   //    scheduler. Refs are NOT torn down so resume can pick up.
   const { handlePlayPause, handleStepAnimToggle } = usePlaybackControls({
-    setIsSingleEventWidgetRevealed,
     globalPausedRef,
     setIsAnimationReplayPaused,
-    setIsSingleEventLoopActive,
     currentStep,
     stepsLength: steps.length,
     isStepAnimRunning,
     setPlaying,
     playing,
     goToStep,
-    isSingleEventLoopActiveRef,
     stepsRef,
     rendererRef,
     selectedStepsRef,
@@ -1213,7 +1184,7 @@ export default function Visualizer({
   // State and handler live in useSearchState (src/hooks/useSearchState.js),
   // wired above after navigateToBit.
 
-  const { currentStepData, currentStepBanner, surroundingEvents } = useStepDisplayData({
+  const { currentStepData, surroundingEvents } = useStepDisplayData({
     steps,
     currentStep,
     selectedSteps,
@@ -1225,13 +1196,12 @@ export default function Visualizer({
     aggMaskStepSetterRef.current(0);
   }, [selectedSteps]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { renderCanvasStyle, mergedCamera3DContainerStyle, eventTitleStyle } = useCanvasStyles({
+  const { renderCanvasStyle, mergedCamera3DContainerStyle } = useCanvasStyles({
     canvasAnchorPx,
     introPhase,
     camera3DContainerStyle,
     canvasColors,
     theme,
-    eventTitleSettings,
   });
 
   const themeContextValue = useMemo(() => ({
@@ -1316,8 +1286,6 @@ export default function Visualizer({
     setIsAnimationReplayPaused,
     bitAnimationMode,
     handleBitAnimationModeChange,
-    isSingleEventRepeatEnabled,
-    setIsSingleEventRepeatEnabled,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
     animateBitsMode,          // item 244
@@ -1339,8 +1307,6 @@ export default function Visualizer({
     setIsAnimationReplayPaused,
     bitAnimationMode,
     handleBitAnimationModeChange,
-    isSingleEventRepeatEnabled,
-    setIsSingleEventRepeatEnabled,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
     animateBitsMode,          // item 244
@@ -1465,32 +1431,12 @@ export default function Visualizer({
     setBitAnimationMode,
   });
 
-  const { stepAnimSlidersContent, stepAnimSlidersDockedContent, allEventsTransportContent } = useStepAnimContent({
-    currentStepData,
-    bitAnimationMode,
-    setBitAnimationMode,
-    bitAnimationModeRef,
-    stopSeqAnim,
-    seekStepAnimation,
-    stepScrubProgress,
-    setStepScrubProgress,
-    handleStepAnimToggle,
-    isStepAnimRunning,
-    isSingleEventLoopActive,
-    isAnimationReplayPaused,
-    delayPhaseMs,
-    playing,
-    exporting,
-    openAnimationSettings,
-    isSingleEventRepeatEnabled,
-    setIsSingleEventRepeatEnabled,
-    aggMaskStepIndex,
-    aggMaskStepSetterRef,
-    setEventTitleSettings,
-    setPendingBannerDragStart,
+  const { allEventsTransportContent } = useStepAnimContent({
     isAllEventsInDetailPanel,
     currentStep,
     steps,
+    playing,
+    exporting,
     handlePlayPause,
     goToStep,
     isScrubbingTopRef,
@@ -1555,7 +1501,6 @@ export default function Visualizer({
       mode: animMode,
       style: animStyle,
       delayBetweenEvents,
-      delayBetweenRepeats,
       eventTimeTargets,
       eventDurationMode,
       bitAnimInterval,
@@ -1565,7 +1510,6 @@ export default function Visualizer({
     },
     runtime: {
       bitAnimationMode,
-      isSingleEventLoopActive,
       isAutoAnimateOnSelect,
       isAnimationReplayPaused,
       isStepAnimRunning,
@@ -1573,7 +1517,6 @@ export default function Visualizer({
       delayPhaseMs,
     },
     refs: {
-      delayBetweenRepeats: delayBetweenRepeatsRef,
       eventTimeTargets: eventTimeTargetsRef,
       eventDurationMode: eventDurationModeRef,
       bitsAtTimeRatio: bitsAtTimeRatioRef,
@@ -1655,7 +1598,6 @@ export default function Visualizer({
     },
     widgets: {
       allEventsHidden: isAllEventsWidgetHidden,
-      singleEventRevealed: isSingleEventWidgetRevealed,
       allEventsInDetail: isAllEventsInDetailPanel,
       areJoined: areWidgetsJoined,
       joinBannerRect,
@@ -1827,7 +1769,6 @@ export default function Visualizer({
       styles: {
         merged3D: mergedCamera3DContainerStyle,
         render: renderCanvasStyle,
-        eventTitle: eventTitleStyle,
       },
       camera3D: {
         transform: camera3DTransform,
@@ -1863,11 +1804,8 @@ export default function Visualizer({
     // Animation & content rendering
     animation: {
       content: {
-        stepAnimSliders: stepAnimSlidersContent,
-        stepAnimSlidersDocked: stepAnimSlidersDockedContent,
         allEventsTransport: allEventsTransportContent,
       },
-      currentStepBanner,
       surroundingEvents,
       currentStepData,
       aggMaskStepIndex,
@@ -1879,10 +1817,7 @@ export default function Visualizer({
         setStepScrubProgress,
         handleStepAnimToggle,
         isStepAnimRunning,
-        isSingleEventLoopActive,
         isAnimationReplayPaused,
-        isSingleEventRepeatEnabled,
-        onToggleRepeat: () => setIsSingleEventRepeatEnabled((v) => !v),
         onOpenAnimationSettings: openAnimationSettings,
         exporting,
         // item 159: left/right panel toggles in the timeline
@@ -1909,9 +1844,6 @@ export default function Visualizer({
         onDockTimeline: () => { setIsTimelineUndocked(false); setFloatingDetailVisible(false); },
         floatingDetailVisible,
         onToggleFloatingDetail: () => setFloatingDetailVisible((v) => !v),
-        // item 290: repeat start fraction
-        repeatFraction,
-        onRepeatFractionChange: setRepeatFraction,
         // item 321: timeline strip colors
         timelineColors,
         // item 322/323: floater zone bg and dragger color
@@ -1976,7 +1908,6 @@ export default function Visualizer({
     // Event title & widget management
     eventTitle: {
       settings: eventTitleSettings,
-      style: eventTitleStyle,
       handlers: {
         setSettings: setEventTitleSettings,
         showAboveCurrentDetail: showEventTitleAboveCurrentDetail,
@@ -1988,7 +1919,6 @@ export default function Visualizer({
     widgets: {
       state: {
         areJoined: widgetsPanelState.areJoined,
-        isSingleEventRevealed: widgetsPanelState.singleEventRevealed,
         joinBannerRect: widgetsPanelState.joinBannerRect,
         pendingBannerDragStart: widgetsPanelState.pendingBannerDragStart,
         revealStepRequest: widgetsPanelState.revealStepRequest,
@@ -2003,11 +1933,9 @@ export default function Visualizer({
         split: splitWidgets,
         join: joinWidgets,
         setPendingDragStart: setPendingBannerDragStart,
-        // item 162: separate toggle for all-events floater and single-event slider in detail panel
+        // item 162: separate toggle for all-events floater in detail panel
         toggleAllEventsFloater: () => setIsAllEventsInDetailPanel((v) => !v),
         isAllEventsInDetailPanel,
-        toggleSingleEventSlider: () => setIsSingleEventSliderInPanel((v) => !v),
-        isSingleEventSliderInPanel,
       },
     },
 
