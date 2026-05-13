@@ -272,6 +272,7 @@ export default function Visualizer({
     isRangeOverlayEnabled, setIsRangeOverlayEnabled,
     rangeOverlayStart, setRangeOverlayStart,
     rangeOverlayEnd, setRangeOverlayEnd,
+    rangeOverlayUnit, setRangeOverlayUnit,
     isMultiplesOverlayEnabled, setIsMultiplesOverlayEnabled,
     multiplesOverlayPrime, setMultiplesOverlayPrime,
     cachelineSize, setCachelineSize,
@@ -1529,8 +1530,8 @@ export default function Visualizer({
     cachelineAnnotation, cachePreset, setCachelineSize, setCachelineAnnotation, setCachePreset,
     isPrimeOverlayEnabled, setIsPrimeOverlayEnabled,
     // Overlays: range
-    isRangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd,
-    setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd,
+    isRangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, rangeOverlayUnit,
+    setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd, setRangeOverlayUnit,
     // Overlays: multiples
     isMultiplesOverlayEnabled, multiplesOverlayPrime,
     setIsMultiplesOverlayEnabled, setMultiplesOverlayPrime,

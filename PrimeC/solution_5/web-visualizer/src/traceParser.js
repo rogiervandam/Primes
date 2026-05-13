@@ -324,6 +324,7 @@ function createParsedStep({
   start,
   stop,
   factorStep,
+  rangeKind,
   changedBits,
   numTargeted,
   targetBits,
@@ -351,6 +352,7 @@ function createParsedStep({
     start: toNullableNumber(start),
     stop: toNullableNumber(stop),
     factorStep: toNullableNumber(factorStep),
+    rangeKind: rangeKind || 'bit',
     changedBits: new Uint32Array(changedBits || []),
     numChanged: (changedBits || []).length,
     numTargeted: numTargeted ?? 0,
@@ -415,6 +417,11 @@ function extractNewStyleStepData(annotation, meta, inferredDepth) {
   const metaDepth = toNullableNumber(firstDefined(meta.depth, meta.call_depth));
   const depth = Math.max(0, metaDepth != null ? metaDepth : inferredDepth);
 
+  // When JSON provides explicit start/stop they are always bit indices.
+  // Only fall back to inferred rangeKind when JSON has no explicit range.
+  const hasExplicitRange = meta.start != null || meta.stop != null || meta.begin != null || meta.end != null;
+  const rangeKind = hasExplicitRange ? 'bit' : (meta.range_kind || inferred.rangeKind || 'bit');
+
   // Extract changed_bits from JSON array (new format emits this directly)
   const changedBits = Array.isArray(meta.changed_bits)
     ? meta.changed_bits.filter((v) => Number.isFinite(v) && v >= 0)
@@ -432,14 +439,15 @@ function extractNewStyleStepData(annotation, meta, inferredDepth) {
     start,
     stop,
     factorStep,
+    rangeKind,
     changedBits,
     targetBits: hasExplicitTargetBits ? maskMeta.targetBits : changedBits,
     targetHitCounts: maskMeta.targetHitCounts.length > 0
       ? maskMeta.targetHitCounts
       : changedBits.map(() => 1),
     numTargeted: hasExplicitTargetBits ? maskMeta.targetBits.length : 0,
-    focusStart: maskMeta.focusStart ?? start,
-    focusStop: maskMeta.focusStop ?? stop,
+    focusStart: maskMeta.focusStart ?? (rangeKind === 'bit' ? start : null),
+    focusStop: maskMeta.focusStop ?? (rangeKind === 'bit' ? stop : null),
     patternKind: patternMeta.kind,
     patternSlotCount: patternMeta.slotCount,
     patternSlotBits: patternMeta.slotBits,

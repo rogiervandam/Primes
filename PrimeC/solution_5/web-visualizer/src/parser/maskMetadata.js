@@ -104,12 +104,50 @@ export function buildMaskWriteOrder(wordStart, wordStop, stepWords, maskSlotBits
 export function inferMetaFromAnnotation(annotation) {
   const text = String(annotation || '');
   const lower = text.toLowerCase();
-  const out = { start: null, stop: null, factorStep: null };
+  const out = { start: null, stop: null, factorStep: null, rangeKind: 'bit' };
 
   const range = lower.match(/(\d+)\s*(?:-|\.\.|to)\s*(\d+)/);
   if (range) {
     out.start = Number(range[1]);
     out.stop = Number(range[2]);
+  }
+
+  // Detect the unit/kind of the range from annotation keywords.
+  // Priority: explicit bit keywords > typed keywords (uint*) > byte > number keywords > default bit.
+  const bitRangeKw = /\bbit\s*range\b|\bbitrange\b|\brange.*bit\b|\bbit.*range\b/;
+  const uint64vKw = /\buint64v(\d+)\b/;
+  const uint32vKw = /\buint32v(\d+)\b/;
+  const uint16vKw = /\buint16v(\d+)\b/;
+  const uint64Kw = /\buint64\b/;
+  const uint32Kw = /\buint32\b/;
+  const uint16Kw = /\buint16\b/;
+  const byteKw = /\bbytes?\b/;
+  const numberKw = /\b(?:factor\s+range|number\s+range|numbers?\s+\d|factors?\s+\d)\b/;
+
+  if (bitRangeKw.test(lower)) {
+    out.rangeKind = 'bit';
+  } else {
+    const m64v = lower.match(uint64vKw);
+    const m32v = lower.match(uint32vKw);
+    const m16v = lower.match(uint16vKw);
+    if (m64v) {
+      out.rangeKind = `uint64v${m64v[1]}`;
+    } else if (m32v) {
+      out.rangeKind = `uint32v${m32v[1]}`;
+    } else if (m16v) {
+      out.rangeKind = `uint16v${m16v[1]}`;
+    } else if (uint64Kw.test(lower)) {
+      out.rangeKind = 'uint64';
+    } else if (uint32Kw.test(lower)) {
+      out.rangeKind = 'uint32';
+    } else if (uint16Kw.test(lower)) {
+      out.rangeKind = 'uint16';
+    } else if (byteKw.test(lower)) {
+      out.rangeKind = 'byte';
+    } else if (numberKw.test(lower)) {
+      out.rangeKind = 'number';
+    }
+    // else: keep default 'bit'
   }
 
   out.start = firstAliasNumberInText(text, START_ALIASES, out.start);
