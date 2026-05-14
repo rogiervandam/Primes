@@ -10,7 +10,7 @@ performBenchmarks(options_t option, sieve_t* (*sieveFunction)(const counter_t), 
     if (option.explain_level || option.trace_level) return runSingleSievePass(option.fixed_benchmark_settings, sieveFunction, algorithm_name, algorithm_type);
 
     #ifdef COMPILE_BENCHMARK_STRIPERS
-    if (option.tunelevel == 5) return benchmarkSieveSetBitsTrue();
+    if (option.tunelevel == 5) return benchmarkSieveSetBitsTrue(option, sieveFunction);
     if (option.tunelevel == 6) return createStepplan(option.fixed_benchmark_settings);
     #endif
 

@@ -22,7 +22,7 @@ static inline void clear_cache() {
 static void listSetBitsTrueMethods() {
     for (int m = 0; m < methods; m++) {
         printf("%3d %-50s", m, setBitsTrueMethods[m].name);
-        if ((m + 1) % 4 == 0 || m == methods - 1) printf("\n");
+        if ((m + 1) % 2 == 0 || m == methods - 1) printf("\n");
     }
 }
 
@@ -44,19 +44,33 @@ static void printStripePasses(const counter_t stripe_passes[methods + 1], counte
 // it benchmarks the different methods and keeps the resulting times or passed in an array
 // it sorts the results from best to worst
 // the array contains for each stepsize the best method
-static inline void benchmarkSetBitsTrue(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max)
+static inline void benchmarkSetBitsTrue(void* restrict bitstorage, const counter_t block_start, const counter_t block_stop, const counter_t prime_start, const counter_t prime_max, storage_type storage)
 {
-    counter_t prime = prime_start;
+    // shake the sieve one time to make an array of primes between prime_start and prime_max in the cache
+    counter_t primes[1000] = {0}, prime_count = 0;
+    sieve_t* sieve = shakeSieve(prime_max * prime_max);
+    for (counter_t p = prime_start; p < prime_max && prime_count < 1000; p = findUnmarked(sieve, p), prime_count++) {
+        primes[prime_count] = p;
+    }
+    sieve_delete(sieve);
+
+    log1("Benchmarking setBitsTrue functions for block range %ju - %ju and prime range %ju - %ju (%ju primes)", (uintmax_t)block_start, (uintmax_t)block_stop, (uintmax_t)prime_start, (uintmax_t)prime_max, (uintmax_t)prime_count);
+    // counter_t storage = option.fixed_benchmark_settings.storage;
 
     counter_t stripe_passes[1000][methods+1];
     for(int i=0; i<1000; i++) { for(int j=0; j<methods; j++) { stripe_passes[i][j] = 0; } }
 
+    printf("\n");
     listSetBitsTrueMethods();
 
     // Loop through all primes and benchmark the methods
-    while (prime < prime_max) {
-        register const counter_t step = prime * 2 + 1;
-        register counter_t start = compute_start(prime, block_start);
+    for(counter_t prime_index=0; prime_index < prime_count; prime_index++) {
+        // log1("Benchmarking for prime index %ju\n", (uintmax_t)prime_index);
+        counter_t prime = primes[prime_index];
+        register const counter_t step = calcStep(prime, storage);
+        register counter_t start = calcStart(prime, block_start, storage);
+        register counter_t stop = calcStop(block_stop, storage);
+        // log1("Benchmarking for prime %ju with step %ju start %ju stop %ju\n", (uintmax_t)prime, (uintmax_t)step, (uintmax_t)start, (uintmax_t)stop);
 
         for(int m=0; m < methods; m++) {
             const SetBitsTrueMethod* method = &setBitsTrueMethods[m];
@@ -71,48 +85,50 @@ static inline void benchmarkSetBitsTrue(void* restrict bitstorage, const counter
                 counter_t passes = 0;
                 
                 while (time_elapsed <= time_target) {
-                        method->func(bitstorage, start, block_stop, step);
+                        method->func(bitstorage, start, stop, step);
                         passes++;
                         time_elapsed = benchmarkTime();
                 }
                 stripe_passes[step][m] = passes;
             }
         }
-        prime = searchBitFalse_uint8(bitstorage, prime);
     }
 
     // Print the results. First row has the method numbers
-    printf( COLOR_BLUE "Step      ");  for(int method=0; method < methods; method++) printf("%6ju ", (uintmax_t)method);  printf( COLOR_RESET "\n");
+    printf( COLOR_DARK_GRAY " Prime " COLOR_RESET COLOR_BLUE  " Step ");  for(int method=0; method < methods; method++) printf("%6ju ", (uintmax_t)method);  printf( COLOR_RESET "\n");
 
     // Loop through all steps and print the results
-    for(int step=1; step<prime_max*2+1; step+=2) {
-        counter_t prime = (step-1) >> 1;
-        if (checkBitFalse_uint8(bitstorage, prime) ) {
-            // Find the maximum and second largest value among methods 4-18
-            counter_t max_value = 0 ,second_max_value = 0;
-            for(int method=0; method<methods; method++) {
-                if (stripe_passes[step][method] > max_value) {
-                    second_max_value = max_value;
-                    max_value = stripe_passes[step][method];
-                } 
-                else if (stripe_passes[step][method] > second_max_value) {
-                    second_max_value = stripe_passes[step][method];
-                }
+    for(counter_t prime_index=0; prime_index < prime_count; prime_index++) {
+        counter_t prime = primes[prime_index];
+        counter_t step = calcStep(prime, storage);
+        // Find the maximum and second largest value among methods 4-18
+        counter_t max_value = 0 ,second_max_value = 0;
+        for(int method=0; method<methods; method++) {
+            if (stripe_passes[step][method] > max_value) {
+                second_max_value = max_value;
+                max_value = stripe_passes[step][method];
+            } 
+            else if (stripe_passes[step][method] > second_max_value) {
+                second_max_value = stripe_passes[step][method];
             }
-            
-            // Print all method values, highlighting the max and second largest among methods 4-18
-            printf( COLOR_BLUE "Step %4ju " COLOR_RESET, (uintmax_t)step);
-            printStripePasses(stripe_passes[step], max_value);
-            printf(" Ratio: %.2f\n", (block_stop - compute_start(prime, block_start)) / (double)step);
         }
+        
+        // Print all method values, highlighting the max and second largest among methods 4-18
+        printf( COLOR_DARK_GRAY "%6ju " COLOR_RESET COLOR_BLUE "%5ju " COLOR_RESET, (uintmax_t)prime, (uintmax_t)step);
+        printStripePasses(stripe_passes[step], max_value);
+        printf( COLOR_DARK_GRAY " - Ratio: %8.2f" COLOR_RESET "\n", (block_stop - compute_start(prime, block_start)) / (double)step);
     }
 }
 
 static inline int 
-benchmarkSieveSetBitsTrue()
+benchmarkSieveSetBitsTrue(options_t option, sieve_t* (*sieveFunction)(const counter_t))
 {
-    sieve_t* sieve = shakeSieve(1000000/2);
-    benchmarkSetBitsTrue(sieve->bitstorage, 256*1024, min(1000000/2, 512*1024), 2, 500);
+    const counter_t max_factor = option.fixed_benchmark_settings.factor_max;
+    storage_type storage = option.fixed_benchmark_settings.storage;
+    sieve_t* sieve = sieveFunction(max_factor);
+    // benchmarkSetBitsTrue(sieve->bitstorage, 1024, calcBitsize(max_factor, option.fixed_benchmark_settings.storage), 2, calcFactor_max(max_factor));
+    log1("Benchmarking setBitsTrue functions for max factor %ju and storage type %d\n", (uintmax_t)max_factor, (int)storage);
+    benchmarkSetBitsTrue(sieve->bitstorage, 1024, max_factor, 1, calcMax(max_factor, storage)/2, storage);
     sieve_delete(sieve);
     return 0;
 }
