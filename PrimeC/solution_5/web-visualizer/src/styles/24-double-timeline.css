@@ -84,13 +84,13 @@
 }
 /* item 291: active area — inset past the toggle button on the left */
 /* item 315: also inset right by 6px so the playhead stops before entering the dragger */
-/* item 345: increased to 22px to cover the dragger's 20px negative-margin overlap */
+/* item 345: was 22px for the old 20px dragger overlap; item 434: reduced to 5px (3px overlap + 2px buffer) */
 .dtl-wave-active-area {
   position: absolute;
   top: 0;
   bottom: 0;
   left: var(--dtl-edge-inset, 30px);
-  right: 22px;
+  right: 5px;
 }
 .dtl-wave-canvas {
   position: absolute;
@@ -105,8 +105,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* item 330: right side reserved for dragger overlap (~20px) so the event counter stays visible */
-  padding: 0 26px 0 6px;
+  /* item 330: right side reserved for dragger overlap; item 434: reduced from 26px to 8px */
+  padding: 0 8px 0 6px;
   pointer-events: none;
 }
 .dtl-wave-label {
@@ -283,7 +283,8 @@
   padding: 25px 35px;
   cursor: move;
   /* item 313: negative margin makes the dragger overlap the side zones, closing the gap */
-  margin-inline: -20px;
+  /* item 434: reduced from -20px to -3px so timelines just touch the dragger without going far behind it */
+  margin-inline: -3px;
   min-width: 184px;           /* wider so left/right drag handles are clearer */
   z-index: 5;                 /* item 202: above title bar (z-index:4) so rounded top/bottom corners are not clipped */
   /* item 308: red-tinted deep shadow */
@@ -461,6 +462,7 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
   transition: background 140ms, color 140ms, box-shadow 140ms, transform 100ms;
   zoom:1.2;
+  position: relative;  /* item 424: allow repeat badge to be positioned relative to button */
 }
 .dtl-btn.dtl-play:hover:not(:disabled) {
   background: var(--accent);
@@ -533,6 +535,30 @@
   pointer-events: none;
   z-index: 2;
 }
+/* item 433: repeat end handle — shown when repeat is split into start+end range */
+.dtl-repeat-end-handle {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 26px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(40, 40, 60, 0.80);
+  border: 2px solid rgba(220, 60, 60, 0.75);
+  border-radius: 5px;
+  color: #fff;
+  cursor: ew-resize;
+  z-index: 4;
+  touch-action: none;
+  pointer-events: auto;
+  animation: dtl-repeat-active-pulse 2s ease-in-out infinite;
+}
+.dtl-repeat-end-handle:hover {
+  border-color: rgba(255, 90, 90, 1);
+  background: rgba(180, 30, 30, 0.88);
+}
 /* Repeat toggle — active state (item 135); item 241: pulsing glow + badge when active */
 .dtl-btn.dtl-repeat-btn { color: rgba(255,255,255,0.5); }
 .dtl-btn.dtl-repeat-btn.dtl-active {
@@ -569,6 +595,29 @@
   box-shadow: 0 0 0 3px var(--accent),
               0 0 0 7px color-mix(in srgb, var(--accent) 35%, transparent),
               0 2px 10px rgba(0, 0, 0, 0.4);
+}
+/* item 429: repeat toggle button — positioned above the play button, click to disable repeat */
+/* replaces the old non-interactive dtl-repeat-badge span */
+.dtl-repeat-toggle-btn {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(160, 20, 20, 0.88);
+  border: 1.5px solid rgba(255, 90, 90, 0.85);
+  border-radius: 4px;
+  color: #fff;
+  padding: 2px 3px;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  z-index: 10;
+  transition: background 0.12s, border-color 0.12s;
+}
+.dtl-repeat-toggle-btn:hover {
+  background: rgba(200, 30, 30, 0.95);
+  border-color: rgba(255, 110, 110, 0.95);
 }
 
 /* item 180: undock-toggle button — inactive = dim, active = accent */
@@ -649,8 +698,8 @@
   top: 0;
   bottom: 0;
   /* item 291+: extra inset so 100% lands with room for the repeat handle + gap before settings toggle */
-  /* item 315: inset left so the playhead stops before the dragger; item 330: updated from 6px to 22px to match 20px dragger overlap */
-  left: 22px;
+  /* item 315: inset left so the playhead stops before the dragger; item 434: was 22px for 20px overlap, now 5px for 3px overlap */
+  left: 5px;
   right: 40px;
 }
 .dtl-anim-playhead {
@@ -668,10 +717,10 @@
   );
   border: 1.5px solid rgba(255, 255, 255, 0.80);
   border-radius: 7px;
-  /* item 291+: auto so clicks on the playhead bubble to the zone (seek) and beat the repeat handle */
-  pointer-events: none;
+  /* item 449: pointer-events:auto so the playhead (z-index:8) intercepts clicks that overlap the repeat handle (z-index:4); no stopPropagation on playhead so events bubble to the zone seek handler */
+  pointer-events: auto;
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.70);
-  z-index: 8;  /* above repeat handle (z-index: 4) — playhead has visual priority; pointer-events:none lets clicks pass through */
+  z-index: 8;  /* above repeat handle (z-index: 4) — playhead wins hit-testing when overlapping */
   transition: border-color 80ms, box-shadow 80ms;
 }
 .dtl-anim-zone:hover .dtl-anim-playhead,
@@ -708,34 +757,37 @@
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.50), inset 0 1px 0 rgba(255, 255, 255, 0.90);
 }
 
-/* item 154: fill bar — grows left→right proportional to scrub progress */
+/* item 154: fill bar — inactive background covering the full active range */
+/* item 444: now serves as the faded/inactive portion only */
 .dtl-anim-fill {
   position: absolute;
   top: 0;
-  left: 0;
   bottom: 0;
-  background: rgba(180, 180, 180, 0.20);  /* item 314: greyscale fill (was blue) */
+  background: rgba(180, 180, 180, 0.20);  /* overridden by inline style */
   pointer-events: none;
   z-index: 0;
-  transition: width 80ms linear;
-  border-radius: 0;
 }
 
+/* item 444: active (bright) fill — covers range-start to playhead, on top of inactive */
+.dtl-anim-fill-active {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+  transition: width 80ms linear;
+}
 
-/* During delay phase, fade out the fill bar left-to-right (left part fades first) */
-.dtl-anim-fill--fading {
+/* During delay phase, wipe out the active fill left-to-right to reveal inactive underneath */
+/* item 442: more prominent pulsing effect — brighter + breathing opacity during wipe */
+/* item 451: smooth left-to-right wipe — clip from left growing rightward (no flashing) */
+.dtl-anim-fill-active--fading {
   /* item 164: duration matches the actual delayPhaseMs so it finishes exactly when the delay ends */
   animation: dtl-fill-fadeout var(--delay-ms, 2s) linear forwards;
 }
 @keyframes dtl-fill-fadeout {
-  from {
-    opacity: 1;
-    clip-path: inset(0 0 0 0);
-  }
-  to {
-    opacity: 0;
-    clip-path: inset(0 0 0 100%);
-  }
+  0%   { clip-path: inset(0 0 0 0%); }
+  100% { clip-path: inset(0 0 0 100%); }
 }
 
 /* items 194, 195: ANIMATION label centered in the header via absolute group */
@@ -930,7 +982,7 @@
   backdrop-filter: blur(18px); */
 }
 .double-timeline.dtl-focus-events .dtl-anim-zone {
-  opacity: 0.50;
+  opacity: 0.78;  /* item 421: was 0.65/0.50; inactive zone fades just a little */
 }
 .double-timeline.dtl-focus-animation .dtl-anim-zone {
   background: var(--dtl-anim-color-bg, rgba(42, 42, 42, 0.90));
@@ -940,7 +992,7 @@
   backdrop-filter: blur(18px); */
 }
 .double-timeline.dtl-focus-animation .dtl-wave-zone {
-  opacity: 0.50;
+  opacity: 0.78;  /* item 421: was 0.65/0.50; inactive zone fades just a little */
 }
 
 /* item 240: empty-event animation — fill bar grows left→right then fades out, signalling the

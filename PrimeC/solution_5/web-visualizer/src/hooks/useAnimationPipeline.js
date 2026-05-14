@@ -56,6 +56,7 @@ export function useAnimationPipeline({
     currentStepRef,
     initialHighlightHoldRef,
     aggMaskStepSetterRef,
+    isAutoAnimateOnSelectRef,  // item 440: skip replay when "Animate: off"
   } = animRefs;
 
   const {
@@ -174,7 +175,8 @@ export function useAnimationPipeline({
   // See Visualizer.jsx for the full design rationale.
   useEffect(() => {
     if (initialHighlightHoldRef.current) return;
-
+    // item 440: skip replay when "Animate: off" is set
+    if (isAutoAnimateOnSelectRef?.current === false) return;
     const rawProgress = stepScrubProgressValueRef.current; // 0-100
     const startFraction = (rawProgress > 2 && rawProgress < 98) ? rawProgress / 100 : 0;
 

@@ -78,6 +78,12 @@ export function usePlaybackLoop({ ...flatArgs }) {
     isScrubbingTopRef,
     initialHighlightHoldRef,
     delayBetweenEventsRef,   // item 217: auto-advance delay when repeat is disabled
+    delayBetweenRepeatsRef,  // item 424: delay before looping back in repeat mode
+    isRepeatModeRef,         // item 424: whether repeat mode is active
+    repeatStartPctRef,       // item 424: animation loop-back start position (0-100)
+    repeatEndPctRef,         // item 441: end position for split repeat mode
+    isRepeatSplitRef,        // item 441: whether start+end handles are split
+    setDelayPhaseMsRef,      // item 432: trigger fill-bar fade during repeat delay
     stepResumeStartIndexRef,
     stepResumeMaskProgressRef,
     setIsStepAnimRunningRef,
@@ -124,13 +130,24 @@ export function usePlaybackLoop({ ...flatArgs }) {
     const loop = async () => {
       const triggerFn = triggerAnimationRef.current;
       if (!triggerFn) return;
-      await triggerFn(merged, { adaptiveDuration: true });
+      // item 424: when repeat mode is on, start animation from the dragger position
+      // item 441: in non-split mode play 0%→repeatStartPct%, in split mode play repeatStartPct%→repeatEndPct%
+      const isSplitLoop = isRepeatModeRef?.current && isRepeatSplitRef?.current;
+      const startProgress = isRepeatModeRef?.current
+        ? (isSplitLoop ? (repeatStartPctRef?.current ?? 0) / 100 : 0)
+        : 0;
+      const endProgress = isRepeatModeRef?.current
+        ? (isSplitLoop ? (repeatEndPctRef?.current ?? 100) / 100 : (repeatStartPctRef?.current ?? 100) / 100)
+        : 1;
+      await triggerFn(merged, { adaptiveDuration: true, startProgress, endProgress: endProgress < 1 ? endProgress : undefined });
       if (cancelled || playing || isAnimationReplayPaused || selectedSteps.size === 0) return;
       // Note: seekGenRef is intentionally NOT checked here. seekStepAnimation sets
       // cancelled=true via effect cleanup; that path is handled above. A seekGenRef
       // bump from the [animMode,animStyle] effect means the user changed animation
       // style — in that case we WANT the loop to restart (not exit).
-      selectedAnimLoopRef.current = setTimeout(loop, 0);
+      // item 424: use delayBetweenRepeats (ms) for the inter-loop gap
+      const delay = delayBetweenRepeatsRef?.current ?? 0;
+      selectedAnimLoopRef.current = setTimeout(loop, delay);
     };
 
     selectedAnimLoopRef.current = setTimeout(loop, 0);
@@ -240,6 +257,35 @@ export function usePlaybackLoop({ ...flatArgs }) {
       }
 
       setCurrentStep((prev) => {
+        // item 432: in repeat mode, loop the current event from repeatStartPct instead of advancing
+        if (isRepeatModeRef?.current) {
+          const delay = delayBetweenRepeatsRef?.current ?? 0;
+          // item 441: non-split: animate 0%→repeatStartPct%, then back to 0%
+          //           split: animate repeatStartPct%→repeatEndPct%, then back to repeatStartPct%
+          const isSplit = isRepeatSplitRef?.current;
+          const startProg = isSplit ? (repeatStartPctRef?.current ?? 0) / 100 : 0;
+          const endProg = isSplit
+            ? (repeatEndPctRef?.current ?? 100) / 100
+            : (repeatStartPctRef?.current ?? 100) / 100;
+          // Block the scheduler for the duration of the delay
+          animBusyUntilRef.current = performance.now() + Math.max(delay, 1);
+          // Trigger the fill-bar fade animation on the timeline
+          setDelayPhaseMsRef?.current?.(delay > 0 ? delay : null);
+          // After the delay, restart the current step's animation from startProg
+          playTimeoutRef.current = setTimeout(() => {
+            if (!globalPausedRef.current) {
+              setDelayPhaseMsRef?.current?.(null);
+              goToStepRef.current?.(prev, {
+                keepPlaying: true,
+                startProgress: startProg,
+                ...(endProg < 1 ? { endProgress: endProg } : {}),
+                delayMs: 0,  // item 453: suppress between-events delay when repeating; only repeat delay applies
+              });
+            }
+          }, delay);
+          return prev;  // stay on the same step
+        }
+
         // item 240: if the current step has no animation content, add a delay before
         // advancing, and show "NO CHANGES" UI.
         const curStep = steps[prev];

@@ -159,7 +159,15 @@ self.onmessage = (e) => {
     }
     case 'state': {
       if (!core) return;
-      safe(() => core.uploadStateBuffer(msg.buf));
+      safe(() => {
+        if (msg.hasGridView) {
+          // item 426: combined buffer — first half=state, second half=gridView
+          const n = msg.buf.length >> 1;
+          core.uploadStateBuffer(msg.buf.subarray(0, n), msg.buf.subarray(n));
+        } else {
+          core.uploadStateBuffer(msg.buf);
+        }
+      });
       break;
     }
     case 'anim': {

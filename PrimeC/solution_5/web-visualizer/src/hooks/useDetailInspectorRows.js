@@ -12,6 +12,7 @@ import { bitToNumber, describeWheelBit } from '../SieveRenderer';
  * @param {object|null} params.wheelDefinition    - Wheel definition object or null
  * @param {number}      params.cachelineSize      - Cache line size in bytes
  * @param {string}      params.detailInspectorQuery - Filter query string
+ * @param {string}      [params.detailInspectorMode] - Mode: 'bits'|'numbers'|'targeted'|'alreadySet'|'newlySet'
  * @param {Array}       [params.steps]            - All trace steps (items 224+225: for bit→event index)
  * @returns {{ detailInspectorRows, filteredDetailInspectorRows }}
  */
@@ -22,6 +23,7 @@ export function useDetailInspectorRows({
   wheelDefinition,
   cachelineSize,
   detailInspectorQuery,
+  detailInspectorMode,  // item 446: 'bits'|'numbers'|'targeted'|'alreadySet'|'newlySet'
   steps,
 }) {
   // items 224+225: build a Map<bit, stepIndex[]> across ALL steps so we know which events
@@ -41,8 +43,23 @@ export function useDetailInspectorRows({
   }, [steps]);
 
   const detailInspectorRows = useMemo(() => {
-    if (!currentStepData || !currentStepData.changedBits || currentStepData.changedBits.length === 0) return [];
-    const bits = Array.from(currentStepData.changedBits).sort((a, b) => a - b);
+    if (!currentStepData) return [];
+    // item 446: choose bit source based on mode
+    let bits;
+    if (detailInspectorMode === 'targeted') {
+      const tBits = currentStepData.targetBits;
+      if (!tBits || tBits.length === 0) return [];
+      bits = Array.from(tBits).sort((a, b) => a - b);
+    } else if (detailInspectorMode === 'alreadySet') {
+      const tBits = currentStepData.targetBits;
+      if (!tBits || tBits.length === 0) return [];
+      const changedSet = new Set(currentStepData.changedBits);
+      bits = Array.from(tBits).filter((b) => !changedSet.has(b)).sort((a, b) => a - b);
+    } else {
+      // 'bits', 'newlySet', 'numbers' all use changedBits
+      if (!currentStepData.changedBits || currentStepData.changedBits.length === 0) return [];
+      bits = Array.from(currentStepData.changedBits).sort((a, b) => a - b);
+    }
     const groupBits = layoutSettings.vectorMode === 'custom'
       ? Math.max(1, parseInt(layoutSettings.customGroupBits || 1, 10) || 1)
       : Math.max(1, (layoutSettings.vectorGroup || 1) * 64);
@@ -67,7 +84,7 @@ export function useDetailInspectorRows({
         changedBySteps,  // items 224+225: all step indices that changed this bit
       };
     });
-  }, [currentStepData, layoutSettings.vectorMode, layoutSettings.customGroupBits, layoutSettings.vectorGroup, storageModel, wheelDefinition, cachelineSize, bitChangedByIndex]);
+  }, [currentStepData, detailInspectorMode, layoutSettings.vectorMode, layoutSettings.customGroupBits, layoutSettings.vectorGroup, storageModel, wheelDefinition, cachelineSize, bitChangedByIndex]);  // item 446: detailInspectorMode added
 
   const filteredDetailInspectorRows = useMemo(() => {
     const q = detailInspectorQuery.trim().toLowerCase();

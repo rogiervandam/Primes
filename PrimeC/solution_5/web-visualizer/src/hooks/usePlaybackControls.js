@@ -41,6 +41,12 @@ export function usePlaybackControls({
     }
     globalPausedRef.current = false;
     setIsAnimationReplayPaused(false);
+    // item 454: if the user scrubbed the animation to a non-trivial position, start
+    // the current step's animation from that point so play continues from the playhead.
+    // triggerAnimation sets animBusyUntilRef, so Effect 3 will wait for it before advancing.
+    if (stepScrubProgress > 1 && stepScrubProgress < 99) {
+      goToStep(currentStep, { keepPlaying: true, startProgress: stepScrubProgress / 100 });
+    }
     setPlaying(true);
   }, [
     globalPausedRef,
@@ -51,6 +57,7 @@ export function usePlaybackControls({
     setPlaying,
     playing,
     goToStep,
+    stepScrubProgress,
   ]);
 
   const handleStepAnimToggle = useCallback(() => {

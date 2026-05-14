@@ -123,6 +123,8 @@ export default function LayoutTab({
   rangeOverlayUnit = 'bits', onRangeOverlayUnitChange,
   onRangeOverlayToggle, onRangeOverlayStartChange, onRangeOverlayEndChange,
   isMultiplesOverlayEnabled = false, multiplesOverlayPrime = 3,
+  multiplesOverlayMode = 'number', onMultiplesOverlayModeChange,  // item 425
+  bitsGridView = {}, onBitsGridViewChange,  // item 426
   onMultiplesOverlayToggle, onMultiplesOverlayPrimeChange,
   onRangeOverlayReset,
   rangeAutoSet = true,
@@ -130,6 +132,8 @@ export default function LayoutTab({
   onMultiplesOverlayReset,
   isMinimapVisible, onShowMinimapChange,
   minimapControlVisible = true,
+  isGroupInspectorEnabled, onGroupInspectorEnabledChange,  // item 428
+  isAutoAnimateOnSelect, onAutoAnimateOnSelectChange,      // item 435
   onHeatMapToggle,
   outlineSettings, onOutlineChange,
   storageModel, wheelDefinition,
@@ -999,6 +1003,132 @@ export default function LayoutTab({
             <span className="settings-hint" style={{ alignSelf: 'flex-end', marginBottom: 2 }}>Highlights multiples of this number in purple</span>
           </div>
         )}
+        {/* item 425: multiples overlay mode — number vs bit index */}
+        {isMultiplesOverlayEnabled && (
+          <div className="settings-row overlay-inline-controls">
+            <label className="overlay-inline-field overlay-input-label">
+              <span>Match mode</span>
+            </label>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button
+                type="button"
+                className={`overlay-mode-btn${multiplesOverlayMode === 'number' ? ' overlay-mode-btn--active' : ''}`}
+                onClick={() => onMultiplesOverlayModeChange && onMultiplesOverlayModeChange('number')}
+                title="Highlight bits whose mapped number is a multiple of the factor"
+              >Number</button>
+              <button
+                type="button"
+                className={`overlay-mode-btn${multiplesOverlayMode === 'bit' ? ' overlay-mode-btn--active' : ''}`}
+                onClick={() => onMultiplesOverlayModeChange && onMultiplesOverlayModeChange('bit')}
+                title="Highlight bits whose bit index is a multiple of the factor"
+              >Bit index</button>
+            </div>
+          </div>
+        )}
+
+        {/* item 426: grid view — independent toggle buttons, multiple can be active simultaneously */}
+        {/* item 430: removed duplicate "Grid view" label; buttons use PreviewOptionButton like others */}
+        <div className="preview-btn-grid preview-btn-grid-3" style={{ marginTop: 8 }}>
+          <PreviewOptionButton
+            compact
+            label="Changed"
+            hint="Highlight bits changed in this step (amber)"
+            active={!!bitsGridView?.changed}
+            onClick={() => onBitsGridViewChange && onBitsGridViewChange({ ...bitsGridView, changed: !bitsGridView?.changed })}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="4" y="5" width="8" height="12" rx="1" fill="#f59e0b" stroke="none" />
+                <rect x="16" y="5" width="8" height="12" rx="1" fill="rgba(245,158,11,0.3)" stroke="none" />
+                <rect x="28" y="5" width="8" height="12" rx="1" fill="#f59e0b" stroke="none" />
+                <rect x="40" y="5" width="4" height="12" rx="1" fill="rgba(245,158,11,0.3)" stroke="none" />
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label="Targeted"
+            hint="Highlight all targeted bits, before filtering (blue)"
+            active={!!bitsGridView?.targeted}
+            onClick={() => onBitsGridViewChange && onBitsGridViewChange({ ...bitsGridView, targeted: !bitsGridView?.targeted })}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="4" y="5" width="8" height="12" rx="1" fill="#3b82f6" stroke="none" />
+                <rect x="16" y="5" width="8" height="12" rx="1" fill="#3b82f6" stroke="none" />
+                <rect x="28" y="5" width="8" height="12" rx="1" fill="rgba(59,130,246,0.3)" stroke="none" />
+                <rect x="40" y="5" width="4" height="12" rx="1" fill="#3b82f6" stroke="none" />
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label="Already set"
+            hint="Highlight bits that were already set — targeted but not changed (green)"
+            active={!!bitsGridView?.alreadySet}
+            onClick={() => onBitsGridViewChange && onBitsGridViewChange({ ...bitsGridView, alreadySet: !bitsGridView?.alreadySet })}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="4" y="5" width="8" height="12" rx="1" fill="rgba(74,222,128,0.3)" stroke="none" />
+                <rect x="16" y="5" width="8" height="12" rx="1" fill="#4ade80" stroke="none" />
+                <rect x="28" y="5" width="8" height="12" rx="1" fill="#4ade80" stroke="none" />
+                <rect x="40" y="5" width="4" height="12" rx="1" fill="rgba(74,222,128,0.3)" stroke="none" />
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label="Newly set"
+            hint="Highlight bits that were newly set to 1 in this step (gold)"
+            active={!!bitsGridView?.newlySet}
+            onClick={() => onBitsGridViewChange && onBitsGridViewChange({ ...bitsGridView, newlySet: !bitsGridView?.newlySet })}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="4" y="5" width="8" height="12" rx="1" fill="#fbbf24" stroke="none" />
+                <rect x="16" y="5" width="8" height="12" rx="1" fill="rgba(251,191,36,0.3)" stroke="none" />
+                <rect x="28" y="5" width="8" height="12" rx="1" fill="#fbbf24" stroke="none" />
+                <rect x="40" y="5" width="4" height="12" rx="1" fill="#fbbf24" stroke="none" />
+              </svg>
+            )}
+          />
+        </div>
+        {/* item 428: inspector toggle — show/hide the byte/group/cacheline inspector on click */}
+        {/* item 435: animation toggle — show/hide bit animation in grid view */}
+        <div className="preview-btn-grid preview-btn-grid-3" style={{ marginTop: 6 }}>
+          <PreviewOptionButton
+            compact
+            label={isGroupInspectorEnabled !== false ? 'Inspector: on' : 'Inspector: off'}
+            hint="Toggle the byte/group/cacheline inspector panel (click a unit in the grid to open it)"
+            active={isGroupInspectorEnabled !== false}
+            onClick={() => onGroupInspectorEnabledChange && onGroupInspectorEnabledChange(!(isGroupInspectorEnabled !== false))}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="3" y="3" width="26" height="16" rx="2" fill="var(--bg-input)" stroke="var(--border-light)" strokeWidth="1.2" />
+                <rect x="5" y="6" width="18" height="2" rx="1" fill="var(--fg-muted)" />
+                <rect x="5" y="10" width="14" height="2" rx="1" fill="var(--fg-muted)" opacity="0.6" />
+                <rect x="5" y="14" width="10" height="2" rx="1" fill="var(--fg-muted)" opacity="0.4" />
+                <circle cx="38" cy="11" r="6" fill="none" stroke="var(--fg-muted)" strokeWidth="1.5" />
+                <line x1="43" y1="16" x2="45" y2="18" stroke="var(--fg-muted)" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label={isAutoAnimateOnSelect !== false ? 'Animate: on' : 'Animate: off'}
+            hint="Toggle bit animation when an event is selected in the grid view"
+            active={isAutoAnimateOnSelect !== false}
+            onClick={() => onAutoAnimateOnSelectChange && onAutoAnimateOnSelectChange(!(isAutoAnimateOnSelect !== false))}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="4" y="5" width="8" height="12" rx="1" fill="var(--fg-muted)" opacity="0.25" />
+                <rect x="15" y="5" width="8" height="12" rx="1" fill="var(--accent, #60a5fa)" opacity="0.85" />
+                <rect x="26" y="5" width="8" height="12" rx="1" fill="var(--fg-muted)" opacity="0.25" />
+                <rect x="37" y="5" width="4" height="12" rx="1" fill="var(--accent, #60a5fa)" opacity="0.6" />
+                <line x1="16" y1="11" x2="22" y2="11" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="19" y1="8" x2="22" y2="11" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="19" y1="14" x2="22" y2="11" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            )}
+          />
+        </div>
       </div>
 
       {LayoutOverview()}

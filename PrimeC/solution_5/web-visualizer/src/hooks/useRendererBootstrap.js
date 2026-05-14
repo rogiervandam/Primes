@@ -5,6 +5,14 @@ import { GlyphTextGLCore } from '../renderer/gl/GlyphTextGLCore';
 import { GlyphTextCanvas2D } from '../renderer/canvas/GlyphTextCanvas2D';
 import { usesWebGLTilt, usesViewportSizeCanvas, usesGridSizeCanvas } from '../lib/renderModes';
 
+/** item 426: Normalized [r,g,b,a] tints for each bitsGridView flag mode. */
+const _GV_TINTS = {
+  changed:    [245 / 255, 158 / 255,  11 / 255, 0.50],  // amber
+  targeted:   [ 59 / 255, 130 / 255, 246 / 255, 0.45],  // blue
+  alreadySet: [ 74 / 255, 222 / 255, 128 / 255, 0.45],  // green
+  newlySet:   [251 / 255, 191 / 255,  36 / 255, 0.50],  // gold
+};
+
 function setGlyphOverlayVisibility(glGlyphCanvas, canvas2DGlyphCanvas, mode) {
   if (glGlyphCanvas) {
     const show = mode === 'gl';
@@ -66,6 +74,7 @@ export function useRendererBootstrap({
   camera3DRef,
   setZoom,
   getMinimapDetailH,
+  updateMinimapAvailability,
   renderMode = 'mode3-direct',
   debugGlModeOverride = 'auto',
   debugWorkerGlyphMode = 'gl',
@@ -240,6 +249,16 @@ export function useRendererBootstrap({
         tiltXDeg: shaderTiltXDeg,
         tiltYDeg: glTiltActive && cam?.enabled ? (cam.rotateY || 0) : 0,
         perspective: glTiltActive && cam?.enabled ? (cam.perspective || 1500) : 1500,
+        // item 426: bits grid view tints — one per active flag mode, null = disabled
+        gridViewTints: (() => {
+          const gv = liveRenderer.bitsGridView || {};
+          return {
+            changed:    gv.changed    ? _GV_TINTS.changed    : null,
+            targeted:   gv.targeted   ? _GV_TINTS.targeted   : null,
+            alreadySet: gv.alreadySet ? _GV_TINTS.alreadySet : null,
+            newlySet:   gv.newlySet   ? _GV_TINTS.newlySet   : null,
+          };
+        })(),
         ...liveRenderer.glLayoutParams(),
       };
 
@@ -298,6 +317,7 @@ export function useRendererBootstrap({
         liveRenderer.zoom = nextZoom;
         setZoom(nextZoom);
         (liveRenderer.scheduleRender ?? liveRenderer.render).call(liveRenderer);
+        updateMinimapAvailability();
         liveRenderer.renderMinimap(liveRenderer.canvasWidth, liveRenderer.canvasHeight || 0, getMinimapDetailH());
       },
     });
@@ -330,6 +350,7 @@ export function useRendererBootstrap({
     camera3DRef,
     setZoom,
     getMinimapDetailH,
+    updateMinimapAvailability,
   ]);
 
   useEffect(() => {

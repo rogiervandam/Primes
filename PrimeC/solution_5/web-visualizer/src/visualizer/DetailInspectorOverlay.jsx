@@ -31,6 +31,10 @@ export default function DetailInspectorOverlay({
   // items 224+225: show "Events" column only when rows have changedBySteps data
   const hasEventsColumn = rows.some((row) => row.changedBySteps && row.changedBySteps.length > 0);
 
+  // item 446: map mode to human-readable title
+  const MODE_TITLE = { numbers: 'Marked Numbers', bits: 'Changed Bits', targeted: 'Targeted Bits', alreadySet: 'Already Set Bits', newlySet: 'Newly Set Bits' };
+  const overlayTitle = MODE_TITLE[mode] ?? 'Changed Bits';
+
   // items 224+225: format which events changed a bit for display and tooltip
   const formatChangedBySteps = (changedBySteps) => {
     if (!changedBySteps || changedBySteps.length === 0) return { label: '—', tooltip: '' };
@@ -49,7 +53,7 @@ export default function DetailInspectorOverlay({
       <div className="detail-inspector-panel">
         <div className="detail-inspector-header">
           <div className="detail-inspector-title">
-            {mode === 'numbers' ? 'Marked Numbers' : 'Changed Bits'}
+            {overlayTitle}
           </div>
           <button className="btn-icon" onClick={onClose} title="Close inspector">✕</button>
         </div>

@@ -95,6 +95,11 @@ export default function DetailPanel({
     onToggleAllEventsFloater,
     // item 157: dock floating panel back to the bottom
     onDockDetailPanel,
+    // item 426: bits grid view — highlight set of bits in the main grid
+    bitsGridView = {},
+    onBitsGridViewChange,
+    // item 446: open modal to inspect bits by category
+    onInspectBitCategory,
   } = detailHandlers;
 
   // item 178: goToStep from playback context for nearby-events navigation
@@ -117,6 +122,27 @@ export default function DetailPanel({
       hits: Number(match.hits) || 0,
     };
   }, [step, benchmarkTimingData]);
+  // item 446: helper to compute compact range text from a list of bit indices
+  const computeRanges = (bits) => {
+    if (!bits || bits.length === 0) return null;
+    const sorted = Array.from(bits).sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0], end = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] === end + 1) {
+        end = sorted[i];
+      } else {
+        ranges.push(start === end ? `${start}` : `${start}–${end}`);
+        start = end = sorted[i];
+      }
+    }
+    ranges.push(start === end ? `${start}` : `${start}–${end}`);
+    if (ranges.length > 5) {
+      return { text: ranges.slice(0, 5).join(', '), more: ranges.length - 5 };
+    }
+    return { text: ranges.join(', '), more: 0 };
+  };
+
   // Compact representation of changed bit ranges
   const bitRanges = useMemo(() => {
     if (!step || step.changedBits.length === 0) return '';
@@ -137,6 +163,14 @@ export default function DetailPanel({
       return { text: ranges.slice(0, 5).join(', '), more: ranges.length - 5 };
     }
     return { text: ranges.join(', '), more: 0 };
+  }, [step]);
+
+  // item 446: compact range text for targeted / already-set bit categories
+  const targetBitsRanges = useMemo(() => computeRanges(step?.targetBits), [step]);
+  const alreadySetBitsRanges = useMemo(() => {
+    if (!step?.targetBits?.length) return null;
+    const changedSet = new Set(step.changedBits);
+    return computeRanges(step.targetBits.filter((b) => !changedSet.has(b)));
   }, [step]);
 
   // Convert changed bits to number representation
@@ -408,10 +442,37 @@ export default function DetailPanel({
   }, [step]);
 
   const bitsFacts = [
-    { label: 'Bits changed', value: step.numChanged ?? 0 },
-    { label: 'Bits targeted', value: traceSetStats?.totalAttempted ?? '—' },
-    { label: 'Already set', value: traceSetStats?.alreadySet ?? stepStats?.reSet ?? '—' },
-    { label: 'Newly set', value: traceSetStats?.newlySet ?? stepStats?.newlySet ?? '—' },
+    // item 446: 'Bits targeted' first (swapped from 'Bits changed')
+    {
+      label: 'Bits targeted',
+      value: traceSetStats?.totalAttempted ?? '—',
+      gridViewMode: 'targeted',
+      // item 446: only show inspect when count is real (traceSetStats available)
+      bitsRanges: traceSetStats ? targetBitsRanges : null,
+      inspectMode: 'targeted',
+    },
+    {
+      label: 'Bits changed',
+      value: step.numChanged ?? 0,
+      gridViewMode: 'changed',
+      bitsRanges: bitRanges || null,
+      inspectMode: 'bits',
+    },
+    {
+      label: 'Already set',
+      value: traceSetStats?.alreadySet ?? stepStats?.reSet ?? '—',
+      gridViewMode: 'alreadySet',
+      // item 446: only show inspect when count is real
+      bitsRanges: traceSetStats ? alreadySetBitsRanges : null,
+      inspectMode: 'alreadySet',
+    },
+    {
+      label: 'Newly set',
+      value: traceSetStats?.newlySet ?? stepStats?.newlySet ?? '—',
+      gridViewMode: 'newlySet',
+      bitsRanges: bitRanges || null,
+      inspectMode: 'newlySet',
+    },
     { label: 'Tried >1x', value: stepStats?.duplicateTargets ?? '—' },
     { label: 'Total set', value: stepStats?.totalSet ?? '—' },
   ];
@@ -771,12 +832,45 @@ export default function DetailPanel({
                   </div>
                 ))}
 
-                {bitsFacts.map((stat) => (
-                  <div key={stat.label} className="detail-row">
-                    <span className="detail-row-label">{stat.label}</span>
-                    <span className="detail-row-value detail-row-value-num">{stat.value}</span>
-                  </div>
-                ))}
+                {bitsFacts.map((stat) => {
+                  const isGridViewRow = !!stat.gridViewMode;
+                  const isActive = isGridViewRow && !!bitsGridView?.[stat.gridViewMode];
+                  const GV_COLORS = { changed: '#f59e0b', targeted: '#3b82f6', alreadySet: '#4ade80', newlySet: '#fbbf24' };
+                  const handleClick = isGridViewRow && onBitsGridViewChange
+                    ? () => onBitsGridViewChange({ ...bitsGridView, [stat.gridViewMode]: !bitsGridView?.[stat.gridViewMode] })
+                    : null;
+                  // item 446: compact range + inspect button for the 4 bit-category rows
+                  const hasInspect = !!stat.inspectMode && !!stat.bitsRanges && !!onInspectBitCategory;
+                  return (
+                    <div
+                      key={stat.label}
+                      className={`detail-row${isGridViewRow ? ' detail-row-gridview' : ''}${isActive ? ' detail-row-gridview--active' : ''}`}
+                      onClick={handleClick || undefined}
+                      style={isGridViewRow
+                        ? { cursor: handleClick ? 'pointer' : undefined, '--gv-accent': GV_COLORS[stat.gridViewMode] }
+                        : handleClick ? { cursor: 'pointer' } : undefined}
+                      title={isGridViewRow ? (isActive ? 'Click to toggle off this grid view' : `Toggle ${stat.label.toLowerCase()} highlight in grid`) : undefined}
+                    >
+                      <span className="detail-row-label">{stat.label}</span>
+                      <span
+                        className="detail-row-value detail-row-value-num"
+                        style={hasInspect ? { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', overflow: 'hidden', maxWidth: '100%' } : undefined}
+                      >
+                        <span>{stat.value}</span>
+                        {hasInspect && (
+                          <button
+                            className="detail-inspect-btn detail-inspect-btn--inline"
+                            onClick={(e) => { e.stopPropagation(); onInspectBitCategory(stat.inspectMode); }}
+                            title={`Inspect ${stat.label.toLowerCase()} in a searchable list`}
+                          >
+                            <span className="dt-mono">{stat.bitsRanges.text}</span>
+                            {stat.bitsRanges.more > 0 && <span className="detail-inspect-hint">+{stat.bitsRanges.more} more ↗</span>}
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </section>
 

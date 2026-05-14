@@ -6,7 +6,9 @@ export function useDetailInspectorActions({
   setIsDetailInspectorOpen,
 }) {
   const openDetailInspector = useCallback((mode = 'bits') => {
-    setDetailInspectorMode(mode === 'numbers' ? 'numbers' : 'bits');
+    // item 446: support targeted/alreadySet/newlySet modes in addition to bits/numbers
+    const VALID_MODES = ['bits', 'numbers', 'targeted', 'alreadySet', 'newlySet'];
+    setDetailInspectorMode(VALID_MODES.includes(mode) ? mode : 'bits');
     setDetailInspectorQuery('');
     setIsDetailInspectorOpen(true);
   }, [setDetailInspectorMode, setDetailInspectorQuery, setIsDetailInspectorOpen]);

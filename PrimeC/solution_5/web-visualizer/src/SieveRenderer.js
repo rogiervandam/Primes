@@ -131,6 +131,9 @@ export class SieveRenderer {
     // Multiples overlay: highlight bits whose number is a multiple of multiplesOverlayPrime
     this.multiplesOverlay = false;
     this.multiplesOverlayPrime = 2;
+    this.multiplesOverlayMode = 'number';  // item 425: 'number' or 'bit'
+    this.bitsGridView = {};  // item 426: {changed, targeted, alreadySet, newlySet} boolean flags
+    this.showAnimVisuals = true;  // item 445: false hides masks, lines, highlighted bits
     this.animationFocusBits = new Set();
     this.bitMotionTrails = [];
     this.zoom = 1;
@@ -148,6 +151,10 @@ export class SieveRenderer {
     // updateMinimapAvailability always use the correct visible size.
     this.viewportW = 0;
     this.viewportH = 0;
+    // item 438: container's window-relative offset, used by MinimapRenderer to
+    // position the position:fixed minimap canvas inside the canvas area.
+    this.viewportLeft = 0;
+    this.viewportTop = 0;
     // Right-side inset (px) for the minimap so it doesn't hide behind the
     // settings sidebar when it is expanded.  Updated by Visualizer.jsx.
     this.minimapRightInset = 0;

@@ -385,7 +385,7 @@ export function usePointerGestures({
         const twoState = getTwoPointerState(activePointers);
         if (twoState) {
           const scaleRatio = twoState.dist / Math.max(1, pinchStart.dist);
-          const newZoom = Math.max(0.1, Math.min(64, pinchStart.zoom * scaleRatio));
+          const newZoom = Math.max(0.01, Math.min(64, pinchStart.zoom * scaleRatio)); // item 448: allow zoom out to 0.01
           // Zoom around the initial pinch centre, panned by centre drift
           const contentX = (pinchStart.cx - pinchStart.panX) / Math.max(0.0001, pinchStart.zoom);
           const contentY = (pinchStart.cy - pinchStart.panY) / Math.max(0.0001, pinchStart.zoom);

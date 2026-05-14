@@ -562,6 +562,10 @@ export function useCanvasLayout({
     // rather than the oversized (3×) drag-headroom canvas dimensions.
     r.viewportW = rect.width;
     r.viewportH = rect.height;
+    // item 438: store container's window-relative offset so the fixed-position
+    // minimap canvas can be placed correctly relative to the viewport.
+    r.viewportLeft = rect.left;
+    r.viewportTop = rect.top;
 
     // NOTE: anchor-based panX/panY compensation removed for panel toggles.
     // With the canvas pinned to the VIEWPORT center (see canvasAnchorPx and

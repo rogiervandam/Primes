@@ -361,6 +361,24 @@
 }
 .overlay-reset-btn--active:hover { opacity: 0.85; }
 
+/* item 425: multiples overlay mode buttons */
+.overlay-mode-btn {
+  background: none;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  color: var(--fg-dim);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 7px;
+  line-height: 1.4;
+}
+.overlay-mode-btn:hover { color: var(--fg); border-color: var(--accent); }
+.overlay-mode-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg, #fff);
+}
+
 /* Range overlay unit selector row */
 .overlay-unit-row {
   gap: 4px;

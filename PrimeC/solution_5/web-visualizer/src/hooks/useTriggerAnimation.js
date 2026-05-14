@@ -55,6 +55,10 @@ export function useTriggerAnimation({ ...flatArgs }) {
     const isStillLive = () => seekGenRef.current === mySeekGen;
     const resuming = (!!options.startIndex && options.startIndex > 0) ||
       (Number.isFinite(options.startProgress) && options.startProgress > 0);
+    // item 441: cap animation at endProgress (0-1) to support repeat end handle
+    const effectiveEndProgress = Number.isFinite(options.endProgress)
+      ? Math.max(0.01, Math.min(1, options.endProgress))
+      : 1;
     if (!options.keepProgress) {
       stopSeqAnimRef.current?.();
       if (!resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
@@ -148,6 +152,7 @@ export function useTriggerAnimation({ ...flatArgs }) {
         ...maskTimingBaseOptions,
         preferredIntervalMs: Math.max(0, currentMaskAnimIntervalRef.current || maskAnimInterval || 20),
         startProgress: resumeStartProgress,
+        endProgress: effectiveEndProgress < 1 ? effectiveEndProgress : undefined,
         combinedBits: combinedBitsConfig,
         durationMs: maskTotalDurationMs,
       };
@@ -159,7 +164,7 @@ export function useTriggerAnimation({ ...flatArgs }) {
       if (!resuming && stepScrubProgressRef.current) stepScrubProgressRef.current(0);
       await runMaskStampAnimation(effectiveMaskBitInterval, maskTimingOptions);
       if (!isStillLive()) return;
-      if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
+      if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(effectiveEndProgress * 100));
       if (combinedMode && combinedBitsConfig) {
         const { sortedBits, bs } = combinedBitsConfig;
         for (let i = 0; i < sortedBits.length; i++) {
@@ -270,7 +275,7 @@ export function useTriggerAnimation({ ...flatArgs }) {
           const speedMultiplier = initialSeqInterval / liveSeqInterval;
           virtualElapsed += Math.max(0, now - lastTickAt) * speedMultiplier;
           lastTickAt = now;
-          const t = Math.min(1, virtualElapsed / totalDuration);
+          const t = Math.min(effectiveEndProgress, virtualElapsed / totalDuration);
 
           let revealedCount;
           let focusBit;
@@ -310,12 +315,16 @@ export function useTriggerAnimation({ ...flatArgs }) {
             }
           }
 
-          if (t >= 1) {
-            r.changedBits = fullChanged;
+          if (t >= effectiveEndProgress) {
+            // When stopping early (endProgress < 1), show bits up to that fraction
+            const finalChanged = effectiveEndProgress < 1
+              ? (() => { const s = new Set(); const cap = Math.round(effectiveEndProgress * bits.length); for (let i = 0; i < cap; i++) s.add(bits[i]); return s; })()
+              : fullChanged;
+            r.changedBits = finalChanged;
             r.animationFocusBits = new Set();
             r.render();
             r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-            if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
+            if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(effectiveEndProgress * 100));
             resolve();
             return;
           }
@@ -348,7 +357,7 @@ export function useTriggerAnimation({ ...flatArgs }) {
       r.changedBits = new Set(changedSet);
       r.render();
       r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
-      if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
+      if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(effectiveEndProgress * 100));
       if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
       setDelayPhaseMsRef.current(null);
@@ -366,7 +375,7 @@ export function useTriggerAnimation({ ...flatArgs }) {
     );
     if (!isStillLive()) return;
     r.animationFocusBits = new Set();
-    if (stepScrubProgressRef.current) stepScrubProgressRef.current(100);
+    if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(effectiveEndProgress * 100));
     if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
     await waitForDelay(delayMs);
     setDelayPhaseMsRef.current(null);

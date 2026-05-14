@@ -116,6 +116,20 @@
   border-color: var(--accent-dim);
   background: var(--accent-bg);
 }
+/* item 446: compact inline variant for bits-category rows in the detail panel */
+.detail-inspect-btn--inline {
+  width: 100%;
+  padding: 1px 4px;
+  font-size: 10px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+.detail-inspect-btn--inline .dt-mono {
+  font-size: 10px;
+}
+.detail-inspect-btn--inline .detail-inspect-hint {
+  font-size: 9px;
+}
 .detail-inspect-hint {
   margin-left: auto;
   flex-shrink: 0;

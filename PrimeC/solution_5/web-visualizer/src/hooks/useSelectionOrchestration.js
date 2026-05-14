@@ -10,6 +10,7 @@ export function useSelectionOrchestration({
   getMinimapDetailH,
   updateMinimapAvailability,
   triggerAnimationRef,
+  isAutoAnimateOnSelectRef,  // item 440: skip animation when "Animate: off"
 }) {
   const goToStepRef = useRef(goToStep);
 
@@ -49,7 +50,8 @@ export function useSelectionOrchestration({
     r.render();
     r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
     updateMinimapAvailability();
-    if (overlay.changedBits.size > 0) {
+    // item 440: skip animation when "Animate: off" is set
+    if (overlay.changedBits.size > 0 && isAutoAnimateOnSelectRef?.current !== false) {
       triggerAnimationRef.current?.(overlay.changedBits, { adaptiveDuration: true });
     }
   }, [

@@ -120,16 +120,18 @@ export class VectorRenderPipeline {
     this.drawBitPrimeOverlay(frame, globalBit, bitX, bitY);
     this.drawBitRangeOverlay(frame, globalBit, bitX, bitY);
     this.drawBitMultiplesOverlay(frame, globalBit, bitX, bitY);
+    this.drawBitGridViewOverlay(frame, globalBit, bitX, bitY);  // item 426
     this.drawBitLabels(frame, globalBit, bitIndex, cls, draw, bitX, bitY);
   }
 
   classifyBit(frame, globalBit) {
     const host = this.host;
+    const showAnim = host.showAnimVisuals !== false;  // item 445
     const inFocusRange = host._isInFocusRange(globalBit);
     const targetHitCount = host.targetHitCounts?.get(globalBit) || 0;
     const isSetBit = !!host.bitState[globalBit];
-    const isGhostMaskedBit = host.maskGhostBits?.has(globalBit) && isSetBit;
-    const isChangedBit = host.changedBits.has(globalBit);
+    const isGhostMaskedBit = showAnim && host.maskGhostBits?.has(globalBit) && isSetBit;  // item 445
+    const isChangedBit = showAnim && host.changedBits.has(globalBit);  // item 445
     const isRepeatedWrite = (targetHitCount > 1) || host.repeatedChangedBits?.has(globalBit);
 
     let color;
@@ -189,6 +191,7 @@ export class VectorRenderPipeline {
 
   drawBitTargetOutline(frame, globalBit, draw, targetHitCount) {
     const host = this.host;
+    if (host.showAnimVisuals === false) return;  // item 445
     const showTargetOutline = host.targetBits?.has(globalBit)
       && !host.maskGhostBits?.has(globalBit)
       && host.zoom >= 1.4
@@ -259,8 +262,13 @@ export class VectorRenderPipeline {
   drawBitMultiplesOverlay(frame, globalBit, bitX, bitY) {
     const host = this.host;
     if (!(host.multiplesOverlay && host.multiplesOverlayPrime >= 2)) return;
-    const number = bitToNumber(globalBit, host.storageModel, host.wheelDefinition);
-    if (!(number >= 2 && number % host.multiplesOverlayPrime === 0)) return;
+    // item 425: 'bit' mode checks bit index; 'number' mode checks the mapped number
+    const mode = host.multiplesOverlayMode ?? 'number';
+    const k = host.multiplesOverlayPrime;
+    const isMultiple = mode === 'bit'
+      ? (globalBit % k === 0)
+      : (() => { const n = bitToNumber(globalBit, host.storageModel, host.wheelDefinition); return n >= 2 && n % k === 0; })();
+    if (!isMultiple) return;
     if (!host._glyph) return;
     drawBitOverlayIndicator(host._glyph, {
       bitX,
@@ -277,6 +285,45 @@ export class VectorRenderPipeline {
       labelMax: 8,
       labelThreshold: 16,
     });
+  }
+
+  /** item 426: Draw grid-view overlay indicators for all active bitsGridView modes. */
+  drawBitGridViewOverlay(frame, globalBit, bitX, bitY) {
+    const host = this.host;
+    const modes = host.bitsGridView;
+    if (!modes || typeof modes !== 'object') return;
+    if (!host._glyph) return;
+    const changed  = host.changedBits;
+    const targeted = host.targetBits;
+    const bitState = host.bitState;
+    // Each active mode draws a distinct indicator at a different corner:
+    //   changed:    amber  — top-left
+    //   targeted:   blue   — top-right
+    //   alreadySet: green  — bottom-right
+    //   newlySet:   gold   — bottom-left
+    const GV_CONFIGS = [
+      { key: 'changed',    inView: !!changed?.has(globalBit),                                color: [245/255, 158/255,  11/255], anchor: 'top-left',     label: 'c' },
+      { key: 'targeted',   inView: !!targeted?.has(globalBit),                               color: [ 59/255, 130/255, 246/255], anchor: 'top-right',    label: 't' },
+      { key: 'alreadySet', inView: !!targeted?.has(globalBit) && !changed?.has(globalBit),   color: [ 74/255, 222/255, 128/255], anchor: 'bottom-right', label: 'a' },
+      { key: 'newlySet',   inView: !!changed?.has(globalBit)  && !!bitState?.[globalBit],    color: [251/255, 191/255,  36/255], anchor: 'bottom-left',  label: 'n' },
+    ];
+    for (const cfg of GV_CONFIGS) {
+      if (!modes[cfg.key] || !cfg.inView) continue;
+      drawBitOverlayIndicator(host._glyph, {
+        bitX, bitY,
+        px: frame.px,
+        color: cfg.color,
+        alpha: 0.88,
+        dotScale: 0.22,
+        dotMax: 4,
+        anchor: cfg.anchor,
+        label: cfg.label,
+        labelAnchor: cfg.anchor,
+        labelScale: 0.22,
+        labelMax: 9,
+        labelThreshold: 16,
+      });
+    }
   }
 
   drawBitLabels(frame, globalBit, bitIndex, cls, draw, bitX, bitY) {

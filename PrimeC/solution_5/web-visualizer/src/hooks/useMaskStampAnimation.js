@@ -79,6 +79,10 @@ export function useMaskStampAnimation({
       Number(options.startProgress) || 0
     ));
     virtualMs = requestedStartProgress * duration;
+    // item 441: cap animation at endProgress to support repeat end handle
+    const effectiveEndProgress = Number.isFinite(options.endProgress)
+      ? Math.max(0.01, Math.min(1, options.endProgress))
+      : 1;
 
     const combinedBits = options.combinedBits || null;
     let combinedRevealedUpTo = combinedBits
@@ -107,7 +111,7 @@ export function useMaskStampAnimation({
         }
         const liveInterval = Math.max(5, Number(currentMaskAnimIntervalRef.current) || initialMaskInterval);
         virtualMs += dt * (initialMaskInterval / liveInterval);
-        const t = Math.min(1, virtualMs / duration);
+        const t = Math.min(effectiveEndProgress, virtualMs / duration);
         if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(t * 100));
         // Update detail panel's current agg mask step when the active entry's event changes.
         if (aggMaskStepSetterRef?.current && aggEventIdOrder.length > 1 && slotGroups.length > 0) {
@@ -147,7 +151,7 @@ export function useMaskStampAnimation({
         r.render();
         if (orderedWrites > 0) r.renderMaskHover(t, null);
         else r.renderMaskStamp(t);
-        if (t < 1) {
+        if (t < effectiveEndProgress) {
           rippleRef.current = requestAnimationFrame(tick);
           return;
         }
@@ -155,6 +159,7 @@ export function useMaskStampAnimation({
         r.showMaskWriteOverlay = previousShowMaskOverlay;
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
+        if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(effectiveEndProgress * 100));
         rippleRef.current = null;
         resolve();
       };

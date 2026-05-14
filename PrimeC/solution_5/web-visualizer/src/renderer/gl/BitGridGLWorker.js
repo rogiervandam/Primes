@@ -17,7 +17,7 @@
  */
 
 import { BitGridGLCore } from './bitGridGLCore.js';
-import { packState, packAnim } from './hostStatePacker.js';
+import { packState, packAnim, packGridView } from './hostStatePacker.js';
 import { GlyphTextGLCore } from './GlyphTextGLCore.js';
 import { replayGlyphCmds } from './glyphReplay.js';
 
@@ -422,11 +422,19 @@ export class BitGridGLWorker {
     if (this._lost || !host || this._slots === 0) return;
     const buf = new Uint8Array(this._slots);
     packState(host, buf, this._slots);
+    // item 426: pack grid view intensity into G channel
+    const gridBuf = new Uint8Array(this._slots);
+    packGridView(host, gridBuf, this._slots);
     if (this._direct) {
-      this._core.uploadStateBuffer(buf);
+      this._core.uploadStateBuffer(buf, gridBuf);
       return;
     }
-    this._post({ type: 'state', buf }, [buf.buffer]);
+    // For the worker, send both buffers in a combined array (first half = state,
+    // second half = gridView) so both can be transferred as a single ArrayBuffer.
+    const combined = new Uint8Array(this._slots * 2);
+    combined.set(buf, 0);
+    combined.set(gridBuf, this._slots);
+    this._post({ type: 'state', buf: combined, hasGridView: true }, [combined.buffer]);
   }
 
   /**

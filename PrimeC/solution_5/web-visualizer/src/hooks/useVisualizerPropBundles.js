@@ -15,6 +15,7 @@ import { COLOR_PRESETS } from '../renderer/constants';
 export function useVisualizerPropBundles({
   // ── Canvas & rendering ────────────────────────────────────────────────────
   mode3D,
+  minimapCanvasRef,
   containerRef, glCanvasRef, glyphCanvasRef, glyph2DCanvasRef, wrapperCanvasRef,
   rendererRef, glRendererRef, camera3DRef,
   mergedCamera3DContainerStyle, renderCanvasStyle,
@@ -74,6 +75,7 @@ export function useVisualizerPropBundles({
   // ── Overlays: group inspector ─────────────────────────────────────────────
   groupInspectorUnit, effectiveGroupBits, storageModel, wheelDefinition,
   layoutSettings, header, openGroupInspector, closeGroupInspector,
+  isGroupInspectorEnabled, setIsGroupInspectorEnabled,  // item 428
 
   // ── Overlays: heat map / cache / prime ────────────────────────────────────
   isHeatMapEnabled, setIsHeatMapEnabled,
@@ -88,6 +90,13 @@ export function useVisualizerPropBundles({
   // ── Overlays: multiples ───────────────────────────────────────────────────
   isMultiplesOverlayEnabled, multiplesOverlayPrime,
   setIsMultiplesOverlayEnabled, setMultiplesOverlayPrime,
+  multiplesOverlayMode, setMultiplesOverlayMode,  // item 425
+  bitsGridView, setBitsGridView,  // item 426
+
+  // ── Repeat mode (item 424) ────────────────────────────────────────────────
+  isRepeatMode, setIsRepeatMode, repeatStartPct, setRepeatStartPct,
+  // item 433: split repeat handle
+  isRepeatSplit, setIsRepeatSplit, repeatEndPct, setRepeatEndPct,
 
   // ── Overlays: minimap ─────────────────────────────────────────────────────
   isMinimapVisible, setIsMinimapVisible,
@@ -148,6 +157,7 @@ export function useVisualizerPropBundles({
       mode3D,
       refs: {
         container: containerRef,
+        minimap: minimapCanvasRef,
         glCanvas: glCanvasRef,
         glyphCanvas: glyphCanvasRef,
         glyph2DCanvas: glyph2DCanvasRef,
@@ -241,6 +251,16 @@ export function useVisualizerPropBundles({
         timelineBg: colorPreset ? (COLOR_PRESETS[colorPreset]?.timelineBg ?? null) : null,
         // item 342: user-adjustable zone background opacity
         zoneBgOpacity,
+        // item 424: repeat mode — dragger on animation timeline
+        isRepeatMode,
+        onRepeatModeChange: setIsRepeatMode,
+        repeatStartPct,
+        onRepeatStartPctChange: setRepeatStartPct,
+        // item 433: split repeat handle into start+end range
+        isRepeatSplit,
+        onRepeatSplitChange: setIsRepeatSplit,
+        repeatEndPct,
+        onRepeatEndPctChange: setRepeatEndPct,
       },
     },
 
@@ -345,9 +365,11 @@ export function useVisualizerPropBundles({
         bitLayout: layoutSettings.bitLayout || '4x2',
         byteLayout: layoutSettings.byteLayout || '4x2',
         bitCount: header?.bitCount,
+        isEnabled: isGroupInspectorEnabled,          // item 428
         handlers: {
           open: openGroupInspector,
           close: closeGroupInspector,
+          setEnabled: setIsGroupInspectorEnabled,    // item 428
         },
       },
       heatMap: {
@@ -424,9 +446,11 @@ export function useVisualizerPropBundles({
       multiples: {
         isEnabled: isMultiplesOverlayEnabled,
         prime: multiplesOverlayPrime,
+        mode: multiplesOverlayMode,   // item 425
         handlers: {
           setEnabled: setIsMultiplesOverlayEnabled,
           setPrime: setMultiplesOverlayPrime,
+          setMode: setMultiplesOverlayMode,  // item 425
           onToggle: (enabled) => {
             if (enabled && !isMultiplesOverlayEnabled) {
               const step = steps[currentStep];
@@ -448,6 +472,13 @@ export function useVisualizerPropBundles({
         isVisible: isMinimapVisible,
         handlers: {
           setVisible: setIsMinimapVisible,
+        },
+      },
+      // item 426: bits grid view — which bit-set to highlight in the grid
+      bitsGridView: {
+        mode: bitsGridView,
+        handlers: {
+          setMode: setBitsGridView,
         },
       },
     },

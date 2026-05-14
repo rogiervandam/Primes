@@ -64,6 +64,9 @@ export function useRendererPipeline({ ...flatArgs }) {
     rangeOverlayEnd,
     isMultiplesOverlayEnabled,
     multiplesOverlayPrime,
+    multiplesOverlayMode,  // item 425
+    bitsGridView,  // item 426
+    isAutoAnimateOnSelect,  // item 445
     gridOpacity,
     isDebugCalibrationMode,
     debugGlModeOverride,
@@ -118,6 +121,7 @@ export function useRendererPipeline({ ...flatArgs }) {
     disposeCamera,
     setZoom,
     getMinimapDetailH,
+    updateMinimapAvailability,
     camera3DRef,
     renderMode,
     debugGlModeOverride,
@@ -212,6 +216,9 @@ export function useRendererPipeline({ ...flatArgs }) {
       rangeOverlayEnd,
       isMultiplesOverlayEnabled,
       multiplesOverlayPrime,
+      multiplesOverlayMode,  // item 425
+      bitsGridView,  // item 426
+      isAutoAnimateOnSelect,  // item 445
       gridOpacity,
       isDebugCalibrationMode,
       mode3D,

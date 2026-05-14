@@ -47,6 +47,8 @@ export function useGoToStep({
     if (!r || steps.length === 0) return;
     target = Math.max(0, Math.min(target, steps.length - 1));
     const suppressHighlight = options.suppressHighlight === true;
+    // item 450: skip the animation call (keeps highlights, no animated bits flying)
+    const skipAnimation = options.skipAnimation === true;
     // scrub:true → canvas updates every call but React state (title/annotation)
     // is throttled to ≤10 fps to avoid flooding the component tree.
     const isScrub = options.scrub === true;
@@ -276,9 +278,10 @@ export function useGoToStep({
     // scrubs so the motion trail is visible even when selecting across steps.
     // item 244: in 'targeted' mode, animate all bits in targetSet (even if
     // already set), showing already-set ones as amber (repeatedBits path).
-    if (!suppressHighlight && triggerAnimationRef.current) {
+    if (!suppressHighlight && !skipAnimation && triggerAnimationRef.current) {
       // item 281: always use the inter-event delay when navigating.
-      const delayMs = playing ? delayBetweenEvents : 0;
+      // item 453: allow caller to override delayMs (e.g. 0 in repeat mode to avoid double fade-out)
+      const delayMs = options.delayMs !== undefined ? options.delayMs : (playing ? delayBetweenEvents : 0);
       const animBitsMode = animateBitsModeRef?.current || 'changed';
       const useTargetedMode = animBitsMode === 'targeted' && targetSet.size > 0;
       // In targeted mode: use full targetSet as changedSet for animation;
@@ -293,6 +296,10 @@ export function useGoToStep({
         // item 290: allow caller to specify an animation start fraction (e.g. repeat from point)
         ...(Number.isFinite(options.startProgress) && options.startProgress > 0
           ? { startProgress: options.startProgress }
+          : {}),
+        // item 441: allow caller to cap animation at an end fraction (repeat end handle)
+        ...(Number.isFinite(options.endProgress) && options.endProgress < 1
+          ? { endProgress: options.endProgress }
           : {}),
       });
     }

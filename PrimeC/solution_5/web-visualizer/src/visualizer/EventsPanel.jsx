@@ -389,8 +389,15 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
   }, []);
 
   // filterLevel encoding: '' (all) | 'exact:N' | 'upto:N' | 'collapse:N'
+  // item 427: save default to localStorage synchronously so the [steps] effect
+  // (which also reads localStorage) sees the preference even on the very first render.
   const [filterLevel, setFilterLevel] = useState(() => {
-    try { return localStorage.getItem('sieve-filter-level') || 'collapse:7'; } catch { return 'collapse:7'; }
+    try {
+      const saved = localStorage.getItem('sieve-filter-level');
+      if (saved) return saved;
+      localStorage.setItem('sieve-filter-level', 'collapse:7');
+      return 'collapse:7';
+    } catch { return 'collapse:7'; }
   });
 
   const [hideUntimed, setHideUntimed] = useState(false);
@@ -441,7 +448,7 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     } else {
       onStepClick(stepIdx);
       onMultiStepSelect(new Set());
-      onEnableRepeat?.();  // item 215: clicking an event enables repeat mode
+      onEnableRepeat?.(stepIdx);  // item 431: pass stepIdx so parent can toggle repeat on/off
     }
     lastClickedRef.current = stepIdx;
   }, [onStepClick, onMultiStepSelect, onEnableRepeat]);

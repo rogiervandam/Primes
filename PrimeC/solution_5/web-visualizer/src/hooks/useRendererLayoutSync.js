@@ -31,6 +31,9 @@ export function useRendererLayoutSync({ ...flatArgs }) {
     rangeOverlayEnd,
     isMultiplesOverlayEnabled,
     multiplesOverlayPrime,
+    multiplesOverlayMode,  // item 425: 'number' or 'bit'
+    bitsGridView,  // item 426: {changed, targeted, alreadySet, newlySet} boolean flags
+    isAutoAnimateOnSelect,  // item 445: hide animation visuals when off
     gridOpacity,
     isDebugCalibrationMode,
     mode3D,
@@ -146,6 +149,9 @@ export function useRendererLayoutSync({ ...flatArgs }) {
     r.rangeOverlayEnd = rangeOverlayEnd;
     r.multiplesOverlay = isMultiplesOverlayEnabled;
     r.multiplesOverlayPrime = Math.max(2, multiplesOverlayPrime || 2);
+    r.multiplesOverlayMode = multiplesOverlayMode ?? 'number';  // item 425
+    r.bitsGridView = bitsGridView ?? {};  // item 426
+    r.showAnimVisuals = isAutoAnimateOnSelect !== false;  // item 445
     r.transparentBackground = mode3D;
     r.gridOpacity = Math.max(0.12, Math.min(1, gridOpacity));
     r.canvasBackground = canvasColors ? (canvasColors[theme] || null) : null;
@@ -252,6 +258,9 @@ export function useRendererLayoutSync({ ...flatArgs }) {
     rangeOverlayEnd,
     isMultiplesOverlayEnabled,
     multiplesOverlayPrime,
+    multiplesOverlayMode,  // item 425
+    bitsGridView,  // item 426
+    isAutoAnimateOnSelect,  // item 445
     gridOpacity,
     updateMinimapAvailability,
     isDebugCalibrationMode,

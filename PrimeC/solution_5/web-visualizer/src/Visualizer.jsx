@@ -234,7 +234,7 @@ export default function Visualizer({
     stepSpeedValue, maskSpeedValue, setStepSpeedValue, setMaskSpeedValue,
     cycleAnimStyle, cycleAnimMode, animStyleInfo, animModeInfo,
     animateBitsMode, setAnimateBitsMode, animateBitsModeRef,  // item 244
-    delayBetweenRepeats, setDelayBetweenRepeats,
+    delayBetweenRepeats, setDelayBetweenRepeats, delayBetweenRepeatsRef,
   } = useAnimationConfig({ initialPrefs });
 
   const {
@@ -275,9 +275,27 @@ export default function Visualizer({
     rangeOverlayUnit, setRangeOverlayUnit,
     isMultiplesOverlayEnabled, setIsMultiplesOverlayEnabled,
     multiplesOverlayPrime, setMultiplesOverlayPrime,
+    multiplesOverlayMode, setMultiplesOverlayMode,  // item 425
+    bitsGridView, setBitsGridView,  // item 426
     cachelineSize, setCachelineSize,
     cachePreset, setCachePreset,
   } = useOverlays();
+
+  // item 424: repeat mode state — dragger on animation timeline sets loop-back point
+  const [isRepeatMode, setIsRepeatMode] = useState(false);
+  const [repeatStartPct, setRepeatStartPct] = useState(100); // item 452: default to 100%
+  const isRepeatModeRef = useRef(false);
+  const repeatStartPctRef = useRef(100); // item 452: default to 100%
+  isRepeatModeRef.current = isRepeatMode;
+  repeatStartPctRef.current = repeatStartPct;
+  // item 433: split repeat handle into start + end range
+  const [isRepeatSplit, setIsRepeatSplit] = useState(false);
+  const [repeatEndPct, setRepeatEndPct] = useState(100);
+  // item 441: refs so playback loop can read split/end state without stale closures
+  const repeatEndPctRef = useRef(100);
+  repeatEndPctRef.current = repeatEndPct;
+  const isRepeatSplitRef = useRef(false);
+  isRepeatSplitRef.current = isRepeatSplit;
 
   const {
     introPhase, setIntroPhase,
@@ -378,7 +396,18 @@ export default function Visualizer({
 
   // item 331: group inspector — byte/uint32/uint64/cacheline detail panel
   const [groupInspectorUnit, setGroupInspectorUnit] = useState(null);
-  const openGroupInspector = useCallback((unit) => setGroupInspectorUnit(unit), []);
+  // item 428: toggle whether clicking a unit opens the inspector
+  const isGroupInspectorEnabledRef = useRef(true);
+  const [isGroupInspectorEnabled, setIsGroupInspectorEnabled] = useState(() => {
+    try { return localStorage.getItem('sieve-group-inspector-enabled') !== '0'; } catch { return true; }
+  });
+  isGroupInspectorEnabledRef.current = isGroupInspectorEnabled;
+  useEffect(() => {
+    try { localStorage.setItem('sieve-group-inspector-enabled', isGroupInspectorEnabled ? '1' : '0'); } catch {}
+  }, [isGroupInspectorEnabled]);
+  const openGroupInspector = useCallback((unit) => {
+    if (isGroupInspectorEnabledRef.current) setGroupInspectorUnit(unit);
+  }, []);
   const closeGroupInspector = useCallback(() => setGroupInspectorUnit(null), []);
 
   const {
@@ -410,6 +439,8 @@ export default function Visualizer({
   }, [rangeAutoSet, isRangeOverlayEnabled, currentStep, steps, setRangeOverlayStart, setRangeOverlayEnd]);
 
   const [playing, setPlaying] = useState(false);
+  const playingRef = useRef(false);
+  playingRef.current = playing;
   const [playSpeedPercent, setPlaySpeedPercent] = useState(initialPrefs.playSpeedPercent);
   const playSpeedPercentRef = useRef(playSpeedPercent);
   playSpeedPercentRef.current = playSpeedPercent;
@@ -735,6 +766,9 @@ export default function Visualizer({
       rangeOverlayEnd,
       isMultiplesOverlayEnabled,
       multiplesOverlayPrime,
+      multiplesOverlayMode,  // item 425
+      bitsGridView,  // item 426
+      isAutoAnimateOnSelect,  // item 445: hide animation visuals when off
       gridOpacity,
       isDebugCalibrationMode,
       debugGlModeOverride,
@@ -881,6 +915,7 @@ export default function Visualizer({
       currentStepRef,
       initialHighlightHoldRef,
       aggMaskStepSetterRef,
+      isAutoAnimateOnSelectRef,  // item 440: skip replay when "Animate: off"
     },
     animConfig: {
       bitAnimInterval,
@@ -912,6 +947,7 @@ export default function Visualizer({
     applyViewportFit,
     setZoom,
     getMinimapDetailH,
+    updateMinimapAvailability,
   });
 
   useCameraStartupRefit({
@@ -945,7 +981,7 @@ export default function Visualizer({
   // Use stableGoToStep here so handleStepSelection's identity does not change
   // every step during playback (goToStep itself depends on currentStep, which
   // would otherwise cascade into EventsPanel re-rendering on every step).
-  const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({ stopPlayback, goToStep: stableGoToStep, globalPausedRef, setIsAnimationReplayPaused, setSelectedSteps });
+  const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({ stopPlayback, goToStep: stableGoToStep, globalPausedRef, playingRef, setIsAnimationReplayPaused, setSelectedSteps });
 
   useSelectionOrchestration({
     steps,
@@ -957,6 +993,7 @@ export default function Visualizer({
     getMinimapDetailH,
     updateMinimapAvailability,
     triggerAnimationRef,
+    isAutoAnimateOnSelectRef,  // item 440: skip animation when "Animate: off"
   });
 
   // Three playback-loop effects delegated to usePlaybackLoop (Pattern A hook extraction).
@@ -977,6 +1014,12 @@ export default function Visualizer({
       isScrubbingTopRef,
       initialHighlightHoldRef,
       delayBetweenEventsRef,   // item 217: auto-advance to next event when repeat disabled
+      delayBetweenRepeatsRef,  // item 424: delay before looping back in repeat mode
+      isRepeatModeRef,         // item 424: whether repeat mode is active
+      repeatStartPctRef,       // item 424: animation loop-back start position (0-100)
+      repeatEndPctRef,         // item 441: end position for split repeat mode
+      isRepeatSplitRef,        // item 441: whether start+end handles are split
+      setDelayPhaseMsRef,      // item 432: trigger fade effect during repeat delay
       stepResumeStartIndexRef,
       stepResumeMaskProgressRef,
       setIsStepAnimRunningRef,
@@ -1332,6 +1375,7 @@ export default function Visualizer({
     wheelDefinition,
     cachelineSize,
     detailInspectorQuery,
+    detailInspectorMode,  // item 446: mode determines which bits to show
     steps,  // item 224+225: passed to build bit→event index inside hook
   });
 
@@ -1490,6 +1534,7 @@ export default function Visualizer({
   const { visualizerMainContentProps, toolbarProps } = useVisualizerPropBundles({
     // Canvas & rendering
     mode3D,
+    minimapCanvasRef,
     containerRef, glCanvasRef, glyphCanvasRef, glyph2DCanvasRef, wrapperCanvasRef,
     rendererRef, glRendererRef, camera3DRef,
     mergedCamera3DContainerStyle, renderCanvasStyle,
@@ -1538,6 +1583,7 @@ export default function Visualizer({
     // Overlays: group inspector
     groupInspectorUnit, effectiveGroupBits, storageModel, wheelDefinition,
     layoutSettings, header, openGroupInspector, closeGroupInspector,
+    isGroupInspectorEnabled, setIsGroupInspectorEnabled,  // item 428
     // Overlays: heat map / cache / prime
     isHeatMapEnabled, setIsHeatMapEnabled,
     cachelineAnnotation, cachePreset, setCachelineSize, setCachelineAnnotation, setCachePreset,
@@ -1549,6 +1595,12 @@ export default function Visualizer({
     // Overlays: multiples
     isMultiplesOverlayEnabled, multiplesOverlayPrime,
     setIsMultiplesOverlayEnabled, setMultiplesOverlayPrime,
+    multiplesOverlayMode, setMultiplesOverlayMode,  // item 425
+    bitsGridView, setBitsGridView,  // item 426
+    // Repeat mode (item 424)
+    isRepeatMode, setIsRepeatMode, repeatStartPct, setRepeatStartPct,
+    // item 433: split repeat handle
+    isRepeatSplit, setIsRepeatSplit, repeatEndPct, setRepeatEndPct,
     // Overlays: minimap
     isMinimapVisible, setIsMinimapVisible,
     // Detail inspector

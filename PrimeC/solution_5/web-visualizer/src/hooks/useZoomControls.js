@@ -66,7 +66,7 @@ export function useZoomControls({
     const rect = containerRef.current?.getBoundingClientRect();
     const anchorX = rect ? rect.width / 2 : ((r.canvasWidth || 0) / 2);
     const anchorY = rect ? rect.height / 2 : ((r.canvasHeight || 0) / 2);
-    const nextZoom = Math.max(0.1, Math.min(64, r.zoom * factor));
+    const nextZoom = Math.max(0.01, Math.min(64, r.zoom * factor)); // item 448: allow zoom out to 0.01
     const contentX = (anchorX - r.panX) / Math.max(0.0001, r.zoom);
     const contentY = (anchorY - r.panY) / Math.max(0.0001, r.zoom);
 

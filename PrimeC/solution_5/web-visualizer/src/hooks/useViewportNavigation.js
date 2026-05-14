@@ -9,6 +9,7 @@ export function useViewportNavigation({
   applyViewportFit,
   setZoom,
   getMinimapDetailH,
+  updateMinimapAvailability,
 }) {
   const animateViewportTo = useCallback((targetView, duration = 650) => {
     const r = rendererRef.current;
@@ -31,6 +32,7 @@ export function useViewportNavigation({
         r.zoom = startZoom + (targetView.zoom - startZoom) * eased;
         setZoom(r.zoom);
         r.render();
+        updateMinimapAvailability();
         r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
 
         if (t < 1) {
@@ -44,7 +46,7 @@ export function useViewportNavigation({
 
       viewportAnimRef.current = requestAnimationFrame(tick);
     });
-  }, [rendererRef, cancelViewportAnimation, setZoom, getMinimapDetailH, viewportAnimRef]);
+  }, [rendererRef, cancelViewportAnimation, setZoom, getMinimapDetailH, updateMinimapAvailability, viewportAnimRef]);
 
   const refitViewportToContent = useCallback((options = {}) => {
     const r = rendererRef.current;
@@ -67,12 +69,13 @@ export function useViewportNavigation({
       r.zoom = targetView.zoom;
       setZoom(r.zoom);
       r.render();
+      updateMinimapAvailability();
       r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
       return Promise.resolve(true);
     }
 
     return animateViewportTo(targetView, options.duration ?? 720).then(() => true);
-  }, [rendererRef, containerRef, applyViewportFit, setZoom, getMinimapDetailH, animateViewportTo]);
+  }, [rendererRef, containerRef, applyViewportFit, setZoom, getMinimapDetailH, updateMinimapAvailability, animateViewportTo]);
 
   const navigateToBit = useCallback((bitIdx, targetKind = 'bit') => {
     const r = rendererRef.current;

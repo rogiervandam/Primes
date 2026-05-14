@@ -22,6 +22,9 @@ export function useOverlays() {
   const [rangeOverlayUnit, setRangeOverlayUnit] = useState('bits');
   const [isMultiplesOverlayEnabled, setIsMultiplesOverlayEnabled] = useState(false);
   const [multiplesOverlayPrime, setMultiplesOverlayPrime] = useState(3);
+  const [multiplesOverlayMode, setMultiplesOverlayMode] = useState('number');  // item 425: 'number' | 'bit'
+  // item 426: bits grid view — {changed, targeted, alreadySet, newlySet} boolean flags (multi-select)
+  const [bitsGridView, setBitsGridView] = useState({});
   const [cachelineSize, setCachelineSize] = useState(64);
   const [cachePreset, setCachePreset] = useState('fixed');
 
@@ -35,6 +38,8 @@ export function useOverlays() {
     rangeOverlayUnit, setRangeOverlayUnit,
     isMultiplesOverlayEnabled, setIsMultiplesOverlayEnabled,
     multiplesOverlayPrime, setMultiplesOverlayPrime,
+    multiplesOverlayMode, setMultiplesOverlayMode,  // item 425
+    bitsGridView, setBitsGridView,  // item 426
     cachelineSize, setCachelineSize,
     cachePreset, setCachePreset,
   };

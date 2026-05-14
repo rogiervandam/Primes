@@ -100,7 +100,10 @@ export default function SettingsPanel({
     rangeAutoSet = true,
     isMultiplesOverlayEnabled = false,
     multiplesOverlayPrime = 3,
+    multiplesOverlayMode = 'number',  // item 425
+    bitsGridView = {},  // item 426
     isMinimapVisible,
+    isGroupInspectorEnabled,  // item 428
     eventTitleSettings,
     outlineSettings,
     activeTabRequest,
@@ -121,10 +124,13 @@ export default function SettingsPanel({
     onRangeOverlayUnitChange,
     onMultiplesOverlayToggle,
     onMultiplesOverlayPrimeChange,
+    onMultiplesOverlayModeChange,  // item 425
+    onBitsGridViewChange,  // item 426
     onRangeOverlayReset,
     onRangeAutoSetChange,
     onMultiplesOverlayReset,
     onShowMinimapChange,
+    onGroupInspectorEnabledChange,  // item 428
     onEventTitleSettingsChange,
     onOutlineChange,
     onActiveTabChange,
@@ -320,11 +326,15 @@ export default function SettingsPanel({
             onRangeOverlayToggle={onRangeOverlayToggle} onRangeOverlayStartChange={onRangeOverlayStartChange} onRangeOverlayEndChange={onRangeOverlayEndChange} onRangeOverlayUnitChange={onRangeOverlayUnitChange}
             storageModel={storageModel} wheelDefinition={wheelDefinition}
             isMultiplesOverlayEnabled={isMultiplesOverlayEnabled} multiplesOverlayPrime={multiplesOverlayPrime}
+            multiplesOverlayMode={multiplesOverlayMode} onMultiplesOverlayModeChange={onMultiplesOverlayModeChange}
+            bitsGridView={bitsGridView} onBitsGridViewChange={onBitsGridViewChange}
             onMultiplesOverlayToggle={onMultiplesOverlayToggle} onMultiplesOverlayPrimeChange={onMultiplesOverlayPrimeChange}
             onRangeOverlayReset={onRangeOverlayReset} onMultiplesOverlayReset={onMultiplesOverlayReset}
             rangeAutoSet={rangeAutoSet} onRangeAutoSetChange={onRangeAutoSetChange}
             isMinimapVisible={isMinimapVisible} onShowMinimapChange={onShowMinimapChange}
             minimapControlVisible={minimapControlVisible}
+            isGroupInspectorEnabled={isGroupInspectorEnabled} onGroupInspectorEnabledChange={onGroupInspectorEnabledChange}
+            isAutoAnimateOnSelect={isAutoAnimateOnSelect} onAutoAnimateOnSelectChange={setIsAutoAnimateOnSelect}
             outlineSettings={outlineSettings} onOutlineChange={onOutlineChange}
             isWindowsPlatform={isWindowsPlatform}
           />

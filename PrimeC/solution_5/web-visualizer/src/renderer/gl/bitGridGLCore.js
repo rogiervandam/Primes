@@ -61,6 +61,7 @@ uniform int   u_firstBit;     // first bit index to render (viewport culling: sk
 uniform int   u_bitStride;    // downsampling stride: draw every N-th bit (1 = all bits)
 
 flat out uint v_state;
+flat out uint v_gridView;  // item 426: G channel from state tex — 255=in-view, 0=not
 out vec2 v_uv;                 // [0,1]x[0,1] within the cell; used by FS for border detection
 
 void main() {
@@ -73,7 +74,9 @@ void main() {
   int tx = bit % u_texSize.x;
   int ty = bit / u_texSize.x;
   // State byte stored as normalized R in RGBA8 texture; decode to uint.
-  v_state = uint(round(texelFetch(u_state, ivec2(tx, ty), 0).r * 255.0));
+  vec4 stateTexel = texelFetch(u_state, ivec2(tx, ty), 0);
+  v_state    = uint(round(stateTexel.r * 255.0));
+  v_gridView = uint(round(stateTexel.g * 255.0));  // item 426
   vec4 animData = texelFetch(u_anim, ivec2(tx, ty), 0);
   float animScale = max(0.01, animData.z);  // sizeScale (default 1.0 when not lowered)
 
@@ -167,8 +170,14 @@ uniform float u_cellSize;      // CSS px cell size; used for border-width fracti
 uniform int u_bitStride;       // downsampling stride (shared with VS); > 1 at sub-pixel zoom
 
 flat in uint v_state;
+flat in uint v_gridView;  // item 426: 4-bit flags (bit0=changed, bit1=targeted, bit2=alreadySet, bit3=newlySet)
 in vec2 v_uv;                  // [0,1]x[0,1] within cell (from VS)
 out vec4 outColor;
+
+uniform vec4 u_gv_c;  // item 426: tint for 'changed' bits
+uniform vec4 u_gv_t;  // item 426: tint for 'targeted' bits
+uniform vec4 u_gv_a;  // item 426: tint for 'alreadySet' bits
+uniform vec4 u_gv_n;  // item 426: tint for 'newlySet' bits
 
 const vec4 FOCUS_TINT = vec4(96.0/255.0, 165.0/255.0, 250.0/255.0, 0.16);
 const vec4 PRIME_TINT = vec4(251.0/255.0, 191.0/255.0,  36.0/255.0, 0.38);
@@ -208,6 +217,11 @@ void main() {
   if (isPrime) composed = overlay(composed, PRIME_TINT);
   if (isRange) composed = overlay(composed, RANGE_TINT);
   if (isMult)  composed = overlay(composed, MULT_TINT);
+  // item 426: grid view tints — each active flag bit gets its own tint color
+  if ((v_gridView & 1u) != 0u && u_gv_c.a > 0.0) composed = overlay(composed, u_gv_c);
+  if ((v_gridView & 2u) != 0u && u_gv_t.a > 0.0) composed = overlay(composed, u_gv_t);
+  if ((v_gridView & 4u) != 0u && u_gv_a.a > 0.0) composed = overlay(composed, u_gv_a);
+  if ((v_gridView & 8u) != 0u && u_gv_n.a > 0.0) composed = overlay(composed, u_gv_n);
 
   // Border rendering -- mirrors Canvas2D strokeRect logic in
   // _drawBitPrimeOverlay / _drawBitRangeOverlay / _drawBitMultiplesOverlay.
@@ -376,6 +390,10 @@ export class BitGridGLCore {
       repeatedColor: u('u_repeatedColor'),
       bgColor: u('u_bgColor'),
       baseAlpha: u('u_baseAlpha'),
+      gvC: u('u_gv_c'),  // item 426: tint for 'changed' bits
+      gvT: u('u_gv_t'),  // item 426: tint for 'targeted' bits
+      gvA: u('u_gv_a'),  // item 426: tint for 'alreadySet' bits
+      gvN: u('u_gv_n'),  // item 426: tint for 'newlySet' bits
     };
   }
 
@@ -455,21 +473,23 @@ export class BitGridGLCore {
   /**
    * Upload a pre-packed Uint8Array of state bytes. Caller is
    * responsible for sizing `buf` to `texW*texH`.
+   * @param {Uint8Array} stateBuf  - R channel: per-bit flag byte (flags 1-128).
+   * @param {Uint8Array} [gridViewBuf] - G channel: per-bit grid-view flags (item 426). 4-bit nibble: bit0=changed, bit1=targeted, bit2=alreadySet, bit3=newlySet.
    */
-  uploadStateBuffer(buf) {
+  uploadStateBuffer(stateBuf, gridViewBuf = null) {
     if (this._lost || !this.gl || !this.stateTex) return;
     const gl = this.gl;
-    // Expand the 1-byte-per-slot state buffer into RGBA8 (state in R, zeros in GBA).
-    // Using RGBA8 rather than R8UI avoids INVALID_OPERATION on OffscreenCanvas.
-    // Reuse a cached buffer to avoid a 4× allocation on every state upload.
+    // Expand into RGBA8: R=state flags, G=grid view intensity, B=0, A=0.
     const slots = this.texW * this.texH;
     if (!this._stateRgbaBuffer || this._stateRgbaBuffer.length !== slots * 4) {
       this._stateRgbaBuffer = new Uint8Array(slots * 4);
-      // G, B, A channels are always zero; they only need initialising once.
     }
     const rgba = this._stateRgbaBuffer;
-    const n = Math.min(buf.length, slots);
-    for (let i = 0; i < n; i++) rgba[i * 4] = buf[i];
+    const n = Math.min(stateBuf.length, slots);
+    for (let i = 0; i < n; i++) {
+      rgba[i * 4]     = stateBuf[i];
+      rgba[i * 4 + 1] = gridViewBuf ? gridViewBuf[i] : 0;  // item 426: G channel
+    }
     gl.bindTexture(gl.TEXTURE_2D, this.stateTex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.texSubImage2D(
@@ -572,6 +592,14 @@ export class BitGridGLCore {
     gl.uniform3f(u.repeatedColor, rep[0] / 255, rep[1] / 255, rep[2] / 255);
     gl.uniform3f(u.bgColor, bg[0] / 255, bg[1] / 255, bg[2] / 255);
     gl.uniform1f(u.baseAlpha, params.baseAlpha == null ? 1 : params.baseAlpha);
+
+    // item 426: grid view tints — {changed, targeted, alreadySet, newlySet}, [r,g,b,a] normalized 0-1 or null
+    const gvts = params.gridViewTints || {};
+    const _gv4f = (loc, tint) => { if (loc) gl.uniform4f(loc, tint ? tint[0] : 0, tint ? tint[1] : 0, tint ? tint[2] : 0, tint ? tint[3] : 0); };
+    _gv4f(u.gvC, gvts.changed);
+    _gv4f(u.gvT, gvts.targeted);
+    _gv4f(u.gvA, gvts.alreadySet);
+    _gv4f(u.gvN, gvts.newlySet);
 
     const instanceCount = params.instanceCount != null ? params.instanceCount : this.bitCount;
     // Enable SRC_ALPHA blending for soft-cell coverage-alpha compositing (fix 4).
