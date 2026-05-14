@@ -111,6 +111,12 @@
   align-items: baseline;
   gap: 6px;
   border: none;
+  overflow: hidden;
+}
+.detail-inspect-btn .dt-mono {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .detail-inspect-btn:hover {
   border-color: var(--accent-dim);
@@ -126,12 +132,16 @@
 }
 .detail-inspect-btn--inline .dt-mono {
   font-size: 10px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .detail-inspect-btn--inline .detail-inspect-hint {
   font-size: 9px;
+  margin-left: 4px;
 }
 .detail-inspect-hint {
-  margin-left: auto;
+  margin-left: 4px;
   flex-shrink: 0;
   font-size: 9.5px;
   font-weight: 600;

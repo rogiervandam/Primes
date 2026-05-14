@@ -137,8 +137,8 @@ export default function DetailPanel({
       }
     }
     ranges.push(start === end ? `${start}` : `${start}–${end}`);
-    if (ranges.length > 5) {
-      return { text: ranges.slice(0, 5).join(', '), more: ranges.length - 5 };
+    if (ranges.length > 3) {
+      return { text: ranges.slice(0, 3).join(', '), more: ranges.length - 3 };
     }
     return { text: ranges.join(', '), more: 0 };
   };
@@ -159,8 +159,8 @@ export default function DetailPanel({
     }
     ranges.push(start === end ? `${start}` : `${start}–${end}`);
     // Limit display to a few items — click the button to see all
-    if (ranges.length > 5) {
-      return { text: ranges.slice(0, 5).join(', '), more: ranges.length - 5 };
+    if (ranges.length > 3) {
+      return { text: ranges.slice(0, 3).join(', '), more: ranges.length - 3 };
     }
     return { text: ranges.join(', '), more: 0 };
   }, [step]);
@@ -178,11 +178,11 @@ export default function DetailPanel({
     if (!step || step.changedBits.length === 0) return '';
     const bits = Array.from(step.changedBits).sort((a, b) => a - b);
     const model = storageModel || 'half';
-    const nums = bits.slice(0, 5).map((bit) => {
+    const nums = bits.slice(0, 3).map((bit) => {
       const number = bitToNumber(bit, model, wheelDefinition);
       return number == null ? 'unmapped' : number;
     });
-    const more = bits.length - 5;
+    const more = bits.length - 3;
     return { text: nums.join(', '), more: more > 0 ? more : 0 };
   }, [step, storageModel, wheelDefinition]);
 
@@ -853,20 +853,21 @@ export default function DetailPanel({
                     >
                       <span className="detail-row-label">{stat.label}</span>
                       <span
-                        className="detail-row-value detail-row-value-num"
-                        style={hasInspect ? { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', overflow: 'hidden', maxWidth: '100%' } : undefined}
+                        className={`detail-row-value${hasInspect ? '' : ' detail-row-value-num'}`}
+                        style={hasInspect ? { display: 'flex', flexDirection: 'row', alignItems: 'center', overflow: 'hidden', gap: '6px' } : undefined}
                       >
-                        <span>{stat.value}</span>
                         {hasInspect && (
                           <button
                             className="detail-inspect-btn detail-inspect-btn--inline"
                             onClick={(e) => { e.stopPropagation(); onInspectBitCategory(stat.inspectMode); }}
                             title={`Inspect ${stat.label.toLowerCase()} in a searchable list`}
+                            style={{ flex: 1, minWidth: 0, width: 'auto' }}
                           >
                             <span className="dt-mono">{stat.bitsRanges.text}</span>
                             {stat.bitsRanges.more > 0 && <span className="detail-inspect-hint">+{stat.bitsRanges.more} more ↗</span>}
                           </button>
                         )}
+                        <span style={hasInspect ? { flexShrink: 0, marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' } : undefined}>{stat.value}</span>
                       </span>
                     </div>
                   );

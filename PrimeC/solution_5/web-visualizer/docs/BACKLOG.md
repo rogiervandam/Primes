@@ -16,7 +16,29 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 ✅ 455 The animation zone (click or drag area) tooltip says "Click or drag to see animation progress".
 
-456 In the detail panel, bits section: the list of bit numbers and "more" should never be so wide that it comes over the count on the right. Show only 2-3 numbers and then more.
+✅ 456 In the detail panel, bits section: the list of bit numbers and "more" should never be so wide that it comes over the count on the right. Show only 2-3 numbers and then more.
+
+457 When changing events, don't do a fade in/out of the detail panel.
+
+458 When playing or going to next/previous event with the < or > buttons or keys, scroll title current and annotation on the double timeline away in the appropriate direction and introduce the new ones with a scroll from the opposite direction. So when going to the next event, scroll the old title and annotation to the left and bring in the new title and annotation from the right. When going to the previous event, scroll the old title and annotation to the right and bring in the new title and annotation from the left. It's like a ticker. The speed should be taken from the |delay between events| setting, so when the user increases the delay, the scroll animation should slow down accordingly.
+
+459 The logic for the play button is still not correct. It should be:
+- there are two modes: events or single event (repeat mode). And two states: playing or paused.
+- when in events mode and paused, the central dragger should have the plan icon. Clicking play should start playing from the animation playhead position in the current event.
+- when in events mode and playing, the central dragger should have the pause icon. Clicking pause should pause the animation and keep the animation playhead at the current position.
+- when in single event (repeat) mode and paused, the central dragger should have the play icon with the repeat icon. Clicking play should start playing from the animation playhead position in the current event
+- when in single event (repeat) mode and playing, the central dragger should have the pause icon with the repeat icon. Clicking pause should pause the animation and keep the animation playhead at the current position.
+- in either mode (events or single events), the progress on the animation timeline should be visible: the space between 0% or the repeat start point (if active) and the animation playhead should be filled with a color to indicate how much progress has been made in the current animation cycle. This color must be significantly by brighter than 
+the timeline background color, so it's clearly visible. TTherefore, the timeline color is always a bit dimmed. 
+- when playing in repeat mode and the animation playhead reaches the end of the repeat range, the animation playhead should stop. The left-right fade-out animation begins during the repeat delay, and after the repeat delay, the animation playhead should jump back to the repeat start point and the fade-in animation should begin. 
+- when playing in events mode and the animation playhead reaches the end of the current event, the animation playhead should stop. The left-right fade-out animation begins during the delay between events, the titles and annotation scroll out to the left and the new in from the right, and after the delay between events, the animation playhead should jump to 0% and start playing the next event. 
+- when in repeat mode and the user toggles repeat mode off while playing, when the repeat handles should disapper and when the animation playhead reaches the end, it should apply the logic when playing in events mode: the playhead should stop, the fade-out animation should begin, and after the delay between events, the playhead should jump to 0% and start playing the next event.
+- when in repeat mode and the user toggles repeat mode off while paused, the repeat handles should disappear and the animation playhead should remain in place.
+- when in events mode and the user toggles repeat mode on while playing, the repeat handles should appear and the animation playhead should stop when reaching the repeat end point. The fade-out animation should begin, and after the repeat delay, the playhead should jump back to the repeat start point.
+
+
+
+
 
 
 
