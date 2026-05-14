@@ -500,6 +500,7 @@ export default function Visualizer({
   const triggerAnimationRef = useRef(null);
   const stopSeqAnimRef = useRef(null);
   const playTimeoutRef = useRef(null);
+  const repeatDelayTimeoutRef = useRef(null);
   const initialFitDoneRef = useRef(false);
   const initialHighlightHoldRef = useRef(true);
   const traceInfoPopoverRef = useRef(null);
@@ -597,7 +598,7 @@ export default function Visualizer({
 
   const { updateDetailOpen, updateDetailHeight } = useDetailPanelStateSync({ isDetailOpenRef, setIsDetailOpen, setIsDetailHeaderHidden, detailHeightRef, setDetailHeight });
 
-  const { stopPlayback } = useStopPlayback({ setPlaying, playTimeoutRef, playTimerRef });
+  const { stopPlayback } = useStopPlayback({ setPlaying, playTimeoutRef, repeatDelayTimeoutRef, playTimerRef });
 
   const stopSeqAnim = useCallback(() => {
     if (seqTimerRef.current) {
@@ -981,7 +982,7 @@ export default function Visualizer({
   // Use stableGoToStep here so handleStepSelection's identity does not change
   // every step during playback (goToStep itself depends on currentStep, which
   // would otherwise cascade into EventsPanel re-rendering on every step).
-  const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({ stopPlayback, goToStep: stableGoToStep, globalPausedRef, playingRef, setIsAnimationReplayPaused, setSelectedSteps, isRepeatModeRef, setIsRepeatSplit, setRepeatStartPct, stepScrubProgressRef });
+  const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({ stopPlayback, goToStep: stableGoToStep, globalPausedRef, playingRef, setIsAnimationReplayPaused, setSelectedSteps, isRepeatModeRef, setIsRepeatSplit, setRepeatStartPct, stepScrubProgressRef, repeatDelayTimeoutRef, setDelayPhaseMsRef });
 
   useSelectionOrchestration({
     steps,
@@ -1010,6 +1011,7 @@ export default function Visualizer({
       selectedAnimLoopRef,
       pausedStepAnimLoopRef,
       playTimeoutRef,
+      repeatDelayTimeoutRef,
       playTimerRef,
       isScrubbingTopRef,
       initialHighlightHoldRef,

@@ -74,6 +74,7 @@ export function usePlaybackLoop({ ...flatArgs }) {
     selectedAnimLoopRef,
     pausedStepAnimLoopRef,
     playTimeoutRef,
+    repeatDelayTimeoutRef,
     playTimerRef,
     isScrubbingTopRef,
     initialHighlightHoldRef,
@@ -280,7 +281,10 @@ export function usePlaybackLoop({ ...flatArgs }) {
           // After the delay, restart the current step's animation from startProg.
           // The gen check prevents a stale second invocation (React Strict Mode) from
           // firing an extra goToStep call after the first one already ran.
-          playTimeoutRef.current = setTimeout(() => {
+          // Use repeatDelayTimeoutRef (not playTimeoutRef) so the scheduleNext loop
+          // (stored in playTimeoutRef) is not overwritten and remains cancellable
+          // independently from the repeat-delay callback.
+          repeatDelayTimeoutRef.current = setTimeout(() => {
             if (!globalPausedRef.current && repeatGen.current === gen) {
               setDelayPhaseMsRef?.current?.(null);
               goToStepRef.current?.(prev, {
