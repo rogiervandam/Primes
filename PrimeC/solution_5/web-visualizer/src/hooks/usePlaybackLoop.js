@@ -85,6 +85,7 @@ export function usePlaybackLoop({ ...flatArgs }) {
     repeatEndPctRef,         // item 441: end position for split repeat mode
     isRepeatSplitRef,        // item 441: whether start+end handles are split
     setDelayPhaseMsRef,      // item 432: trigger fill-bar fade during repeat delay
+    currentStepRef,           // used to detect cross-step navigation during repeat
     stepResumeStartIndexRef,
     stepResumeMaskProgressRef,
     setIsStepAnimRunningRef,
@@ -286,6 +287,11 @@ export function usePlaybackLoop({ ...flatArgs }) {
           // independently from the repeat-delay callback.
           repeatDelayTimeoutRef.current = setTimeout(() => {
             if (!globalPausedRef.current && repeatGen.current === gen) {
+              // If the user navigated to a different step while this timeout was
+              // pending (React 18 concurrent mode can defer the setCurrentStep
+              // updater past a click handler), abort to avoid replaying the old
+              // step with stale startProgress/endProgress values.
+              if (currentStepRef?.current !== prev) return;
               setDelayPhaseMsRef?.current?.(null);
               goToStepRef.current?.(prev, {
                 keepPlaying: true,

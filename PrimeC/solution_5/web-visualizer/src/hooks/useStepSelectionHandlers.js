@@ -8,6 +8,8 @@ export function useStepSelectionHandlers({
   setIsAnimationReplayPaused,
   setSelectedSteps,
   isRepeatModeRef,
+  isRepeatSplitRef,
+  repeatStartPctRef,
   setIsRepeatSplit,
   setRepeatStartPct,
   stepScrubProgressRef,
@@ -17,6 +19,12 @@ export function useStepSelectionHandlers({
   const handleStepSelection = useCallback((stepIndex) => {
     // item 460: when switching events in repeat mode, reset to single handle at 100%
     if (isRepeatModeRef?.current) {
+      // Eagerly reset refs so that any setCurrentStep updater queued by
+      // scheduleNext (but not yet flushed by React 18 concurrent mode) reads
+      // the fresh values when it eventually runs, preventing it from creating
+      // a stale repeat-delay timeout with the old startProgress/endProgress.
+      if (isRepeatSplitRef) isRepeatSplitRef.current = false;
+      if (repeatStartPctRef) repeatStartPctRef.current = 100;
       setIsRepeatSplit?.(false);
       setRepeatStartPct?.(100);
     }
@@ -45,7 +53,7 @@ export function useStepSelectionHandlers({
       // mistake it for a mid-animation resume position on the newly selected step.
       stepScrubProgressRef?.current?.(0);
     }
-  }, [stopPlayback, goToStep, playingRef, isRepeatModeRef, setIsRepeatSplit, setRepeatStartPct, stepScrubProgressRef, repeatDelayTimeoutRef, setDelayPhaseMsRef]);
+  }, [stopPlayback, goToStep, playingRef, isRepeatModeRef, isRepeatSplitRef, repeatStartPctRef, setIsRepeatSplit, setRepeatStartPct, stepScrubProgressRef, repeatDelayTimeoutRef, setDelayPhaseMsRef]);
 
   const handleMultiStepSelect = useCallback((nextSelection) => {
     // item 460: when the plain-click path clears selection (empty Set) while playing,
