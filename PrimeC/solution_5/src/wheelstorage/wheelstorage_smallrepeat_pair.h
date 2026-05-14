@@ -23,10 +23,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
 
     for (counter_t index = start_number; index <= stop_number_unique; index += step) {
         const counter_t wheel_bit = wheel_bit_calc(index);
-        
         const counter_t new_bucket = function(wheel_bucket_calc,variant_suffix)(index);
-
-        // log9("setmask index: %ju, wheel_bit: %jd, new_bucket: %ju mask: %s", (uintmax_t)index, (intmax_t)wheel_bit, (uintmax_t)new_bucket, stringBits_uint64(current_mask));
 
         if (wheel_bit < 0) continue; // if the number is divisible by any of the wheel primes, skip it
 
@@ -45,14 +42,10 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(sieve_t* sieve, coun
             pending_mask = current_mask;
             current_bucket = new_bucket;
             current_mask = (bitbucket_t)0U;
-            // log9("new_current_mask index: %ju, wheel_bit: %jd, new_bucket: %ju", (uintmax_t)index, (intmax_t)wheel_bit, (uintmax_t)new_bucket);
         }
 
         current_mask |= markmask_type(wheel_bit, bitbucket_t);
-        // log9("updated mask: %s", stringBits_uint64(current_mask));
     }
-
-    log9("finished main loop, pending_mask: %s, current_mask: %s current_bucket: %ju, pending bucket: %ju, stop_bucket: %ju", stringBits_uint64(pending_mask), stringBits_uint64(current_mask), (uintmax_t)current_bucket, (uintmax_t)pending_bucket, (uintmax_t)stop_bucket);
 
     if (pending_mask) {
         function(applyMask_index,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);

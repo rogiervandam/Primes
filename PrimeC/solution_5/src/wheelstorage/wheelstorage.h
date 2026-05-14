@@ -5,7 +5,6 @@
 #ifndef ASSEMBLE_WHEELSTORAGE_GUARD
     #define ASSEMBLE_WHEELSTORAGE_GUARD
 
-    // static unsigned int wheel[WHEEL_SIZE/2];
     #include "../generic/log.h"
     #include "../bitstorage/bitstorage_search.h"
     #include "../bitstorage/bitstorage_setBitsTrue.h"
@@ -25,13 +24,6 @@
     wheel_bit_estimate_next(counter_t number_index) {
         counter_t wheel_index = number_index % WHEEL_SIZE;
         return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) + abs(wheelmask_bitpoint[wheel_index]);
-
-        // counter_t factor_start = wheelmask_stripe_bits * (number_index / WHEEL_SIZE);
-        // for(; wheelmask_bitpoint[wheel_index] < 0 && wheel_index < WHEEL_SIZE; wheel_index++);
-        // if (wheel_index < WHEEL_SIZE) return (factor_start + wheelmask_bitpoint[wheel_index]);
-        // factor_start += WHEEL_SIZE; // reached the end of the wheel, so we need to wrap around to the next repetition of the wheel
-        // for(wheel_index = 0; wheelmask_bitpoint[wheel_index] < 0; wheel_index++);
-        // return (factor_start + wheelmask_bitpoint[wheel_index] );
     }
 
     // wheel_bit_estimate_last returns the bit index for a given number index, and if it is divisible by any of the wheel primes, return the previous nearest bit
@@ -41,20 +33,12 @@
         counter_t wheel_index = number_index % WHEEL_SIZE;
         if (wheelmask_bitpoint[wheel_index] < 0) return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) - wheelmask_bitpoint[wheel_index] - 1;
         return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
-
-        // counter_t factor_start = wheelmask_stripe_bits * (number_index / WHEEL_SIZE);
-        // for(; wheelmask_bitpoint[wheel_index] < 0 && wheel_index > 0; wheel_index--);
-        // if (wheel_index >= 0) return (factor_start + wheelmask_bitpoint[wheel_index]);
-        // factor_start -= WHEEL_SIZE; // reached the beginning of the wheel, so we need to wrap around to the previous repetition of the wheel
-        // for(wheel_index = WHEEL_SIZE-1; wheelmask_bitpoint[wheel_index] < 0; wheel_index--);
-        // return (factor_start + wheelmask_bitpoint[wheel_index] );
     }
 
     // returns the factor (real number) at a given bit index in the bitstorage
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
     getFactor(counter_t index) {
-        const counter_t wheel_index = index % wheelmask_stripe_bits;
-        const counter_t factor = (index / wheelmask_stripe_bits) * WHEEL_SIZE + wheel_number[wheel_index];
+        const counter_t factor = (index / wheelmask_stripe_bits) * WHEEL_SIZE + wheel_number[index % wheelmask_stripe_bits];
         return factor;
     }
 
@@ -62,30 +46,29 @@
     static inline void __attribute__((cold))
     trace_write_current_wheel_definition(void)
     {
-        uint32_t map_count = 0;
+        counter_t map_count = 0;
         for (counter_t number_offset = 0; number_offset < WHEEL_SIZE; number_offset++) {
             if (wheelmask_bitpoint[number_offset] >= 0) map_count++;
         }
         if (map_count == 0) return;
 
-        uint64_t* map_numbers = (uint64_t*)malloc((size_t)map_count * sizeof(uint64_t));
-        uint64_t* map_bits = (uint64_t*)malloc((size_t)map_count * sizeof(uint64_t));
+        counter_t* map_numbers = (counter_t*)malloc((size_t)map_count * sizeof(counter_t));
+        counter_t* map_bits = (counter_t*)malloc((size_t)map_count * sizeof(counter_t));
         if (!map_numbers || !map_bits) {
             free(map_numbers);
             free(map_bits);
             return;
         }
 
-        uint32_t out_index = 0;
+        counter_t out_index = 0;
         for (counter_t number_offset = 0; number_offset < WHEEL_SIZE; number_offset++) {
             if (wheelmask_bitpoint[number_offset] < 0) continue;
-            map_numbers[out_index] = (uint64_t)number_offset;
-            map_bits[out_index] = (uint64_t)(wheelmask_bitpoint[number_offset] );
+            map_numbers[out_index] = (counter_t)number_offset;
+            map_bits[out_index] = (counter_t)(wheelmask_bitpoint[number_offset] );
             out_index++;
         }
 
-        trace_write_wheel_definition((uint64_t)WHEEL_SIZE, (uint64_t)WHEEL_STRIPE_BITS, (uint64_t)WHEEL_BASIC_SIZE,(uint64_t)WHEEL_REPEATS,(uint64_t)WHEEL_MAX,
-                                    map_numbers,map_bits,map_count);
+        trace_write_wheel_definition((WHEEL_SIZE, WHEEL_STRIPE_BITS, WHEEL_BASIC_SIZE, WHEEL_REPEATS,WHEEL_MAX, map_numbers,map_bits,map_count);
 
         free(map_numbers);
         free(map_bits);
@@ -97,31 +80,18 @@
 
 #endif
 
-// sets bitbucket_t (e.g. uint64_t), variant_suffix (e.g. _uint64) and suffix (e.g. _uint64_unroll8) 
-// for the current variant, based on the presets defined in varianttypes.h
-#if defined(BUILD_WORDS_STAGE) || defined(BUILD_VECTORS_STAGE)
-    #if defined variant_suffix && (!defined unrolls || unrolls == 1)
+#if (defined(BUILD_WORDS_STAGE) || defined(BUILD_VECTORS_STAGE)) && defined variant_suffix && (!defined unrolls || unrolls == 1)
+    // wheel_bucket is guaranteed to give back a bucket, regardless of the index is a multiple of a prime
+    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+    function(wheel_bucket_calc,variant_suffix)(counter_t index) {
 
-        // wheel_bucket is guaranteed to give back a bucket, regardless of the index is a multiple of a prime
-        static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-        function(wheel_bucket_calc,variant_suffix)(counter_t index) {
-
-            // compile time short path to avoid the index % WHEEL_SIZE
-            // if (wheelmask_stripe_bits % bitcount_type(bitbucket_t) == 0) {
-            // if (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) {
-            if (bitcount_type(bitbucket_t) % wheelmask_stripe_bits == 0) {
-                // log9("wheel_bucket_calc for index: %ju means wheel %ju, starting at bitpoint %ju which is in the %ju bucket of %s which is enough because stripe %ju <= size %ju", 
-                //     (uintmax_t)index, (uintmax_t)(index / WHEEL_SIZE), (uintmax_t)((index / WHEEL_SIZE) * wheelmask_stripe_bits), (uintmax_t)((index / WHEEL_SIZE) * wheelmask_stripe_bits / bitcount_type(bitbucket_t)), STR(suffix), (uintmax_t)wheelmask_stripe_bits, (uintmax_t)bitcount_type(bitbucket_t));
-                return index_type((index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t);
-            }
-
-            const counter_t wheel_index = index % WHEEL_SIZE;
-                // log9("wheel_bucket_calc for index: %ju means wheel %ju, starting at bitpoint %ju incremented by %ju which gives the %ju bucket of %s", 
-                //     (uintmax_t)index, (uintmax_t)(index / WHEEL_SIZE), (uintmax_t)((index / WHEEL_SIZE) * wheelmask_stripe_bits), (uintmax_t)abs(wheelmask_bitpoint[wheel_index]), (uintmax_t)(((index / WHEEL_SIZE) * wheelmask_stripe_bits + abs(wheelmask_bitpoint[wheel_index])) / bitcount_type(bitbucket_t)), STR(suffix));
-            return index_type(((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + abs(wheelmask_bitpoint[wheel_index] )), bitbucket_t);
+        // compile time short path to avoid the index % WHEEL_SIZE
+        if (bitcount_type(bitbucket_t) % wheelmask_stripe_bits == 0) {
+            return index_type((index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t);
         }
 
-    #endif
+        return index_type(((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + abs(wheelmask_bitpoint[index % WHEEL_SIZE] )), bitbucket_t);
+    }
 #endif
 
 #if defined BUILD_WORDS_STAGE
@@ -208,20 +178,12 @@
         logStart6(sieve->bitstorage, time_markFactors_wheelstorage, "setting factors step %3ju in %ju factor range (%ju-%ju) for prime %ju", (uintmax_t)step, (uintmax_t)safe_diff(stop,start),(uintmax_t)start,(uintmax_t)stop, (uintmax_t)(step/2));
         const counter_t prime = step / 2;
 
-        // function(markFactors_wheelstorage_repeat, wheelvariant_unroll_suffix)(sieve, start, stop, step); return;
-
         if (prime < global_largestep_faster) {
             // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(sieve, start, stop, step);
             markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
-            // markFactors_wheelstorage_small_repeat_pairv2_uint64_unroll8(sieve, start, stop, step);
-            // markFactors_wheelstorage_small_repeat_mmask_uint64_unroll8(sieve, start, stop, step);
-            // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve, start, stop, step);
         }
         else 
-        // markFactors_wheelstorage_repeat_uint8_unroll8(sieve, start, stop, step);
         function(markFactors_wheelstorage_repeat, wheelvariant_unroll_suffix)(sieve, start, stop, step);
-        // function(markFactors_wheelstorage_repeatv2, wheelvariant_unroll_suffix)(sieve, start, stop, step);
-        // markFactors_wheelstorage_norepeat(sieve, start, stop, step);
 
         logStop6(sieve->bitstorage, time_markFactors_wheelstorage, "finished setting factors\n");
     }

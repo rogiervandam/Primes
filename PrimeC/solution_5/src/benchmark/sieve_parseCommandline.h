@@ -1,5 +1,5 @@
 #pragma once
-#include "sieve_benchmark_settings.h" // for benchmark_settings_t and setBenchmarkSettingAsString
+#include "sieve_usage.h" // for usage()
 
 // generic helper functions for parsing command line arguments 
 static inline int __attribute__((cold, const)) 

@@ -3,6 +3,8 @@
 #include "../bitstorage/bitstorage_search.h"
 #include "../bitstorage/bitstorage_setBitsTrue.h"
 
+#define STORAGE_HALF_DEFINED 1
+
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
 markFactor(sieve_t *sieve, counter_t index)
 {

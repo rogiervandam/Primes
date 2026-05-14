@@ -71,9 +71,11 @@ calcMax(counter_t sieve_size, storage_type storage_id)
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 calcStep(counter_t prime, storage_type storage_id) 
 {
+    #if defined(STORAGE_HALF_DEFINED)
     if (storage_id == STORAGE_HALF) {
         return calcFactor_step_half(prime);
     }
+    #endif
 
     return calcFactor_step(prime);
 }
@@ -81,9 +83,11 @@ calcStep(counter_t prime, storage_type storage_id)
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 calcStart(counter_t prime, counter_t block_start, storage_type storage_id) 
 {
+    #if defined(STORAGE_HALF_DEFINED)
     if (storage_id == STORAGE_HALF) {
         return calcFactor_start_half(prime, block_start);
     }
+    #endif
 
     return calcFactor_start(prime, block_start);
 }
@@ -91,9 +95,11 @@ calcStart(counter_t prime, counter_t block_start, storage_type storage_id)
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 calcStop(counter_t sieve_size, storage_type storage_id) 
 {
+    #if defined(STORAGE_HALF_DEFINED)
     if (storage_id == STORAGE_HALF) {
         return calcBitsize_half(sieve_size);
     }
+    #endif
 
     return sieve_size;
 }
