@@ -98,6 +98,7 @@ export const DEFAULT_COLOR_PREFS = {
 export const DEFAULT_TIMELINE_COLORS = {
   events: '#b87333',     // warm copper/amber for the events waveform
   animation: '#3a8cb8',  // steel blue for the animation scrubber
+  textColor: '#e8e8e8',  // light grey text for dark floater backgrounds (item 419)
 };
 
 /** item 322/323: default floater zone background and center dragger color */
@@ -284,6 +285,7 @@ function initialTimelineColors(prefs) {
   return {
     events:    isHex(saved?.events)    ? saved.events    : DEFAULT_TIMELINE_COLORS.events,
     animation: isHex(saved?.animation) ? saved.animation : DEFAULT_TIMELINE_COLORS.animation,
+    textColor: isHex(saved?.textColor) ? saved.textColor : DEFAULT_TIMELINE_COLORS.textColor,
   };
 }
 

@@ -119,6 +119,14 @@
   text-align: center;
 }
 .search-overlay-result.kind-navigate .search-overlay-result-icon { color: var(--accent); }
+/* item 418: warning row for unmapped number queries */
+.search-overlay-result.kind-warning {
+  cursor: default;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.search-overlay-result.kind-warning .search-overlay-result-icon { color: #f0a050; }
+.search-overlay-result.kind-warning .search-overlay-result-label { color: #f0a050; font-style: italic; }
 
 .search-overlay-result-label {
   flex: 1;

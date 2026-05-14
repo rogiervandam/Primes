@@ -83,6 +83,7 @@ export function useVisualizerPropBundles({
   // ── Overlays: range ───────────────────────────────────────────────────────
   isRangeOverlayEnabled, rangeOverlayStart, rangeOverlayEnd, rangeOverlayUnit,
   setIsRangeOverlayEnabled, setRangeOverlayStart, setRangeOverlayEnd, setRangeOverlayUnit,
+  rangeAutoSet, setRangeAutoSet,
 
   // ── Overlays: multiples ───────────────────────────────────────────────────
   isMultiplesOverlayEnabled, multiplesOverlayPrime,
@@ -376,10 +377,11 @@ export function useVisualizerPropBundles({
         start: rangeOverlayStart,
         end: rangeOverlayEnd,
         unit: rangeOverlayUnit,
+        autoSet: rangeAutoSet,
         handlers: {
           setEnabled: setIsRangeOverlayEnabled,
-          setStart: setRangeOverlayStart,
-          setEnd: setRangeOverlayEnd,
+          setStart: (v) => { setRangeAutoSet(false); setRangeOverlayStart(v); },
+          setEnd:   (v) => { setRangeAutoSet(false); setRangeOverlayEnd(v); },
           setUnit: setRangeOverlayUnit,
           onToggle: (enabled) => {
             if (enabled && !isRangeOverlayEnabled) {
@@ -390,6 +392,8 @@ export function useVisualizerPropBundles({
                 setRangeOverlayStart(start);
                 setRangeOverlayEnd(end);
               }
+              // item 416: switching on always starts in auto mode
+              setRangeAutoSet(true);
             }
             setIsRangeOverlayEnabled(enabled);
           },
@@ -400,6 +404,19 @@ export function useVisualizerPropBundles({
               const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
               setRangeOverlayStart(start);
               setRangeOverlayEnd(end);
+            }
+          },
+          // item 416: toggle between auto-set (follows current step) and user-input
+          onAutoSetChange: (auto) => {
+            setRangeAutoSet(auto);
+            if (auto) {
+              const step = steps[currentStep];
+              if (step) {
+                const start = step.focusStart != null ? step.focusStart : (step.changedBits.length > 0 ? Math.min(...step.changedBits) : 0);
+                const end = step.focusStop != null ? step.focusStop : (step.changedBits.length > 0 ? Math.max(...step.changedBits) : Math.max(0, header.bitCount - 1));
+                setRangeOverlayStart(start);
+                setRangeOverlayEnd(end);
+              }
             }
           },
         },

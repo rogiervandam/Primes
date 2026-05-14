@@ -62,6 +62,16 @@ import {
   maskWordOrderSummary,
   maskWriteEntries,
 } from './renderer/mask/maskMetadata';
+import {
+  drawMaskImprint,
+  drawCurvedTrail,
+  renderRipple as _renderRipple,
+  renderFade as _renderFade,
+  renderPulse as _renderPulse,
+  renderMaskStamp as _renderMaskStamp,
+  renderMaskHover as _renderMaskHover,
+} from './renderer/effects/RendererAnimations';
+import { computeGlLayoutParams } from './renderer/layout/glLayoutComputer';
 
 export {
   THEMES,
@@ -272,9 +282,7 @@ export class SieveRenderer {
     };
   }
 
-  _bitColors() {
-    return this.determineBitPalette();
-  }
+  _bitColors() { return this.determineBitPalette(); }
 
   getOperationHighlightColor() {
     const C = this.colors;
@@ -287,9 +295,7 @@ export class SieveRenderer {
     return C.BIT_CHANGED;
   }
 
-  _opColor() {
-    return this.getOperationHighlightColor();
-  }
+  _opColor() { return this.getOperationHighlightColor(); }
 
   _outlineConfig() {
     const zoom = Math.max(0.18, this.zoom || 1);
@@ -450,29 +456,12 @@ export class SieveRenderer {
     );
   }
 
-  setMaskGhostBits(bits) {
-    this.renderState.setMaskGhostBits(bits);
-  }
-
-  clearBitMotionTrails() {
-    this.motionTrails.clear();
-  }
-
-  addBitMotionTrail(fromBit, toBit, options = {}) {
-    this.motionTrails.add(fromBit, toBit, options);
-  }
-
-  renderBitMotionTrails(now = performance.now()) {
-    this.motionTrails.render(now);
-  }
-
-  setSearchHighlight(type, index, bitIndex = null) {
-    this.searchOverlay.set(type, index, bitIndex);
-  }
-
-  clearSearchHighlight() {
-    this.searchOverlay.clear();
-  }
+  setMaskGhostBits(bits)              { this.renderState.setMaskGhostBits(bits); }
+  clearBitMotionTrails()               { this.motionTrails.clear(); }
+  addBitMotionTrail(fromBit, toBit, options = {}) { this.motionTrails.add(fromBit, toBit, options); }
+  renderBitMotionTrails(now = performance.now()) { this.motionTrails.render(now); }
+  setSearchHighlight(type, index, bitIndex = null) { this.searchOverlay.set(type, index, bitIndex); }
+  clearSearchHighlight()               { this.searchOverlay.clear(); }
 
   _recordFrameTiming(now = performance.now()) {
     if (this._perfLastTs > 0) {
@@ -543,9 +532,7 @@ export class SieveRenderer {
     return globalByte % groupBytes;
   }
 
-  _isInFocusRange(globalBit) {
-    return this.renderState.isBitInFocusRange(globalBit);
-  }
+  _isInFocusRange(globalBit) { return this.renderState.isBitInFocusRange(globalBit); }
 
   _multiBitBounds(startBit, count) {
     return multiBitBounds(this, startBit, count);
@@ -571,169 +558,27 @@ export class SieveRenderer {
     return maskWordOrderSummary(this);
   }
 
-  _maskEntriesBySlot() {
-    return maskEntriesBySlot(this);
-  }
+  _maskEntriesBySlot()                 { return maskEntriesBySlot(this); }
+  _maskEntryBits(entry)                { return maskEntryBits(this, entry); }
+  _maskEntryGroupBounds(entry)         { return maskEntryGroupBounds(this, entry); }
 
-  _maskEntryBits(entry) {
-    return maskEntryBits(this, entry);
-  }
+  /** item 408: delegates to RendererAnimations.drawMaskImprint */
+  _drawMaskImprint(entry, x, y, options = {}, glCtx) { drawMaskImprint(this, entry, x, y, options, glCtx); }
 
-  _maskEntryGroupBounds(entry) {
-    return maskEntryGroupBounds(this, entry);
-  }
+  /** item 408: delegates to RendererAnimations.drawCurvedTrail */
+  _drawCurvedTrail(fromX, fromY, toX, toY, color, alpha, px, travelLift, glCtx) { drawCurvedTrail(this, fromX, fromY, toX, toY, color, alpha, px, travelLift, glCtx); }
 
-  _drawMaskImprint(entry, x, y, options = {}, glCtx) {
-    if (!entry || !glCtx) return;
-    const px = this.pixelSize * this.zoom;
-    const tint = this._maskTintColor(entry.slotIndex);
-    const alpha = Math.max(0, Math.min(1, options.alpha ?? 1));
-    const liftBlend = Math.max(0, Math.min(1, options.liftBlend ?? 0));
-    const cutoutStrength = Math.max(0, Math.min(1, options.cutoutStrength ?? 0.72));
-    const bounds = entry.bounds;
-    const groupBounds = this._maskEntryGroupBounds(entry);
-    const dx = x - bounds.cx;
-    const dy = y - bounds.cy;
-    const wordInset = this.maskWordBits && this.maskWordBits <= 32
-      ? Math.max(0.8, Math.min(2.1, px * 0.18))
-      : Math.max(1.2, Math.min(3.6, px * 0.34));
+  _renderCachelineHeatOverlay() { this.cachelineOverlayRenderer.renderHeatOverlay(); }
+  _renderCachelineOutline()     { this.cachelineOverlayRenderer.renderOutline(); }
 
-    const groupingBits = this._logicalGroupBits();
-    const maskSizeBits = Number.isFinite(this.maskWordBits) && this.maskWordBits > 0
-      ? this.maskWordBits
-      : entry.count;
-    const tr = tint[0] / 255, tg = tint[1] / 255, tb = tint[2] / 255;
-    const bg = this.effectiveBackground || this.colors.BACKGROUND;
-    const br = bg[0] / 255, bgc = bg[1] / 255, bb = bg[2] / 255;
-
-    if (groupBounds && groupingBits <= maskSizeBits) {
-      glCtx.drawOutlineRect(
-        groupBounds.x + dx - wordInset * 1.2,
-        groupBounds.y + dy - wordInset * 1.2,
-        groupBounds.w + wordInset * 2.4,
-        groupBounds.h + wordInset * 2.4,
-        tr, tg, tb, 0.92 * alpha,
-        Math.max(1.2, px * 0.14),
-      );
-    }
-
-    glCtx.drawFilledRect(
-      bounds.x + dx - wordInset,
-      bounds.y + dy - wordInset,
-      bounds.w + wordInset * 2,
-      bounds.h + wordInset * 2,
-      tr, tg, tb, 0.16 * alpha,
-    );
-    glCtx.drawOutlineRect(
-      bounds.x + dx - wordInset,
-      bounds.y + dy - wordInset,
-      bounds.w + wordInset * 2,
-      bounds.h + wordInset * 2,
-      tr, tg, tb, alpha,
-      Math.max(1.2, px * 0.13),
-    );
-
-    const bits = this._maskEntryBits(entry);
-    for (let index = 0; index < bits.length; index++) {
-      const pos = this.bitIndexToCanvas(bits[index]);
-      if (!pos) continue;
-      const bx = pos.x - px / 2 + dx;
-      const by = pos.y - px / 2 + dy;
-      glCtx.drawFilledRect(bx, by, px, px, tr, tg, tb, 0.48 * alpha);
-      if (cutoutStrength > 0) {
-        const inset = Math.max(0.45, px * 0.22);
-        const iw = Math.max(0.4, px - inset * 2);
-        const ih = Math.max(0.4, px - inset * 2);
-        glCtx.drawFilledRect(
-          bx + inset,
-          by + inset,
-          iw,
-          ih,
-          br,
-          bgc,
-          bb,
-          Math.max(0.12, 0.78 * alpha * cutoutStrength),
-        );
-      }
-      glCtx.drawOutlineRect(bx, by, px, px, 1, 1, 1, 0.92 * alpha, Math.max(0.95, px * 0.11));
-    }
-
-    if (liftBlend > 0) {
-      glCtx.drawFilledRect(
-        bounds.x + dx - wordInset * 1.2,
-        bounds.y + dy - wordInset * 1.2,
-        bounds.w + wordInset * 2.4,
-        bounds.h + wordInset * 2.4,
-        1, 1, 1, 0.08 * alpha * liftBlend,
-      );
-    }
-  }
-
-  _drawCurvedTrail(fromX, fromY, toX, toY, color, alpha, px, travelLift, glCtx) {
-    if (!glCtx) return;
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-    const distance = Math.hypot(dx, dy);
-    if (distance <= 0.6 || alpha <= 0) return;
-
-    const tr = color[0] / 255;
-    const tg = color[1] / 255;
-    const tb = color[2] / 255;
-    const controlX = fromX + dx * 0.5;
-    const lift = Math.max(px * 2.2, Math.min(distance * 0.24, travelLift * 0.95));
-    const controlY = Math.min(fromY, toY) - lift;
-
-    // Keep the mask trail visually continuous at low zoom with overlapping samples.
-    const lineRadius = Math.max(2.5, px * 0.18);
-    const spacing = Math.max(0.35, lineRadius * 0.54);
-    const samples = Math.max(20, Math.min(220, Math.ceil(distance / spacing)));
-    for (let i = 0; i <= samples; i++) {
-      const u = i / samples;
-      const omt = 1 - u;
-      const qx = omt * omt * fromX + 2 * omt * u * controlX + u * u * toX;
-      const qy = omt * omt * fromY + 2 * omt * u * controlY + u * u * toY;
-      const fade = 0.55 + 0.45 * u;
-      glCtx.drawDot(qx, qy, lineRadius, tr, tg, tb, Math.max(0.04, alpha * fade));
-    }
-  }
-
-  /**
-   * Draw the cacheline heat-map overlay.
-   *
-   * Iterates over PHYSICAL cachelines (cachelineSize bytes each).  For every
-   * physical CL the logical groups (vectors) that belong to it are collected
-   * and grouped into contiguous row-segments.  Each segment gets a filled
-   * rectangle with a fully-stroked border, so the result is one properly
-   * shaped outline per physical cacheline regardless of how the layout wraps.
-   */
-  _renderCachelineHeatOverlay() {
-    this.cachelineOverlayRenderer.renderHeatOverlay();
-  }
-
-  /**
-   * Draw the dashed cacheline-boundary outline (same visual style as byte/vector
-   * outlines) at PHYSICAL cacheline granularity (cachelineSize bytes).
-   *
-   * Uses the same segment-grouping logic as _renderCachelineHeatOverlay so that
-   * each physical CL gets one outlined rectangle per visual row it occupies.
-   */
-  _renderCachelineOutline() {
-    this.cachelineOverlayRenderer.renderOutline();
-  }
   /** Ensure per-physical-cacheline arrays are allocated for the current cachelineSize */
-  _ensureCLArrays() {
-    this.heatMapState.ensureCachelineArrays();
-  }
+  _ensureCLArrays() { this.heatMapState.ensureCachelineArrays(); }
 
   /** Update heat map tracking: mark changed bits and cachelines with current step */
-  updateHeatMap(changedBits, stepIndex) {
-    this.heatMapState.update(changedBits, stepIndex);
-  }
+  updateHeatMap(changedBits, stepIndex)    { this.heatMapState.update(changedBits, stepIndex); }
 
   /** Rebuild heat map from scratch up to targetStep */
-  rebuildHeatMap(steps, targetStep) {
-    this.heatMapState.rebuild(steps, targetStep);
-  }
+  rebuildHeatMap(steps, targetStep)        { this.heatMapState.rebuild(steps, targetStep); }
 
   /**
    * Compute cacheline overlay color based on hit count and recency.
@@ -877,101 +722,28 @@ export class SieveRenderer {
     }
   }
 
-  _bitPosInByte(bitInByte) {
-    return this.layoutMetrics.bitPosInByte(bitInByte);
-  }
-
-  _bytePosInU64(byteInU64) {
-    return this.layoutMetrics.bytePosInU64(byteInU64);
-  }
-
-  _bitStepX() {
-    return this.layoutMetrics.bitStepX();
-  }
-
-  _bitStepY() {
-    return this.layoutMetrics.bitStepY();
-  }
-
-  _byteGapX() {
-    return this.layoutMetrics.byteGapX();
-  }
-
-  _byteGapY() {
-    return this.layoutMetrics.byteGapY();
-  }
-
-  _u64GapX() {
-    return this.layoutMetrics.u64GapX();
-  }
-
-  _u64GapY() {
-    return this.layoutMetrics.u64GapY();
-  }
-
-  _byteDims() {
-    return this.layoutMetrics.byteDims();
-  }
-
-  _u64Dims() {
-    return this.layoutMetrics.u64Dims();
-  }
-
-  // Dimensions of one vector group (vectorGroup uint64s side by side)
-  _vectorDims() {
-    return this.layoutMetrics.vectorDims();
-  }
-
-  _numVectorsPerRow() {
-    return this.layoutMetrics.numVectorsPerRow();
-  }
-
-  _totalVectorSlots() {
-    return this.layoutMetrics.totalVectorSlots();
-  }
-
-  _vectorGroupsPerVisualRow() {
-    return this.layoutMetrics.vectorGroupsPerVisualRow();
-  }
-
-  _vectorSlotLayout(globalVectorIndex) {
-    return this.layoutMetrics.vectorSlotLayout(globalVectorIndex);
-  }
-
-  // How many cache lines to wrap per visual row based on canvas width
-  // When frozen, zoom changes don't alter the wrapping layout
-  _cacheLinesPerVisualRow() {
-    return this.layoutMetrics.cacheLinesPerVisualRow();
-  }
-
-  _computeClPerVRow() {
-    return this.layoutMetrics.computeCacheLinesPerVisualRow();
-  }
-
-  /** Freeze the current wrapping layout so zoom doesn't change it */
-  freezeLayout() {
-    this.layoutMetrics.freezeLayout();
-  }
-
-  /** Unfreeze layout (e.g. when window is resized or layout settings change) */
-  unfreezeLayout() {
-    this.layoutMetrics.unfreezeLayout();
-  }
-
-  // Row = one cache line = numVectors vector groups
-  _rowDims() {
-    return this.layoutMetrics.rowDims();
-  }
-
-  // Height of stacked label bands above each row.
-  // Vector labels are above byte labels; byte labels stay closer to bits.
-  _labelBands() {
-    return this.layoutMetrics.labelBands();
-  }
-
-  _labelHeight() {
-    return this.layoutMetrics.labelHeight();
-  }
+  _bitPosInByte(bitInByte)             { return this.layoutMetrics.bitPosInByte(bitInByte); }
+  _bytePosInU64(byteInU64)             { return this.layoutMetrics.bytePosInU64(byteInU64); }
+  _bitStepX()                          { return this.layoutMetrics.bitStepX(); }
+  _bitStepY()                          { return this.layoutMetrics.bitStepY(); }
+  _byteGapX()                          { return this.layoutMetrics.byteGapX(); }
+  _byteGapY()                          { return this.layoutMetrics.byteGapY(); }
+  _u64GapX()                           { return this.layoutMetrics.u64GapX(); }
+  _u64GapY()                           { return this.layoutMetrics.u64GapY(); }
+  _byteDims()                          { return this.layoutMetrics.byteDims(); }
+  _u64Dims()                           { return this.layoutMetrics.u64Dims(); }
+  _vectorDims()                        { return this.layoutMetrics.vectorDims(); }
+  _numVectorsPerRow()                  { return this.layoutMetrics.numVectorsPerRow(); }
+  _totalVectorSlots()                  { return this.layoutMetrics.totalVectorSlots(); }
+  _vectorGroupsPerVisualRow()          { return this.layoutMetrics.vectorGroupsPerVisualRow(); }
+  _vectorSlotLayout(globalVectorIndex) { return this.layoutMetrics.vectorSlotLayout(globalVectorIndex); }
+  _cacheLinesPerVisualRow()            { return this.layoutMetrics.cacheLinesPerVisualRow(); }
+  _computeClPerVRow()                  { return this.layoutMetrics.computeCacheLinesPerVisualRow(); }
+  freezeLayout()                       { this.layoutMetrics.freezeLayout(); }
+  unfreezeLayout()                     { this.layoutMetrics.unfreezeLayout(); }
+  _rowDims()                           { return this.layoutMetrics.rowDims(); }
+  _labelBands()                        { return this.layoutMetrics.labelBands(); }
+  _labelHeight()                       { return this.layoutMetrics.labelHeight(); }
 
   /**
    * Top-level frame render. Coordinator only — the heavy lifting is split
@@ -1008,189 +780,8 @@ export class SieveRenderer {
     return _bitIndexToCanvas(this, bitIdx);
   }
 
-  /**
-   * Return the layout parameters consumed by the WebGL vertex shader to
-   * compute per-bit (x, y) positions directly on the GPU from
-   * `gl_InstanceID`. All values are pan-independent CSS-px scalars or
-   * small lookup arrays; no position texture is needed.
-   *
-   * The returned object is spread into the `renderParams` passed to
-   * `BitGridGLWorker.render()` / `BitGridGLCore.render()`.
-   *
-   * @returns {{
-   *   bitsPerCL: number, u64sPerCL: number, vectorGroup: number,
-   *   numVecsPerCL: number, vecPerRow: number,
-   *   vecStep: number, u64Step: number,
-   *   byteStepX: number, byteStepY: number,
-   *   bitStepX: number, bitStepY: number,
-   *   labelH: number, vRowHeight: number, pxHalf: number,
-   *   bytePos: Float32Array,  // 16 floats: (col,row) × 8 bytes
-   *   bitPos:  Float32Array,  // 16 floats: (col,row) × 8 bit positions
-   * }}
-   */
-  glLayoutParams() {
-    // ── Invariant layout values ──────────────────────────────────────────
-    const bitsPerCacheLine = this.bitsPerCacheLine;
-    const u64sPerCL  = Math.max(1, Math.ceil(bitsPerCacheLine / 64));
-    const vectorGroup = this.vectorGroup;
-
-    const zoom       = this.zoom;
-    const pixelSize  = this.pixelSize;
-    const px         = pixelSize * zoom;
-
-    const bitSpacingH  = this.bitSpacingH;
-    const bitSpacingV  = this.bitSpacingV;
-    const byteSpacingH = this.byteSpacingH;
-    const byteSpacingV = this.byteSpacingV;
-    const u64SpacingH  = this.u64SpacingH;
-    const u64SpacingV  = this.u64SpacingV;
-
-    const bitStepX  = (pixelSize + bitSpacingH) * zoom;
-    const bitStepY  = (pixelSize + bitSpacingV) * zoom;
-    const byteGapX  = (bitSpacingH + byteSpacingH) * zoom;
-    const byteGapY  = (bitSpacingV + byteSpacingV) * zoom;
-    const u64GapX   = (bitSpacingH + byteSpacingH + u64SpacingH) * zoom;
-    const u64GapY   = (bitSpacingV + byteSpacingV + u64SpacingV) * zoom;
-
-    // byteDims
-    const bitBl    = BIT_LAYOUTS[this.bitLayout];
-    const bitCols  = bitBl.grid3x3 ? 3 : bitBl.cols;
-    const bitRows  = bitBl.grid3x3 ? 3 : bitBl.rows;
-    const byteDimW = bitCols * px + (bitCols - 1) * bitSpacingH * zoom;
-    const byteDimH = bitRows * px + (bitRows - 1) * bitSpacingV * zoom;
-
-    // Build byte-in-u64 lookup tables (8 entries max)
-    const byteBl      = BYTE_LAYOUTS[this.byteLayout];
-    const activeBytes = Math.max(1, Math.min(8, Math.ceil(this._logicalGroupBits() / 8)));
-    const byteColLookup = new Int32Array(8);
-    const byteRowLookup = new Int32Array(8);
-    let minBCol = Infinity, maxBCol = -Infinity;
-    let minBRow = Infinity, maxBRow = -Infinity;
-    for (let b = 0; b < activeBytes; b++) {
-      let col, row;
-      if (byteBl.grid3x3) {
-        const cell = GRID3X3_MAP[b];
-        col = cell % 3;
-        row = Math.floor(cell / 3);
-      } else {
-        col = b % byteBl.cols;
-        row = Math.floor(b / byteBl.cols);
-      }
-      byteColLookup[b] = col;
-      byteRowLookup[b] = row;
-      if (col < minBCol) minBCol = col;
-      if (col > maxBCol) maxBCol = col;
-      if (row < minBRow) minBRow = row;
-      if (row > maxBRow) maxBRow = row;
-    }
-
-    // u64Dims (derived from byte layout extents)
-    const u64Cols  = Number.isFinite(minBCol) ? (maxBCol - minBCol + 1) : (byteBl.grid3x3 ? 3 : byteBl.cols);
-    const u64Rows  = Number.isFinite(minBRow) ? (maxBRow - minBRow + 1) : (byteBl.grid3x3 ? 3 : byteBl.rows);
-    const u64DimW  = u64Cols * byteDimW + (u64Cols - 1) * byteGapX;
-    const u64DimH  = u64Rows * byteDimH + (u64Rows - 1) * byteGapY;
-
-    // vectorDims / steps
-    const vecDimW  = vectorGroup * u64DimW + (vectorGroup - 1) * u64GapX;
-    const vecStep  = vecDimW + u64GapX;
-    const u64Step  = u64DimW + u64GapX;
-
-    // byteSteps
-    const byteStepX = byteDimW + byteGapX;
-    const byteStepY = byteDimH + byteGapY;
-
-    // numVectorsPerCL and vecPerRow
-    const numVecsPerCL = Math.max(1, Math.ceil(u64sPerCL / vectorGroup));
-    const vecPerRow    = this._vectorGroupsPerVisualRow();
-
-    // label height and row height
-    const labelH     = this._labelHeight();
-    const vRowHeight = labelH + u64DimH + u64GapY;
-
-    // Build bit-in-byte lookup tables (always 8 entries)
-    const bitColLookup = new Int32Array(8);
-    const bitRowLookup = new Int32Array(8);
-    for (let b = 0; b < 8; b++) {
-      if (bitBl.grid3x3) {
-        const cell = GRID3X3_MAP[b];
-        bitColLookup[b] = cell % 3;
-        bitRowLookup[b] = Math.floor(cell / 3);
-      } else {
-        bitColLookup[b] = b % bitBl.cols;
-        bitRowLookup[b] = Math.floor(b / bitBl.cols);
-      }
-    }
-
-    // Pack lookup tables as flat Float32Array(16) for gl.uniform2fv().
-    const bytePos = new Float32Array(16);
-    const bitPos  = new Float32Array(16);
-    for (let i = 0; i < 8; i++) {
-      bytePos[i * 2]     = byteColLookup[i];
-      bytePos[i * 2 + 1] = byteRowLookup[i];
-      bitPos[i * 2]      = bitColLookup[i];
-      bitPos[i * 2 + 1]  = bitRowLookup[i];
-    }
-
-    // ── Viewport culling: compute the visible bit range ─────────────────
-    // Only render bits that belong to visual rows currently on screen.
-    // This reduces the GL instance count dramatically when zoomed in or
-    // when a large grid is only partially scrolled into view.
-    // Falls back to the full bit range when canvas height is not yet set
-    // (e.g. during parity testing or first-frame setup).
-    const totalCacheLines = Math.max(1, Math.ceil(this.bitCount / bitsPerCacheLine));
-    const totalVectorSlots = totalCacheLines * numVecsPerCL;
-    const totalVRows = Math.ceil(totalVectorSlots / vecPerRow);
-    const ch = this.canvasHeight || 0;
-    let firstBit = 0;
-    let endBit = this.bitCount;
-    if (ch > 0 && vRowHeight > 0) {
-      const startVRow = Math.max(0, Math.floor(-this.panY / vRowHeight));
-      const endVRow   = Math.min(totalVRows, Math.ceil((ch - this.panY) / vRowHeight) + 1);
-      // Map vRow range → cacheline range → bit range.
-      // firstCL = first cacheline of startVRow; lastCL = first cacheline past endVRow.
-      const firstCL = Math.floor(startVRow * vecPerRow / numVecsPerCL);
-      const lastCL  = Math.min(Math.ceil(endVRow * vecPerRow / numVecsPerCL), totalCacheLines);
-      firstBit = Math.max(0, firstCL * bitsPerCacheLine);
-      endBit   = Math.min(lastCL * bitsPerCacheLine, this.bitCount);
-    }
-
-    // ── Downsampling: skip every N-th bit when zoomed out far enough ─────
-    // When cellSize < 1 px each bit occupies sub-pixel area; bits overlap
-    // on screen. Rendering every N-th bit gives the same visual result
-    // while cutting GPU vertex-shader work by N×.
-    const cellSize = px; // already = pixelSize * zoom
-    // Use physical cell size (CSS px × canvasDpr which includes SSAA) so that
-    // SSAA rendering correctly reduces the stride — a 0.25 CSS-px cell at
-    // DPR=2 + SSAA=2× is 1 physical pixel, so bitStride should be 1 not 4.
-    const physCellSize = cellSize * (this.canvasDpr || 1);
-    // Cap at 4 (was 16) so more bits are drawn at extreme zoom-out; the
-    // coverage-alpha FS pass (fix 4) relies on a reasonable density.
-    const bitStride = Math.max(1, Math.min(4, Math.floor(1 / Math.max(0.0625, physCellSize))));
-    // instanceCount must cover the full [firstBit, endBit) range at the chosen stride.
-    const instanceCount = Math.max(0, Math.ceil((endBit - firstBit) / bitStride));
-
-    return {
-      bitsPerCL:    bitsPerCacheLine,
-      u64sPerCL,
-      vectorGroup,
-      numVecsPerCL,
-      vecPerRow,
-      vecStep,
-      u64Step,
-      byteStepX,
-      byteStepY,
-      bitStepX,
-      bitStepY,
-      labelH,
-      vRowHeight,
-      pxHalf: px / 2,
-      bytePos,
-      bitPos,
-      firstBit,
-      instanceCount,
-      bitStride,
-    };
-  }
+  /** item 408: GL layout params computation extracted to renderer/layout/glLayoutComputer.js */
+  glLayoutParams() { return computeGlLayoutParams(this); }
 
   getBitInfo(bitIdx) {
     if (bitIdx < 0 || bitIdx >= this.bitCount) return '';
@@ -1254,356 +845,20 @@ export class SieveRenderer {
     this._glyphFramePrimed = false;
   }
 
-  /**
-   * Render a contracting ripple overlay on changed bits.
-   * A large circle contracts to each changed bit while fading.
-   * @param {number} progress 0..1 animation progress
-   */
-  renderRipple(progress, focusBits = null, options = {}) {
-    const sourceBits = focusBits && focusBits.size ? focusBits : this.animationFocusBits?.size ? this.animationFocusBits : this.changedBits;
-    if (!sourceBits || sourceBits.size === 0) return;
-    if (progress <= 0 || progress > 1) return;
+  /** item 408: delegates to RendererAnimations.renderRipple */
+  renderRipple(progress, focusBits = null, options = {})         { return _renderRipple(this, progress, focusBits, options); }
 
-    const canvasDpr = Math.max(0.1, this.canvasDpr || 1);
-    const cw = this.canvasWidth || 0;
-    const ch = this.canvasHeight || 0;
-    const px = this.pixelSize * this.zoom;
-    const intensity = Math.max(0.4, Math.min(1.2, options.intensity || 1));
+  /** item 408: delegates to RendererAnimations.renderFade */
+  renderFade(progress)                                            { return _renderFade(this, progress); }
 
-    const color = this._opColor();
-    const ease = 1 - Math.pow(1 - progress, 3);
-    const maxRadius = Math.max(8, px * 3.8 * intensity);
-    const outerRadius = maxRadius * (1 - ease * 0.72);
-    const innerRadius = Math.max(px * 0.55, outerRadius * 0.48);
-    const coreRadius = Math.max(px * 0.36, px * (0.55 + 0.24 * (1 - progress)));
-    const ringWidth = Math.max(0.8, 1.7 * intensity * (1 - ease * 0.45));
-    const ringAlpha = Math.max(0, 0.5 * Math.pow(1 - progress, 0.72));
-    const haloAlpha = Math.max(0, 0.1 * intensity * Math.pow(1 - progress, 1.18));
-    const coreAlpha = Math.max(0, 0.6 * Math.pow(1 - progress, 0.56));
-    const cr = color[0] / 255, cg = color[1] / 255, cb = color[2] / 255;
+  /** item 408: delegates to RendererAnimations.renderPulse */
+  renderPulse(progress, focusBits = null, options = {})          { return _renderPulse(this, progress, focusBits, options); }
 
-    const glCtx = this._beginGLAnim();
-    if (!glCtx) return;
+  /** item 408: delegates to RendererAnimations.renderMaskStamp */
+  renderMaskStamp(progress)                                       { return _renderMaskStamp(this, progress); }
 
-    for (const globalBit of sourceBits) {
-      const pos = this.bitIndexToCanvas(globalBit);
-      if (!pos) continue;
-      const bitCx = pos.x;
-      const bitCy = pos.y;
-
-      if (bitCx + maxRadius < 0 || bitCx - maxRadius > cw || bitCy + maxRadius < 0 || bitCy - maxRadius > ch) continue;
-
-      if (haloAlpha > 0.01) glCtx.drawDot(bitCx, bitCy, outerRadius, cr, cg, cb, haloAlpha);
-      if (ringAlpha > 0.01) {
-        glCtx.drawDot(bitCx, bitCy, innerRadius + ringWidth, cr, cg, cb, ringAlpha * 0.55);
-        glCtx.drawDot(bitCx, bitCy, innerRadius, cr, cg, cb, ringAlpha);
-      }
-      if (coreAlpha > 0.01) glCtx.drawDot(bitCx, bitCy, coreRadius, cr, cg, cb, coreAlpha);
-      if (options.showBeacon) {
-        const beacon = Math.max(px * 0.9, 4.5 * intensity);
-        glCtx.drawOutlineRect(bitCx - beacon / 2, bitCy - beacon / 2, beacon, beacon,
-          1, 1, 1, Math.max(0.16, ringAlpha * 0.68), Math.max(0.75, px * 0.1));
-      }
-    }
-
-    this._endGLAnim(glCtx);
-  }
-
-  /** Fade animation: changed bits fade from transparent to full color */
-  renderFade(progress) {
-    if (!this.changedBits || this.changedBits.size === 0) return;
-    if (progress <= 0 || progress > 1) return;
-
-    const px = this.pixelSize * this.zoom;
-    const color = this._opColor();
-    const alpha = 1 - progress;
-    const cr = color[0] / 255, cg = color[1] / 255, cb = color[2] / 255;
-
-    const glCtx = this._beginGLAnim();
-    if (!glCtx) return;
-
-    for (const globalBit of this.changedBits) {
-      const pos = this.bitIndexToCanvas(globalBit);
-      if (!pos) continue;
-      glCtx.drawFilledRect(pos.x - px / 2 - 1, pos.y - px / 2 - 1, px + 2, px + 2, cr, cg, cb, alpha);
-    }
-    this._endGLAnim(glCtx);
-  }
-
-  /** Pulse animation: changed bits scale up then back down */
-  renderPulse(progress, focusBits = null, options = {}) {
-    const sourceBits = focusBits && focusBits.size ? focusBits : this.animationFocusBits?.size ? this.animationFocusBits : this.changedBits;
-    if (!sourceBits || sourceBits.size === 0) return;
-    if (progress <= 0 || progress > 1) return;
-
-    const px = this.pixelSize * this.zoom;
-    const color = this._opColor();
-    const intensity = Math.max(0.8, Math.min(1.8, options.intensity || 1));
-
-    const peak = 0.3;
-    const scale = progress < peak
-      ? 1 + 1.15 * intensity * (progress / peak)
-      : 1 + 1.15 * intensity * (1 - (progress - peak) / (1 - peak));
-    const alpha = Math.max(0, progress < 0.75 ? 0.92 : 0.92 * (1 - (progress - 0.75) / 0.25));
-    const cr = color[0] / 255, cg = color[1] / 255, cb = color[2] / 255;
-
-    const glCtx = this._beginGLAnim();
-    if (!glCtx) return;
-
-    for (const globalBit of sourceBits) {
-      const pos = this.bitIndexToCanvas(globalBit);
-      if (!pos) continue;
-      const s = px * scale;
-      glCtx.drawFilledRect(pos.x - s / 2, pos.y - s / 2, s, s, cr, cg, cb, alpha);
-      if (options.showHalo) {
-        const hs = s * 1.36;
-        glCtx.drawOutlineRect(pos.x - hs / 2, pos.y - hs / 2, hs, hs,
-          1, 1, 1, Math.max(0.2, alpha * 0.72), Math.max(1.1, px * 0.15));
-      }
-    }
-
-    this._endGLAnim(glCtx);
-  }
-
-  /**
-   * Stamp animation for applyMask: a mask rectangle moves over each grouping
-   * and lowers where bits are affected.
-   */
-  renderMaskStamp(progress) {
-    if (!this.changedBits || this.changedBits.size === 0) return;
-    const t = Math.max(0, Math.min(1, progress));
-
-    const color = this._opColor();
-    const px = this.pixelSize * this.zoom;
-    const lift = Math.max(7, Math.min(18, px * 3.1));
-    const cr = color[0] / 255, cg = color[1] / 255, cb = color[2] / 255;
-
-    const orderedEntries = this._maskWriteEntries();
-    const stampProgress = t * (orderedEntries.length > 0 ? orderedEntries.length : 0);
-
-    const glCtx = this._beginGLAnim();
-    if (!glCtx) return;
-
-    if (orderedEntries.length > 0) {
-      for (let i = 0; i < orderedEntries.length; i++) {
-        const local = stampProgress - i;
-        if (local < -0.25 || local > 1.2) continue;
-
-        const phase = Math.max(0, Math.min(1, local));
-        let yOffset;
-        if (phase < 0.58) {
-          yOffset = -lift * (1 - phase / 0.58);
-        } else if (phase < 0.73) {
-          yOffset = Math.sin(((phase - 0.58) / 0.15) * Math.PI) * 1.5;
-        } else {
-          yOffset = -4 * ((phase - 0.73) / 0.27);
-        }
-
-        const entry = orderedEntries[i];
-        const tint = this._maskTintColor(entry.slotIndex);
-        const bounds = entry.bounds;
-        const groupBounds = this._maskEntryGroupBounds(entry);
-        const groupingBits = this._logicalGroupBits();
-        const maskSizeBits = Number.isFinite(this.maskWordBits) && this.maskWordBits > 0
-          ? this.maskWordBits
-          : entry.count;
-        const stampBounds = (groupBounds && groupingBits <= maskSizeBits) ? groupBounds : bounds;
-        const alpha = local < 0 ? Math.max(0, 0.28 + local * 1.1) : Math.max(0.22, 0.84 - phase * 0.42);
-        const inset = Math.max(2, Math.min(6, px * 0.7));
-        const stampPad = this.outlineEnabled ? Math.max(inset, this._outlinePadding()) : inset;
-        const topExtra = this._labelBands().total;
-        const rx = stampBounds.x - stampPad;
-        const ry = stampBounds.y - stampPad - topExtra + yOffset;
-        const rw = stampBounds.w + stampPad * 2;
-        const rh = stampBounds.h + stampPad * 2 + topExtra;
-        const ttr = tint[0] / 255, ttg = tint[1] / 255, ttb = tint[2] / 255;
-
-        glCtx.drawFilledRect(rx, ry, rw, rh, ttr, ttg, ttb, alpha * 0.14);
-        glCtx.drawOutlineRect(rx, ry, rw, rh, ttr, ttg, ttb, alpha, Math.max(0.8, Math.min(2.2, px * 0.11)));
-
-        const bits = this._maskEntryBits(entry);
-        const bg = this.effectiveBackground || this.colors.BACKGROUND;
-        const br = bg[0] / 255, bgc = bg[1] / 255, bb = bg[2] / 255;
-        for (let bitIndex = 0; bitIndex < bits.length; bitIndex++) {
-          const pos = this.bitIndexToCanvas(bits[bitIndex]);
-          if (!pos) continue;
-          const bx = pos.x - px / 2;
-          const by = pos.y - px / 2 + yOffset;
-          const cutInset = Math.max(0.45, px * 0.22);
-          const cutW = Math.max(0.4, px - cutInset * 2);
-          const cutH = Math.max(0.4, px - cutInset * 2);
-          glCtx.drawFilledRect(bx, by, px, px, ttr, ttg, ttb, alpha * 0.36);
-          glCtx.drawFilledRect(bx + cutInset, by + cutInset, cutW, cutH, br, bgc, bb, Math.max(0.16, alpha * 0.64));
-          glCtx.drawOutlineRect(bx, by, px, px, 1, 1, 1, Math.max(0.2, alpha * 0.64), Math.max(0.7, px * 0.09));
-        }
-      }
-
-      this._endGLAnim(glCtx);
-      return;
-    }
-
-    const groupBits = this.customGroupingBits > 0 ? this.customGroupingBits : Math.max(1, this.vectorGroup * 64);
-    const groupMap = new Map();
-    for (const bit of this.changedBits) {
-      const gid = Math.floor(bit / groupBits);
-      const arr = groupMap.get(gid);
-      if (arr) arr.push(bit);
-      else groupMap.set(gid, [bit]);
-    }
-    const groups = Array.from(groupMap.keys()).sort((a, b) => a - b);
-    if (groups.length === 0) {
-      this._endGLAnim(glCtx);
-      return;
-    }
-
-    const legacyStampProgress = t * groups.length;
-
-    for (let i = 0; i < groups.length; i++) {
-      const local = legacyStampProgress - i;
-      if (local < -0.25 || local > 1.2) continue;
-
-      const phase = Math.max(0, Math.min(1, local));
-      let yOffset;
-      if (phase < 0.58) {
-        yOffset = -lift * (1 - phase / 0.58);
-      } else if (phase < 0.73) {
-        yOffset = Math.sin(((phase - 0.58) / 0.15) * Math.PI) * 1.5;
-      } else {
-        yOffset = -4 * ((phase - 0.73) / 0.27);
-      }
-
-      const gid = groups[i];
-      const startBit = gid * groupBits;
-      const count = Math.max(1, Math.min(groupBits, this.bitCount - startBit));
-      if (count <= 0) continue;
-      const bounds = this._multiBitBounds(startBit, count);
-      if (!bounds) continue;
-
-      const alpha = local < 0 ? Math.max(0, 0.28 + local * 1.1) : Math.max(0.22, 0.84 - phase * 0.42);
-      const inset = Math.max(2, Math.min(6, px * 0.7));
-      const rx = bounds.x - inset;
-      const ry = bounds.y - inset + yOffset;
-      const rw = bounds.w + inset * 2;
-      const rh = bounds.h + inset * 2;
-
-      glCtx.drawFilledRect(rx, ry, rw, rh, cr, cg, cb, alpha * 0.14);
-      glCtx.drawOutlineRect(rx, ry, rw, rh, cr, cg, cb, alpha, Math.max(0.8, Math.min(2.2, px * 0.11)));
-
-      const hitBits = groupMap.get(gid) || [];
-      const markSize = Math.max(1.8, Math.min(6.2, px * 0.56));
-      const bg = this.effectiveBackground || this.colors.BACKGROUND;
-      const br = bg[0] / 255, bgc = bg[1] / 255, bb = bg[2] / 255;
-      for (let j = 0; j < hitBits.length; j++) {
-        const pos = this.bitIndexToCanvas(hitBits[j]);
-        if (!pos) continue;
-        const bx = pos.x - markSize / 2;
-        const by = pos.y - markSize / 2 + yOffset;
-        glCtx.drawFilledRect(bx, by, markSize, markSize, cr, cg, cb, Math.max(0.26, alpha * 0.78));
-        const cutInset = Math.max(0.35, markSize * 0.22);
-        glCtx.drawFilledRect(
-          bx + cutInset,
-          by + cutInset,
-          Math.max(0.3, markSize - cutInset * 2),
-          Math.max(0.3, markSize - cutInset * 2),
-          br,
-          bgc,
-          bb,
-          Math.max(0.18, alpha * 0.65),
-        );
-        glCtx.drawOutlineRect(bx, by, markSize, markSize, 1, 1, 1, Math.max(0.2, alpha * 0.42), Math.max(0.45, Math.min(1.1, px * 0.07)));
-      }
-    }
-
-    this._endGLAnim(glCtx);
-  }
-
-  renderMaskHover(progress, precomputedSlotGroups = null) {
-    const slotGroups = precomputedSlotGroups || this._maskEntriesBySlot();
-    if (slotGroups.length === 0) return;
-
-    const px = this.pixelSize * this.zoom;
-    const t = Math.max(0, Math.min(1, progress));
-    const travelLift = Math.max(16, Math.min(52, px * 5.8));
-
-    const glCtx = this._beginGLAnim();
-    if (!glCtx) return;
-
-    for (let groupIndex = 0; groupIndex < slotGroups.length; groupIndex++) {
-      const entries = slotGroups[groupIndex];
-      const segmentCount = Math.max(1, entries.length);
-      const unit = t * segmentCount;
-      const index = Math.min(entries.length - 1, Math.floor(unit));
-      const local = Math.max(0, Math.min(1, unit - index));
-      const from = entries[index];
-      const to = entries[Math.min(entries.length - 1, index + 1)];
-
-      // item 283: detect new mask (eventId changes) vs reused mask (same eventId).
-      // "New mask" = transitioning to an entry with a different eventId than the previous entry.
-      const prevEntry = index > 0 ? entries[index - 1] : null;
-      const isNewMask = !prevEntry || (prevEntry.eventId !== from.eventId);
-      const nextIsNewMask = from.eventId !== to.eventId;
-
-      for (let previous = 0; previous < index; previous++) {
-        // item 283: dimmer imprint for reused masks, brighter for first occurrence of each mask
-        const entryIsNew = previous === 0 || (entries[previous - 1].eventId !== entries[previous].eventId);
-        this._drawMaskImprint(entries[previous], entries[previous].bounds.cx, entries[previous].bounds.cy, {
-          alpha: entryIsNew ? 0.6 : 0.38,
-        }, glCtx);
-      }
-
-      const rise = local < 0.35 ? local / 0.35 : local > 0.68 ? (1 - local) / 0.32 : 1;
-      const smooth = local * local * (3 - 2 * local);
-      const currentX = from.bounds.cx + (to.bounds.cx - from.bounds.cx) * smooth;
-      const currentY = from.bounds.cy + (to.bounds.cy - from.bounds.cy) * smooth - travelLift * rise;
-      // item 283: new masks get a brighter alpha; reused masks are slightly dimmer
-      const baseStampAlpha = isNewMask ? 1.0 : 0.72;
-      const stampingAlpha = local < 0.18 ? baseStampAlpha : local > 0.82 ? baseStampAlpha : baseStampAlpha * 0.92;
-
-      // Render the full planned path so the route remains visible mid-flight.
-      if (from !== to) {
-        const tint = this._maskTintColor(from.slotIndex);
-        const baseRouteAlpha = Math.max(0.40, stampingAlpha * 0.70);
-        // item 283: trail to a new mask uses a bright accent trail; repeat trail is dimmer
-        const routeAlpha = nextIsNewMask ? Math.min(1.0, baseRouteAlpha * 1.5) : baseRouteAlpha * 0.65;
-        const trailTint = nextIsNewMask
-          ? [255, 220, 80]  // gold/yellow for new mask trail
-          : tint;            // slot tint for repeat trail
-        this._drawCurvedTrail(from.bounds.cx, from.bounds.cy, to.bounds.cx, to.bounds.cy, trailTint, routeAlpha, px, travelLift, glCtx);
-      }
-
-      this._drawMaskImprint(from, currentX, currentY, {
-        alpha: stampingAlpha,
-        liftBlend: rise,
-        cutoutStrength: 0.9,
-      }, glCtx);
-
-      // item 283: when arriving at a new mask, draw an extra glow ring to highlight the transition
-      if (isNewMask && rise > 0.05) {
-        const tint = this._maskTintColor(from.slotIndex);
-        const tr = tint[0] / 255, tg = tint[1] / 255, tb = tint[2] / 255;
-        const bounds = from.bounds;
-        const dx = currentX - bounds.cx;
-        const dy = currentY - bounds.cy;
-        const glowPad = Math.max(4, px * 1.2) * rise;
-        glCtx.drawOutlineRect(
-          bounds.x + dx - glowPad,
-          bounds.y + dy - glowPad,
-          bounds.w + glowPad * 2,
-          bounds.h + glowPad * 2,
-          tr, tg, tb, 0.55 * stampingAlpha * rise,
-          Math.max(2, px * 0.28),
-        );
-      }
-
-      if (local > 0.78 && index < entries.length - 1) {
-        this._drawMaskImprint(to, to.bounds.cx, to.bounds.cy, {
-          alpha: (local - 0.78) / 0.22,
-        }, glCtx);
-      }
-    }
-
-    this._endGLAnim(glCtx);
-  }
+  /** item 408: delegates to RendererAnimations.renderMaskHover */
+  renderMaskHover(progress, precomputedSlotGroups = null)         { return _renderMaskHover(this, progress, precomputedSlotGroups); }
 
   /** Content dimensions at current zoom */
   contentDimensions() {

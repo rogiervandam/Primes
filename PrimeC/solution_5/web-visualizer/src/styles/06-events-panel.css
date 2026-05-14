@@ -276,10 +276,9 @@
   flex-shrink: 0;
 }
 .event-op {
-  /* item 328: tinted bg (25% events color over panel bg) + full label color as text */
-  /* item 339: blend label color toward --fg-bright so dark preset colors stay readable on any tinted bg */
-  background: color-mix(in srgb, var(--ep-label-color, var(--op-bg)) 25%, var(--op-bg));
-  color: color-mix(in srgb, var(--ep-label-color, var(--op-fg)) 65%, var(--fg-bright));
+  /* item 409: darker bg (50% label color) + brighter text (30% label color → mostly fg-bright) for improved contrast */
+  background: color-mix(in srgb, var(--ep-label-color, var(--op-bg)) 50%, var(--op-bg));
+  color: color-mix(in srgb, var(--ep-label-color, var(--op-fg)) 30%, var(--fg-bright));
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
   padding: 1px 5px;
   border-radius: 3px;
@@ -332,8 +331,9 @@
   text-overflow: clip;
   position: static;
   transform: none;
-  background: color-mix(in srgb, var(--ep-label-color, var(--op-bg)) 25%, var(--op-bg));
-  color: color-mix(in srgb, var(--ep-label-color, var(--op-fg)) 65%, var(--fg-bright));
+  /* item 409: match normal mode contrast improvements */
+  background: color-mix(in srgb, var(--ep-label-color, var(--op-bg)) 50%, var(--op-bg));
+  color: color-mix(in srgb, var(--ep-label-color, var(--op-fg)) 30%, var(--fg-bright));
   border: none;
   box-shadow: none;
   padding: 1px 5px;

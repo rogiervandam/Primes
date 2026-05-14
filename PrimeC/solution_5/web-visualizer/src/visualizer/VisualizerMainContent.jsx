@@ -126,8 +126,8 @@ export default function VisualizerMainContent(props) {
   const { setCachelineSize, setCachelineAnnotation, setCachePreset } = cacheHandlers;
   const { isEnabled: isPrimeOverlayEnabled, handlers: primeHandlers = {} } = overlayPrime;
   const { setEnabled: setIsPrimeOverlayEnabled } = primeHandlers;
-  const { isEnabled: isRangeOverlayEnabled, start: rangeOverlayStart, end: rangeOverlayEnd, unit: rangeOverlayUnit, handlers: rangeHandlers = {} } = overlayRange;
-  const { setEnabled: setIsRangeOverlayEnabled, setStart: setRangeOverlayStart, setEnd: setRangeOverlayEnd, setUnit: setRangeOverlayUnit, onToggle: onRangeOverlayToggle, onReset: onRangeOverlayReset } = rangeHandlers;
+  const { isEnabled: isRangeOverlayEnabled, start: rangeOverlayStart, end: rangeOverlayEnd, unit: rangeOverlayUnit, autoSet: rangeAutoSet, handlers: rangeHandlers = {} } = overlayRange;
+  const { setEnabled: setIsRangeOverlayEnabled, setStart: setRangeOverlayStart, setEnd: setRangeOverlayEnd, setUnit: setRangeOverlayUnit, onToggle: onRangeOverlayToggle, onReset: onRangeOverlayReset, onAutoSetChange: onRangeAutoSetChange } = rangeHandlers;
   const { isEnabled: isMultiplesOverlayEnabled, prime: multiplesOverlayPrime, handlers: multiplesHandlers = {} } = overlayMultiples;
   const { setEnabled: setIsMultiplesOverlayEnabled, setPrime: setMultiplesOverlayPrime, onToggle: onMultiplesOverlayToggle, onReset: onMultiplesOverlayReset } = multiplesHandlers;
   const { isVisible: isMinimapVisible, handlers: minimapHandlers = {} } = overlayMinimap;
@@ -372,6 +372,7 @@ export default function VisualizerMainContent(props) {
           rangeOverlayStart,
           rangeOverlayEnd,
           rangeOverlayUnit,
+          rangeAutoSet,
           isMultiplesOverlayEnabled,
           multiplesOverlayPrime,
           isMinimapVisible,
@@ -396,6 +397,7 @@ export default function VisualizerMainContent(props) {
           onMultiplesOverlayToggle: onMultiplesOverlayToggle,
           onMultiplesOverlayPrimeChange: setMultiplesOverlayPrime,
           onRangeOverlayReset,
+          onRangeAutoSetChange,
           onMultiplesOverlayReset,
           onShowMinimapChange: setIsMinimapVisible,
           onEventTitleSettingsChange: setEventTitleSettings,

@@ -97,6 +97,7 @@ export default function SettingsPanel({
     rangeOverlayStart = 0,
     rangeOverlayEnd = 0,
     rangeOverlayUnit = 'bits',
+    rangeAutoSet = true,
     isMultiplesOverlayEnabled = false,
     multiplesOverlayPrime = 3,
     isMinimapVisible,
@@ -121,6 +122,7 @@ export default function SettingsPanel({
     onMultiplesOverlayToggle,
     onMultiplesOverlayPrimeChange,
     onRangeOverlayReset,
+    onRangeAutoSetChange,
     onMultiplesOverlayReset,
     onShowMinimapChange,
     onEventTitleSettingsChange,
@@ -320,6 +322,7 @@ export default function SettingsPanel({
             isMultiplesOverlayEnabled={isMultiplesOverlayEnabled} multiplesOverlayPrime={multiplesOverlayPrime}
             onMultiplesOverlayToggle={onMultiplesOverlayToggle} onMultiplesOverlayPrimeChange={onMultiplesOverlayPrimeChange}
             onRangeOverlayReset={onRangeOverlayReset} onMultiplesOverlayReset={onMultiplesOverlayReset}
+            rangeAutoSet={rangeAutoSet} onRangeAutoSetChange={onRangeAutoSetChange}
             isMinimapVisible={isMinimapVisible} onShowMinimapChange={onShowMinimapChange}
             minimapControlVisible={minimapControlVisible}
             outlineSettings={outlineSettings} onOutlineChange={onOutlineChange}

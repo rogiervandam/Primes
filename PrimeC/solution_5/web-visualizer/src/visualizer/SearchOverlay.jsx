@@ -18,6 +18,7 @@
  * Keyboard navigation: Up/Down to highlight, Enter to select, Escape to close.
  */
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { numberToBit, bitToNumber } from '../renderer/bitMath';
 
 // Maximum event results shown
 const MAX_EVENTS = 12;
@@ -92,6 +93,9 @@ export default function SearchOverlay({
   onQueryChange,
   // Range overlay activation — called for range-type search results.
   onSetRange,
+  // Storage model info — used to validate number queries (item 418).
+  storageModel,
+  wheelDefinition,
 }) {
   const [localQuery, setLocalQuery] = useState('');
   const isControlled = queryProp !== undefined;
@@ -132,7 +136,47 @@ export default function SearchOverlay({
         }
         out.push({ id: `nav-event-${eIdx}`, kind: 'event', step: matchedStep, stepIdx: arrayIdx, label: nav.label });
       } else {
-        out.push({ id: 'nav', kind: nav.type, label: nav.label ?? `Navigate to ${q}`, navQuery: nav.navQuery });
+        // item 418: for "number N" queries, check if the number maps to a valid bit
+        const numM = q.trim().toLowerCase().match(/^(?:number|num|#)\s*(\d+)$/);
+        if (numM && storageModel) {
+          const n = parseInt(numM[1], 10);
+          const bit = numberToBit(n, storageModel, wheelDefinition);
+          if (bit < 0) {
+            // Number is not mapped — find the nearest mapped number
+            let nearestNum = null;
+            let nearestBit = -1;
+            for (let delta = 1; delta <= 200 && nearestNum == null; delta++) {
+              for (const candidate of [n - delta, n + delta]) {
+                if (candidate < 0) continue;
+                const cb = numberToBit(candidate, storageModel, wheelDefinition);
+                if (cb >= 0) { nearestNum = candidate; nearestBit = cb; break; }
+              }
+            }
+            if (nearestNum != null) {
+              out.push({
+                id: 'nav-unmapped-warning',
+                kind: 'warning',
+                label: `Number ${n} is not mapped in this storage model`,
+              });
+              out.push({
+                id: 'nav-nearest',
+                kind: 'navigate',
+                label: `Nearest mapped number: ${nearestNum} → bit ${nearestBit}`,
+                navQuery: `bit ${nearestBit}`,
+              });
+            } else {
+              out.push({
+                id: 'nav-unmapped-warning',
+                kind: 'warning',
+                label: `Number ${n} is not mapped in this storage model`,
+              });
+            }
+          } else {
+            out.push({ id: 'nav', kind: nav.type, label: nav.label ?? `Navigate to ${q}`, navQuery: nav.navQuery });
+          }
+        } else {
+          out.push({ id: 'nav', kind: nav.type, label: nav.label ?? `Navigate to ${q}`, navQuery: nav.navQuery });
+        }
       }
     }
 
@@ -158,7 +202,7 @@ export default function SearchOverlay({
     }
 
     return out;
-  }, [query, steps]);
+  }, [query, steps, storageModel, wheelDefinition]);
 
   // Clamp selected index whenever results change
   useEffect(() => {
@@ -167,6 +211,7 @@ export default function SearchOverlay({
 
   const activate = useCallback((result) => {
     if (!result) return;
+    if (result.kind === 'warning') return; // non-interactive warning row
     if (result.kind === 'navigate' || result.kind === 'range') {
       // Both navigate and range queries go through handleSearch — it resolves the
       // range overlay for range queries and single-bit navigation for navigate queries.
@@ -221,7 +266,7 @@ export default function SearchOverlay({
                 onClick={() => activate(r)}
               >
                 <span className="search-overlay-result-icon" aria-hidden="true">
-                  {r.kind === 'navigate' ? '⊕' : '#'}
+                  {r.kind === 'navigate' ? '⊕' : r.kind === 'warning' ? '⚠' : '#'}
                 </span>
                 <span className="search-overlay-result-label">{r.label}</span>
                 {r.kind === 'event' && r.step?.numChanged != null && (

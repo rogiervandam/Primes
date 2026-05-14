@@ -51,7 +51,7 @@ export const COLOR_PRESETS = {
     setBit:       [76, 175, 80],   // green
     clearedBit:   [244, 67, 54],   // red
     unchangedBit: [158, 158, 158], // gray
-    timelineColors: { events: '#4caf50', animation: '#2196f3' },
+    timelineColors: { events: '#4caf50', animation: '#2196f3', textColor: '#e8e8e8' },
     floaterBg:    '#0a0a0a',
     draggerColor: '#1a2e1a',
     timelineBg:   '#0a120a',       // dark green-black zone tint
@@ -61,7 +61,7 @@ export const COLOR_PRESETS = {
     setBit:       [0, 255, 0],     // bright green
     clearedBit:   [255, 0, 0],     // bright red
     unchangedBit: [0, 0, 0],       // black
-    timelineColors: { events: '#00ff00', animation: '#0080ff' },
+    timelineColors: { events: '#00ff00', animation: '#0080ff', textColor: '#e8e8e8' },
     floaterBg:    '#000000',
     draggerColor: '#001a00',
     timelineBg:   '#000000',       // pure black zone
@@ -71,7 +71,7 @@ export const COLOR_PRESETS = {
     setBit:       [165, 214, 167], // pastel green
     clearedBit:   [239, 154, 154], // pastel red
     unchangedBit: [224, 224, 224], // pastel gray
-    timelineColors: { events: '#a5d6a7', animation: '#90caf9' },
+    timelineColors: { events: '#a5d6a7', animation: '#90caf9', textColor: '#e8e8e8' },
     floaterBg:    '#1a1a2e',
     draggerColor: '#1a2e1a',
     timelineBg:   '#12101e',       // soft dark lavender zone
@@ -81,7 +81,7 @@ export const COLOR_PRESETS = {
     setBit:       [129, 199, 132], // light green
     clearedBit:   [229, 115, 115], // light red
     unchangedBit: [66, 66, 66],    // dark gray
-    timelineColors: { events: '#81c784', animation: '#64b5f6' },
+    timelineColors: { events: '#81c784', animation: '#64b5f6', textColor: '#e8e8e8' },
     floaterBg:    '#0a0a0a',
     draggerColor: '#1a2a1a',
     timelineBg:   '#080c08',       // near-black with green warmth
@@ -91,7 +91,7 @@ export const COLOR_PRESETS = {
     setBit:       [0, 255, 200],   // neon cyan-green
     clearedBit:   [255, 30, 120],  // neon pink-red
     unchangedBit: [50, 50, 80],    // dark indigo
-    timelineColors: { events: '#00ffc8', animation: '#ff1e78' },
+    timelineColors: { events: '#00ffc8', animation: '#ff1e78', textColor: '#e8e8e8' },
     floaterBg:    '#050510',
     draggerColor: '#100028',
     timelineBg:   '#040510',       // deep indigo zone
@@ -101,7 +101,7 @@ export const COLOR_PRESETS = {
     setBit:       [0, 200, 220],   // teal
     clearedBit:   [255, 160, 50],  // amber
     unchangedBit: [60, 80, 110],   // deep slate blue
-    timelineColors: { events: '#00c8dc', animation: '#ffa032' },
+    timelineColors: { events: '#00c8dc', animation: '#ffa032', textColor: '#e8e8e8' },
     floaterBg:    '#060a14',
     draggerColor: '#0a1e2e',
     timelineBg:   '#040810',       // deep ocean navy zone
@@ -111,7 +111,7 @@ export const COLOR_PRESETS = {
     setBit:       [255, 180, 0],   // golden yellow
     clearedBit:   [180, 40, 120],  // deep rose
     unchangedBit: [90, 55, 80],    // muted plum
-    timelineColors: { events: '#ffb400', animation: '#b428a0' },
+    timelineColors: { events: '#ffb400', animation: '#b428a0', textColor: '#e8e8e8' },
     floaterBg:    '#140808',
     draggerColor: '#28140a',
     timelineBg:   '#100508',       // deep wine-maroon zone
@@ -121,7 +121,7 @@ export const COLOR_PRESETS = {
     setBit:       [180, 230, 255], // pale ice blue
     clearedBit:   [255, 120, 80],  // coral
     unchangedBit: [120, 160, 200], // steel blue
-    timelineColors: { events: '#b4e6ff', animation: '#ff7850' },
+    timelineColors: { events: '#b4e6ff', animation: '#ff7850', textColor: '#e8e8e8' },
     floaterBg:    '#060c14',
     draggerColor: '#0e1a28',
     timelineBg:   '#050a12',       // dark ice-blue zone
@@ -132,7 +132,7 @@ export const COLOR_PRESETS = {
     setBit:       [46, 125, 50],   // deep green
     clearedBit:   [255, 160, 0],   // amber
     unchangedBit: [66, 100, 60],   // muted olive
-    timelineColors: { events: '#2e7d32', animation: '#ffa000' },
+    timelineColors: { events: '#2e7d32', animation: '#ffa000', textColor: '#e8e8e8' },
     floaterBg:    '#071a05',
     draggerColor: '#0d2b09',
     timelineBg:   '#050e04',       // deep forest-dark zone
@@ -142,7 +142,7 @@ export const COLOR_PRESETS = {
     setBit:       [198, 40, 40],   // deep red
     clearedBit:   [25, 118, 210],  // royal blue
     unchangedBit: [80, 60, 60],    // dark muted red
-    timelineColors: { events: '#c62828', animation: '#1976d2' },
+    timelineColors: { events: '#c62828', animation: '#1976d2', textColor: '#e8e8e8' },
     floaterBg:    '#1a0505',
     draggerColor: '#2a0808',
     timelineBg:   '#120202',       // deep blood-red zone
@@ -152,7 +152,7 @@ export const COLOR_PRESETS = {
     setBit:       [0, 172, 193],   // cyan
     clearedBit:   [255, 87, 34],   // deep orange
     unchangedBit: [200, 230, 240], // light blue-grey
-    timelineColors: { events: '#00acc1', animation: '#ff5722' },
+    timelineColors: { events: '#00acc1', animation: '#ff5722', textColor: '#e8e8e8' },
     floaterBg:    '#030e14',
     draggerColor: '#051a24',
     timelineBg:   '#02090e',       // deep arctic teal zone
@@ -162,7 +162,7 @@ export const COLOR_PRESETS = {
     setBit:       [123, 31, 162],  // deep purple
     clearedBit:   [245, 127, 23],  // deep orange
     unchangedBit: [180, 160, 200], // light purple-grey
-    timelineColors: { events: '#7b1fa2', animation: '#f57f17' },
+    timelineColors: { events: '#7b1fa2', animation: '#f57f17', textColor: '#e8e8e8' },
     floaterBg:    '#0d0514',
     draggerColor: '#190828',
     timelineBg:   '#09040e',       // deep purple-black zone
@@ -172,7 +172,7 @@ export const COLOR_PRESETS = {
     setBit:       [230, 81, 0],    // deep orange
     clearedBit:   [1, 87, 155],    // deep blue
     unchangedBit: [120, 80, 50],   // warm brown-grey
-    timelineColors: { events: '#e65100', animation: '#01579b' },
+    timelineColors: { events: '#e65100', animation: '#01579b', textColor: '#e8e8e8' },
     floaterBg:    '#140500',
     draggerColor: '#200800',
     timelineBg:   '#0e0300',       // deep ember-dark zone
@@ -182,7 +182,7 @@ export const COLOR_PRESETS = {
     setBit:       [33, 150, 243],  // blue
     clearedBit:   [244, 67, 54],   // red
     unchangedBit: [160, 160, 165], // medium grey
-    timelineColors: { events: '#2196f3', animation: '#f44336' },
+    timelineColors: { events: '#2196f3', animation: '#f44336', textColor: '#1a1a1a' },
     floaterBg:    '#e8e8e8',
     draggerColor: '#c0c0c0',
     chartActiveColor: '#1a1a1a',   // dark bar for light background
@@ -193,7 +193,7 @@ export const COLOR_PRESETS = {
     setBit:       [100, 181, 246], // light blue
     clearedBit:   [255, 138, 101], // light orange
     unchangedBit: [40, 60, 90],    // dark navy
-    timelineColors: { events: '#64b5f6', animation: '#ff8a65' },
+    timelineColors: { events: '#64b5f6', animation: '#ff8a65', textColor: '#e8e8e8' },
     floaterBg:    '#010510',
     draggerColor: '#020a1e',
     timelineBg:   '#010314',       // deep midnight-blue zone
@@ -203,7 +203,7 @@ export const COLOR_PRESETS = {
     setBit:       [56, 142, 60],   // mid green
     clearedBit:   [211, 47, 47],   // mid red
     unchangedBit: [140, 140, 140], // medium grey
-    timelineColors: { events: '#388e3c', animation: '#d32f2f' },
+    timelineColors: { events: '#388e3c', animation: '#d32f2f', textColor: '#1a1a1a' },
     floaterBg:    '#f5f5f0',
     draggerColor: '#d0d0c8',
     chartActiveColor: '#1a1a1a',   // dark bar for light background

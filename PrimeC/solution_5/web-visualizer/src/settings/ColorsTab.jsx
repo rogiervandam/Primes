@@ -242,9 +242,16 @@ export default function ColorsTab({
               value={timelineColors?.animation || '#3a8cb8'}
               onChange={(e) => onTimelineColorsChange && onTimelineColorsChange({ ...timelineColors, animation: e.target.value })} />
           </label>
-          {(timelineColors?.events !== '#b87333' || timelineColors?.animation !== '#3a8cb8') && (
+          {/* item 419: text color for timeline title bar and annotation text */}
+          <label className="color-label" title="Color of the title and annotation text in the floating timeline">
+            Text
+            <input type="color"
+              value={timelineColors?.textColor || '#e8e8e8'}
+              onChange={(e) => onTimelineColorsChange && onTimelineColorsChange({ ...timelineColors, textColor: e.target.value })} />
+          </label>
+          {(timelineColors?.events !== '#b87333' || timelineColors?.animation !== '#3a8cb8' || timelineColors?.textColor !== '#e8e8e8') && (
             <button className="btn-text" style={{ fontSize: '0.8rem' }}
-              onClick={() => onTimelineColorsChange && onTimelineColorsChange({ events: '#b87333', animation: '#3a8cb8' })}>
+              onClick={() => onTimelineColorsChange && onTimelineColorsChange({ events: '#b87333', animation: '#3a8cb8', textColor: '#e8e8e8' })}>
               Reset
             </button>
           )}
