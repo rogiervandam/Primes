@@ -275,18 +275,20 @@ export default function DoubleTimeline({
         ctx.fillStyle = activeColor;
       } else if (isPast) {
         // item 321/340: use a brightened events color (mix toward white) for better contrast on dark presets
+        // item 461: slightly dimmed to 0.70 so progress stands out against the more visible inactive bars
         const [r, g, b] = hexToRgb(timelineColors?.events);
         const pr = Math.round(r + (255 - r) * 0.35);
         const pg = Math.round(g + (255 - g) * 0.35);
         const pb = Math.round(b + (255 - b) * 0.35);
-        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.75)`;
+        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.70)`;
       } else {
         // item 321/340: future bars — brightened color at lower opacity
+        // item 461: increased to 0.55 so the unplayed portion of the events timeline has more visible color
         const [r, g, b] = hexToRgb(timelineColors?.events);
         const pr = Math.round(r + (255 - r) * 0.35);
         const pg = Math.round(g + (255 - g) * 0.35);
         const pb = Math.round(b + (255 - b) * 0.35);
-        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.42)`;
+        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.55)`;
       }
       ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.round(h) || 1);
     }
@@ -1160,10 +1162,12 @@ export default function DoubleTimeline({
   const zoneRgb   = hexToRgb(timelineBg ?? floaterBg);    // item 322/323/342
   const dragRgb   = hexToRgb(draggerColor); // item 322/323
   const timelineCssVars = {
-    '--dtl-events-color-bg': `rgba(${eventsRgb.join(',')}, 0.82)`,
-    '--dtl-events-color-hl': `rgba(${eventsRgb.join(',')}, 0.70)`,
-    '--dtl-anim-color-bg':   `rgba(${animRgb.join(',')},   0.82)`,
-    '--dtl-anim-color-hl':   `rgba(${animRgb.join(',')},   0.70)`,
+    '--dtl-events-color-bg': `rgba(${eventsRgb.join(',')}, 0.60)`,   // item 461: dimmed from 0.82 → 0.60
+    '--dtl-events-color-hl': `rgba(${eventsRgb.join(',')}, 0.55)`,   // item 461: dimmed from 0.70 → 0.55
+    '--dtl-events-color-bg-dim': `rgba(${eventsRgb.join(',')}, 0.22)`,  // item 461: subtle tint for inactive zone
+    '--dtl-anim-color-bg':   `rgba(${animRgb.join(',')},   0.60)`,   // item 461: dimmed from 0.82 → 0.60
+    '--dtl-anim-color-hl':   `rgba(${animRgb.join(',')},   0.55)`,   // item 461: dimmed from 0.70 → 0.55
+    '--dtl-anim-color-bg-dim': `rgba(${animRgb.join(',')},   0.22)`,  // item 461: subtle tint for inactive zone
     '--dtl-zone-bg':         `rgba(${zoneRgb.join(',')}, ${zoneBgOpacity})`,    // item 342: zone background from per-preset timelineBg
     '--dtl-dragger-color':   `rgba(${dragRgb.join(',')}, 0.88)`,    // item 322/323: dragger base color
     // item 340/343: override active chart bar colour for light-theme presets
@@ -1418,7 +1422,7 @@ export default function DoubleTimeline({
               style={{
                 left: `${animRangeStartDisplayPct}%`,
                 width: `${animRangeWidthDisplayPct}%`,
-                backgroundColor: `rgba(${animRgb[0]},${animRgb[1]},${animRgb[2]},0.10)`,  // item 459: dimmed to contrast with active fill
+                backgroundColor: `rgba(${animRgb[0]},${animRgb[1]},${animRgb[2]},0.25)`,  // item 459/461: more visible inactive track so progress stands out
               }}
             />
             {/* item 444: active fill — from range start to playhead, bright color; wipes during delay */}

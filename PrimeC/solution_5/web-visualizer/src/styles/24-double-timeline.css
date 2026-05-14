@@ -982,7 +982,9 @@
   backdrop-filter: blur(18px); */
 }
 .double-timeline.dtl-focus-events .dtl-anim-zone {
-  opacity: 0.78;  /* item 421: was 0.65/0.50; inactive zone fades just a little */
+  /* item 461: inactive zone gets subtle tint of its own accent color instead of plain opacity dim */
+  background: var(--dtl-anim-color-bg-dim, rgba(58, 140, 184, 0.22));
+  opacity: 0.88;
 }
 .double-timeline.dtl-focus-animation .dtl-anim-zone {
   background: var(--dtl-anim-color-bg, rgba(42, 42, 42, 0.90));
@@ -992,7 +994,9 @@
   backdrop-filter: blur(18px); */
 }
 .double-timeline.dtl-focus-animation .dtl-wave-zone {
-  opacity: 0.78;  /* item 421: was 0.65/0.50; inactive zone fades just a little */
+  /* item 461: inactive zone gets subtle tint of its own accent color instead of plain opacity dim */
+  background: var(--dtl-events-color-bg-dim, rgba(184, 115, 51, 0.22));
+  opacity: 0.88;
 }
 
 /* item 240: empty-event animation — fill bar grows left→right then fades out, signalling the

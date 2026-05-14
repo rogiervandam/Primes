@@ -38,7 +38,7 @@ the timeline background color, so it's clearly visible. TTherefore, the timeline
 
 460 DONE ✅: when in repeat mode and playing and i click another event, the current animation should pause. We should switch to the newly selected event (events panel, detail panel, title and annotation in double timeline, etc), the repaet begin/end should be joined into a single repeat handle at the 100% progress point and the animation playhead should jump to the start (0% progress) of the new event and start playing immediately in repeat mode. When in repeat mode and paused and i click another event, we should switch to the new event but the animation playhead should not start playing immediately, it should remain paused at the start of the new event. The repaet begin/end should be joined into a single repeat handle at the 100% progress point
 
-461 Make the timeline colors (events, animation) more dimmed and make the inactive timeline have more color, so that the progress on the animation timeline and events timeline  is more visible. 
+461 DONE ✅: Make the timeline colors (events, animation) more dimmed and make the inactive timeline have more color, so that the progress on the animation timeline and events timeline  is more visible. 
 
 462 The "Zone opacity" setting should influence the opaticy of the entire double timeline widget, docked or not, including the title, the timelines and the annotation. 
 
