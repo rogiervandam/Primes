@@ -46,32 +46,7 @@
     static inline void __attribute__((cold))
     trace_write_current_wheel_definition(void)
     {
-        counter_t map_count = 0;
-        for (counter_t number_offset = 0; number_offset < WHEEL_SIZE; number_offset++) {
-            if (wheelmask_bitpoint[number_offset] >= 0) map_count++;
-        }
-        if (map_count == 0) return;
-
-        counter_t* map_numbers = (counter_t*)malloc((size_t)map_count * sizeof(counter_t));
-        counter_t* map_bits = (counter_t*)malloc((size_t)map_count * sizeof(counter_t));
-        if (!map_numbers || !map_bits) {
-            free(map_numbers);
-            free(map_bits);
-            return;
-        }
-
-        counter_t out_index = 0;
-        for (counter_t number_offset = 0; number_offset < WHEEL_SIZE; number_offset++) {
-            if (wheelmask_bitpoint[number_offset] < 0) continue;
-            map_numbers[out_index] = (counter_t)number_offset;
-            map_bits[out_index] = (counter_t)(wheelmask_bitpoint[number_offset] );
-            out_index++;
-        }
-
-        trace_write_wheel_definition((WHEEL_SIZE, WHEEL_STRIPE_BITS, WHEEL_BASIC_SIZE, WHEEL_REPEATS,WHEEL_MAX, map_numbers,map_bits,map_count);
-
-        free(map_numbers);
-        free(map_bits);
+        trace_write_wheel_definition(WHEEL_SIZE, WHEEL_STRIPE_BITS, WHEEL_BASIC_SIZE, WHEEL_REPEATS, WHEEL_MAX, wheel_number, wheelmask_stripes);
     }
     #endif
 
@@ -94,28 +69,9 @@
     }
 #endif
 
-#if defined BUILD_WORDS_STAGE
-
-    // mark a single factor in the sieve, by calculating its corresponding bit index in the bitstorage and setting that bit to true
-    static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-    function(markFactor_wheelstorage,suffix)(sieve_t* sieve, const register counter_t index) 
-    {
-        logStart9(sieve->bitstorage, time_markFactor_wheelstorage, "marking factor %ju", (uintmax_t)index);
-
-        register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage,cache_line_bytes);
-        register const counter_t wheel_bit = wheel_bit_calc(index);
-#ifdef COMPILE_TRACE
-        /* item 233/#230: accumulate target bit so logStop9 can emit target_bits in the trace */
-        if (g_trace.enabled && wheel_bit >= 0) primes_trace_add_pending_target((uint32_t)wheel_bit);
-#endif
-        if (wheel_bit >= 0) bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask_type(wheel_bit, bitbucket_t);
-
-        logStop9(sieve->bitstorage, time_markFactor_wheelstorage, "finished marking factor %ju", (uintmax_t)index);
-    }
-
-#endif
-
 #if defined BUILD_WORDS_STAGE //---- include only the variant function
+
+    #include "wheelstorage_markFactor.h"
 
     #if defined unrolls && unrolls > 1
         #include "wheelstorage_repeat.h"
@@ -172,19 +128,5 @@
         return factor;
     }
 
-    static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
-    {
-        logStart6(sieve->bitstorage, time_markFactors_wheelstorage, "setting factors step %3ju in %ju factor range (%ju-%ju) for prime %ju", (uintmax_t)step, (uintmax_t)safe_diff(stop,start),(uintmax_t)start,(uintmax_t)stop, (uintmax_t)(step/2));
-        const counter_t prime = step / 2;
-
-        if (prime < global_largestep_faster) {
-            // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(sieve, start, stop, step);
-            markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
-        }
-        else 
-        function(markFactors_wheelstorage_repeat, wheelvariant_unroll_suffix)(sieve, start, stop, step);
-
-        logStop6(sieve->bitstorage, time_markFactors_wheelstorage, "finished setting factors\n");
-    }
+    #include "wheelstorage_markFactors.h"
 #endif

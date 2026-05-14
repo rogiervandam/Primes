@@ -175,10 +175,11 @@ primes_trace_collect_mask_bits(uint32_t* out_bits, uint32_t out_capacity, const 
 }
 
 static void
-trace_write_uint32_array(FILE* f, const uint32_t* values, uint32_t count)
+trace_write_array_uint32(FILE* f, const void* values_void, counter_t count)
 {
+    const uint32_t* values = (const uint32_t*)values_void;
     fputc('[', f);
-    for (uint32_t index = 0; index < count; index++) {
+    for (counter_t index = 0; index < count; index++) {
         if (index > 0) fputc(',', f);
         fprintf(f, "%u", values[index]);
     }
@@ -186,10 +187,11 @@ trace_write_uint32_array(FILE* f, const uint32_t* values, uint32_t count)
 }
 
 static void
-trace_write_uint64_array(FILE* f, const uint64_t* values, uint32_t count)
+trace_write_array_uint64(FILE* f, const void* values_void, counter_t count)
 {
+    const uint64_t* values = (const uint64_t*)values_void;
     fputc('[', f);
-    for (uint32_t index = 0; index < count; index++) {
+    for (counter_t index = 0; index < count; index++) {
         if (index > 0) fputc(',', f);
         fprintf(f, "%llu", (unsigned long long)values[index]);
     }
@@ -197,29 +199,26 @@ trace_write_uint64_array(FILE* f, const uint64_t* values, uint32_t count)
 }
 
 static void
-trace_write_wheel_definition(uint64_t wheel_size,
-                             uint64_t bits_per_wheel,
-                             uint64_t base_size,
-                             uint64_t repeats,
-                             uint64_t wheel_max,
-                             const uint64_t* map_numbers,
-                             const uint64_t* map_bits,
-                             uint32_t map_count)
+trace_write_wheel_definition(counter_t wheel_size,
+                             counter_t bits_per_wheel,
+                             counter_t base_size,
+                             counter_t repeats,
+                             counter_t wheel_max,
+                             const counter_t* map_numbers,
+                             counter_t map_count)
 {
-    if (!g_trace.enabled || !g_trace.file || !map_numbers || !map_bits || map_count == 0) return;
+    if (!g_trace.enabled || !g_trace.file || !map_numbers || map_count == 0) return;
 
     fprintf(g_trace.file,
-            "{ \"wheel_size\": %llu, \"bits_per_wheel\": %llu, \"base_size\": %llu, \"repeats\": %llu, \"wheel_max\": %llu, \"map_count\": %u, \"map_numbers\": ",
-            (unsigned long long)wheel_size,
-            (unsigned long long)bits_per_wheel,
-            (unsigned long long)base_size,
-            (unsigned long long)repeats,
-            (unsigned long long)wheel_max,
-            map_count);
-    trace_write_uint64_array(g_trace.file, map_numbers, map_count);
-    fputs(", \"map_bits\": ", g_trace.file);
-    trace_write_uint64_array(g_trace.file, map_bits, map_count);
-    fputs(" }\n", g_trace.file);
+            "{ \"wheel_size\": %ju, \"bits_per_wheel\": %ju, \"base_size\": %ju, \"repeats\": %ju, \"wheel_max\": %ju, \"map_count\": %ju, \"map_numbers\": ",
+            (uintmax_t)wheel_size, (uintmax_t)bits_per_wheel,(uintmax_t)base_size,(uintmax_t)repeats,(uintmax_t)wheel_max, (uintmax_t)map_count);
+    function(trace_write_array, counter_suffix)(g_trace.file, map_numbers, map_count);
+    fputs(", \"map_bits\": [", g_trace.file);
+    for(counter_t i = 0; i < map_count; i++) { 
+        fprintf(g_trace.file, "%ju", (uintmax_t)i);
+        if (i < map_count - 1) fputc(',', g_trace.file);
+    }
+    fputs("] }\n", g_trace.file);
 }
 
 /* Set the current analysis context depth (called from TRACE_ANALYSIS_START macro) */
@@ -424,20 +423,20 @@ trace_record_applymask_step_labeled(int level, const void* bitstorage,
             (uintmax_t)word_bits, (uintmax_t)word_start, (uintmax_t)word_stop, (uintmax_t)step_words);
     if (slot_count == 1) {
         fputs(", \"mask_bits\": ", g_trace.file);
-        trace_write_uint32_array(g_trace.file, slot_bits[0], slot_counts[0]);
+        trace_write_array_uint32(g_trace.file, slot_bits[0], slot_counts[0]);
     }
     /* item 269: removed legacy "mask%u_bits" (1-indexed) output for multi-slot cases.
      * "pattern_slot%u_bits" (0-indexed) below is the canonical field name. */
     const char* pattern_kind = (slot_count >= 1 && slot_count <= 4) ? s_pattern_kind_names[slot_count] : "multi";
     fprintf(g_trace.file, ", \"pattern_kind\": \"%s\", \"pattern_slot_count\": %u", pattern_kind, slot_count);
-    for (uint32_t s = 0; s < slot_count; s++) {
-        fprintf(g_trace.file, ", \"pattern_slot%u_bits\": ", s);
-        trace_write_uint32_array(g_trace.file, slot_bits[s], slot_counts[s]);
+    for (counter_t s = 0; s < slot_count; s++) {
+        fprintf(g_trace.file, ", \"pattern_slot%ju_bits\": ", (uintmax_t)s);
+        trace_write_array_uint32(g_trace.file, slot_bits[s], slot_counts[s]);
     }
     fputs(", \"mask_target_words\": ", g_trace.file);
-    trace_write_uint64_array(g_trace.file, mask_target_words, mask_target_count);
+    trace_write_array_uint64(g_trace.file, mask_target_words, mask_target_count);
     fputs(", \"mask_target_slots\": ", g_trace.file);
-    trace_write_uint32_array(g_trace.file, mask_target_slots, mask_target_count);
+    trace_write_array_uint32(g_trace.file, mask_target_slots, mask_target_count);
 
     /* target_bits: explicit absolute bit indices derived from mask_target_words + slot_bits */
     if (word_bits > 0 && mask_target_count > 0 && slot_count > 0) {
