@@ -981,7 +981,7 @@ export default function Visualizer({
   // Use stableGoToStep here so handleStepSelection's identity does not change
   // every step during playback (goToStep itself depends on currentStep, which
   // would otherwise cascade into EventsPanel re-rendering on every step).
-  const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({ stopPlayback, goToStep: stableGoToStep, globalPausedRef, playingRef, setIsAnimationReplayPaused, setSelectedSteps });
+  const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({ stopPlayback, goToStep: stableGoToStep, globalPausedRef, playingRef, setIsAnimationReplayPaused, setSelectedSteps, isRepeatModeRef, setIsRepeatSplit, setRepeatStartPct, stepScrubProgressRef });
 
   useSelectionOrchestration({
     steps,

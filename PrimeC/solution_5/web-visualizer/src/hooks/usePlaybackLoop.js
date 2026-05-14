@@ -232,6 +232,11 @@ export function usePlaybackLoop({ ...flatArgs }) {
       selectedAnimLoopRef.current = null;
     }
 
+    // Guards against React Strict Mode invoking the setCurrentStep updater twice,
+    // which would schedule two goToStep calls for the same repeat cycle. Only the
+    // call matching the latest generation is allowed to proceed.
+    const repeatGen = { current: 0 };
+
     const scheduleNext = () => {
       if (!playing || !rendererRef.current) return;
 
@@ -259,6 +264,7 @@ export function usePlaybackLoop({ ...flatArgs }) {
       setCurrentStep((prev) => {
         // item 432: in repeat mode, loop the current event from repeatStartPct instead of advancing
         if (isRepeatModeRef?.current) {
+          const gen = ++repeatGen.current;
           const delay = delayBetweenRepeatsRef?.current ?? 0;
           // item 441: non-split: animate 0%→repeatStartPct%, then back to 0%
           //           split: animate repeatStartPct%→repeatEndPct%, then back to repeatStartPct%
@@ -271,9 +277,11 @@ export function usePlaybackLoop({ ...flatArgs }) {
           animBusyUntilRef.current = performance.now() + Math.max(delay, 1);
           // Trigger the fill-bar fade animation on the timeline
           setDelayPhaseMsRef?.current?.(delay > 0 ? delay : null);
-          // After the delay, restart the current step's animation from startProg
+          // After the delay, restart the current step's animation from startProg.
+          // The gen check prevents a stale second invocation (React Strict Mode) from
+          // firing an extra goToStep call after the first one already ran.
           playTimeoutRef.current = setTimeout(() => {
-            if (!globalPausedRef.current) {
+            if (!globalPausedRef.current && repeatGen.current === gen) {
               setDelayPhaseMsRef?.current?.(null);
               goToStepRef.current?.(prev, {
                 keepPlaying: true,

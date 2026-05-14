@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { getFadeOutDuration as getFadeOutDurationPure } from '../lib/animationTiming.js';
 
 export function useTriggerAnimation({ ...flatArgs }) {
   const animRefs = flatArgs.animRefs || flatArgs;
@@ -98,7 +99,21 @@ export function useTriggerAnimation({ ...flatArgs }) {
     const timingOptions = adaptivePlan ? { ...durationOptions, adaptivePlan } : durationOptions;
     const effectiveBitInterval = getAnimationBitInterval(animatedBitCount, timingOptions);
     const est = estimateAnimDuration(animatedBitCount, timingOptions);
-    const totalCycleDuration = requestedCycleDuration != null ? Math.max(requestedCycleDuration, est + delayMs) : est + delayMs;
+    // Include the fade-out duration in animBusyUntilRef so the scheduler does not
+    // fire prematurely while the fade-out of the previous step is still running.
+    // (estimateAnimDuration intentionally omits fade-out, so we add it here.)
+    const fadeOutBitsForBudget = !options.keepProgress && !resuming && !options.skipFadeOut
+      ? (options.fadeOutBits ?? r.changedBits ?? null)
+      : null;
+    const fadeOutBitCountForBudget = fadeOutBitsForBudget
+      ? (fadeOutBitsForBudget.size ?? fadeOutBitsForBudget.length ?? 0)
+      : 0;
+    const fadeOutBudget = fadeOutBitCountForBudget > 0
+      ? getFadeOutDurationPure(fadeOutBitCountForBudget, options)
+      : 0;
+    const totalCycleDuration = requestedCycleDuration != null
+      ? Math.max(requestedCycleDuration, est + delayMs + fadeOutBudget)
+      : est + delayMs + fadeOutBudget;
     animBusyUntilRef.current = performance.now() + totalCycleDuration;
 
     if (!options.keepProgress && !resuming) {
@@ -345,6 +360,14 @@ export function useTriggerAnimation({ ...flatArgs }) {
 
       r.animationFocusBits = new Set();
       if (!isStillLive()) return;
+      // When animation stopped early (repeat end handle), fade out the highlighted
+      // bits immediately so there is no visible hold before the repeat delay begins.
+      if (effectiveEndProgress < 1 && r.changedBits && r.changedBits.size > 0) {
+        const earlyFadeMs = getFadeOutDurationPure(r.changedBits.size, options);
+        animBusyUntilRef.current = Math.max(animBusyUntilRef.current, performance.now() + earlyFadeMs);
+        await fadeOutCurrentHighlights({ fadeOutBits: r.changedBits });
+        if (!isStillLive()) return;
+      }
       if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
       await waitForDelay(delayMs);
       setDelayPhaseMsRef.current(null);
@@ -376,6 +399,13 @@ export function useTriggerAnimation({ ...flatArgs }) {
     if (!isStillLive()) return;
     r.animationFocusBits = new Set();
     if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(effectiveEndProgress * 100));
+    // When animation stopped early (repeat end handle), fade out immediately.
+    if (effectiveEndProgress < 1 && r.changedBits && r.changedBits.size > 0) {
+      const earlyFadeMs = getFadeOutDurationPure(r.changedBits.size, options);
+      animBusyUntilRef.current = Math.max(animBusyUntilRef.current, performance.now() + earlyFadeMs);
+      await fadeOutCurrentHighlights({ fadeOutBits: r.changedBits });
+      if (!isStillLive()) return;
+    }
     if (delayMs > 0) setDelayPhaseMsRef.current(delayMs);
     await waitForDelay(delayMs);
     setDelayPhaseMsRef.current(null);

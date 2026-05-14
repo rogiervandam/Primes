@@ -162,15 +162,18 @@ export default function VisualizerMainContent(props) {
   const repeatLinkedStepRef = useRef(null);
   const isRepeatModeRef2 = useRef(false);
   const onRepeatModeChangeRef2 = useRef(null);
+  const playingRef2 = useRef(false);
   isRepeatModeRef2.current = doubleTimelineProps.isRepeatMode;
   onRepeatModeChangeRef2.current = doubleTimelineProps.onRepeatModeChange;
+  playingRef2.current = playing;
   const handleRepeatFromEvent = useCallback((stepIdx) => {
-    if (isRepeatModeRef2.current && repeatLinkedStepRef.current === stepIdx) {
-      // Same event clicked again → deactivate repeat
+    if (!playingRef2.current && isRepeatModeRef2.current && repeatLinkedStepRef.current === stepIdx) {
+      // Same event clicked again while NOT playing → deactivate repeat
       onRepeatModeChangeRef2.current?.(false);
       repeatLinkedStepRef.current = null;
     } else {
-      // New or different event → activate/update repeat
+      // New or different event, or currently playing → activate/update repeat
+      // (while playing, never toggle repeat off — clicking navigates but keeps looping)
       onRepeatModeChangeRef2.current?.(true);
       repeatLinkedStepRef.current = stepIdx;
     }

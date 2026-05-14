@@ -36,8 +36,15 @@ the timeline background color, so it's clearly visible. TTherefore, the timeline
 - when in repeat mode and the user toggles repeat mode off while paused, the repeat handles should disappear and the animation playhead should remain in place.
 - when in events mode and the user toggles repeat mode on while playing, the repeat handles should appear and the animation playhead should stop when reaching the repeat end point. The fade-out animation should begin, and after the repeat delay, the playhead should jump back to the repeat start point.
 
+460 DONE ✅: when in repeat mode and playing and i click another event, the current animation should stop. We should switch to the new event (events panel, detail panel, title and annotation in double timeline, etc), the repaet begin/end should be joined into a single repeat handle at the 100% progress point and the animation playhead should jump to the start of the new event and start playing immediately in repeat mode. When in repeat mode and paused and i click another event, we should switch to the new event but the animation playhead should not start playing immediately, it should remain paused at the start of the new event. The repaet begin/end should be joined into a single repeat handle at the 100% progress point
 
+461 Make the timeline colors (events, animation) more dimmed and make the inactive timeline have more color, so that the progress on the animation timeline and events timeline  is more visible. 
 
+462 The "Zone opacity" setting should influence the opaticy of the entire double timeline widget, docked or not, including the title, the timelines and the annotation. 
+
+463 if the window is small and the detail panel is forced into more vertical rows, the masks are cut off halfway. Make sure that the masks are fully visible, by making them smaller (keep them proportional x/y).
+
+464 When animation is off, don't show any animation artifacts, also when scrubbing the animation timeline. When animation is off, the animation playhead should not be visible and there should be no fade-in/fade-out of the detail panel when changing events. Show the text "ANIMATION OFF" in the middle of the animation timeline when animation is off. When the user clicks on the text "ANIMATION OFF", turn animation on and start playing the current event from the beginning.
 
 
 
