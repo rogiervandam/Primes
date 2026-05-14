@@ -42,6 +42,9 @@
 #define time_markFactors_wheelstorage_small_repeat_mmask 37
 #define time_wheelstorage_blockprocessing 38
 #define time_markFactors_wheelstorage 39
+#define time_markFactors_wheelstorage_small_repeat_pairv2 40
+#define time_markFactors_wheelstorage_small_repeat_pairv2_align 41
+#define time_markFactors_wheelstorage_small_repeat_pairv2_copy 42
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",
@@ -84,6 +87,9 @@ static const char* timer_function_names[100] = {
     [time_markFactors_wheelstorage_small_repeat_mmask] = "markFactors_wheelstorage_small_repeat_mmask",
     [time_wheelstorage_blockprocessing] = "wheelstorage_blockprocessing",
     [time_markFactors_wheelstorage] = "markFactors_wheelstorage",
+    [time_markFactors_wheelstorage_small_repeat_pairv2] = "markFactors_wheelstorage_small_repeat_pairv2",
+    [time_markFactors_wheelstorage_small_repeat_pairv2_align] = "markFactors_wheelstorage_small_repeat_pairv2_align",
+    [time_markFactors_wheelstorage_small_repeat_pairv2_copy] = "markFactors_wheelstorage_small_repeat_pairv2_copy",
 };
 
 #endif

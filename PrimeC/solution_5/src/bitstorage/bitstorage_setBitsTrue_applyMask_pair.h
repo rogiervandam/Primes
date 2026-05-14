@@ -73,7 +73,7 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
              (const void* const[]){&mask1, &mask2}, 2, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
 
-    logStop8(bitstorage, time_applyMask_pair, "ApplyMaskPair_index%s finished applying mask in pairs\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_pair, "ApplyMaskPair_index%s finished applying mask in pairs with step %ju in bitrange (%ju - %ju)", STR(suffix), (uintmax_t)step, (uintmax_t)range_start * bitcount_type(bitbucket_t), (uintmax_t)(range_stop + 1) * bitcount_type(bitbucket_t) - 1);
 }
 
 #endif
