@@ -5,7 +5,6 @@ markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counte
     const counter_t prime = step / 2;
 
     if (prime < global_largestep_faster) {
-        // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(sieve, start, stop, step);
         markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
     }
     else 

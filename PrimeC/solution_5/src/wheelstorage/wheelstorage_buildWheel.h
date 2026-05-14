@@ -19,12 +19,8 @@
 #include "../sieve/sieve_calc.h"
 
 static uint8_t     wheelprimes[WHEEL_MAX+1]; // which primes are in the wheel
-// static wheelmask_t wheelmask_compressed[WHEEL_SIZE]; // the mask to apply to the bitbucket for this index
-// static uint8_t     wheelmask_index[WHEEL_SIZE]; // the number of wheelmask_t to forward to apply the mask, e.g. 
 static counter_t   wheelmask_bitpoint[WHEEL_SIZE]; // the number of shifts needed to get the bitmask for this index to the right position in the bitbucket. Might be greater than the number of bits in wheelmask_t, in which case we need to forward to the next bitbucket(s) as well
 static counter_t   wheel_number      [wheelmask_stripe_bits]; // contains the mapping from bit to number: the nth bit corresponds to the wheel_number[n] number in the wheel
-static counter_t   wheel_bit         [wheelmask_stripe_bits]; // contains the mapping from bit to number: the nth bit corresponds to the wheel_number[n] number in the wheel
-// static counter_t   wheelmask_mask    [8] = { 1, 2, 4, 8, 16, 32, 64, 128};
 
 // Runtime path: compute wheel data from scratch.
 void buildWheel() {
@@ -48,10 +44,8 @@ void buildWheel() {
             }
         }
         if (wheelmask_bitpoint[i] >= 0) { // when no factors found
-            // wheelmask_compressed[i] |= markmask_type(stripe_count, wheelmask_t);
             wheelmask_bitpoint[i] = stripe_count;
             wheel_number[stripe_count] = i;
-            wheel_bit[stripe_count] = stripe_count; //TODO: remove
             stripe_count++;
         }
     }
@@ -60,5 +54,4 @@ void buildWheel() {
     }
 
     verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju Wheel max: %ju\n", WHEEL_SIZE, (uintmax_t)wheelmask_stripe_bits, (uintmax_t)wheelmask_stripe_bits/8, (uintmax_t)wheelmask_stripe_bits, (uintmax_t)WHEEL_MAX) );
-    // printf("Stripe count: %ju\n", (uintmax_t)stripe_count);
 }

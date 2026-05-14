@@ -34,8 +34,7 @@ trace_ensure_log_directory_for_path(const char* filename)
 }
 
 /*
- * Sieve Trace Recording API — JSON format v3
- *
+ * Sieve Trace Recording API
  * Records changes to the bitstorage at each algorithmic step with rich metadata.
  * Uses snapshot-diff: after each operation, XOR with the snapshot reveals changed bits.
  * Output is a text file readable by the web/desktop visualizer.
@@ -62,10 +61,6 @@ static trace_context_t g_trace = {0};
 static char  g_trace_default_path[512] = {0};
 static int   g_trace_console_feedback_enabled = 1;
 
-/* item 233/#230: accumulate target bits across the inner loop; emit the full
- * array on the outer-level trace event. primes_trace_add_pending_target()
- * is called once per bit targeted; trace_record_event_full() emits
- * "target_bits": [...] and resets the counter. */
 #define TRACE_MAX_PENDING_TARGETS 65536
 static uint32_t g_trace_pending_target_bits[TRACE_MAX_PENDING_TARGETS];
 static int      g_trace_pending_target_count = 0;
@@ -105,12 +100,6 @@ trace_write_json_string(FILE* f, const char* str)
 }
 
 static const char* trace_optional_label(const char* label) { return (label && *label) ? label : NULL; }
-
-// static inline int
-// primes_trace_needs_mask_analysis(int runtime_verbose_level, int level)
-// {
-//     return g_trace.enabled && runtime_verbose_level >= level;
-// }
 
 static inline void
 primes_trace_append_mask_bit(char** bits_ptr, size_t* bits_remaining, char* bits_start, uintmax_t bit_index)
@@ -518,5 +507,3 @@ trace_finalize(void)
 
     g_trace.enabled = 0;
 }
-
-// #endif /* SIEVE_TRACE_H */

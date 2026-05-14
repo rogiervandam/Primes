@@ -12,10 +12,10 @@
 
     // wheel_bit_calc returns the bit index  for a given number index, or -1 if the number is divisible by any of the wheel primes
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    wheel_bit_calc(counter_t index) {
-        const counter_t wheel_index = index % WHEEL_SIZE;
+    wheel_bit_calc(counter_t number_index) {
+        const counter_t wheel_index = number_index % WHEEL_SIZE;
         if (wheelmask_bitpoint[wheel_index] < 0) return -1; 
-        return (wheelmask_stripe_bits * (index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
+        return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
     }
 
     // wheel_bit_estimate_next returns the bit index for a given number index, and if that number is divisible by any of the wheel primes, returns the next nearest bit
@@ -37,8 +37,8 @@
 
     // returns the factor (real number) at a given bit index in the bitstorage
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-    getFactor(counter_t index) {
-        const counter_t factor = (index / wheelmask_stripe_bits) * WHEEL_SIZE + wheel_number[index % wheelmask_stripe_bits];
+    getFactor(counter_t bitindex) {
+        const counter_t factor = (bitindex / wheelmask_stripe_bits) * WHEEL_SIZE + wheel_number[bitindex % wheelmask_stripe_bits];
         return factor;
     }
 
@@ -72,12 +72,14 @@
 #if defined BUILD_WORDS_STAGE //---- include only the variant function
 
     #include "wheelstorage_markFactor.h"
+    #include "wheelstorage_checkFactor.h"
 
     #if defined unrolls && unrolls > 1
         #include "wheelstorage_repeat.h"
         #include "wheelstorage_smallrepeat.h"
         #include "wheelstorage_smallrepeat_pair.h"
         #include "wheelstorage_smallrepeat_mmask.h"
+        #include "wheelstorage_norepeat.h"
     #endif
 
 #endif
@@ -90,41 +92,14 @@
 
 #endif
 
-
 #if defined(include_once_last) //---- include this once after all variants
-
-    // TODO: wheelstorage_mask is faster here
-    #include "wheelstorage_norepeat.h"
-
-    // this is the same as checkFactor_wheel but without the check for the wheel primes
-    // this can only be used if index > WHEEL_MAX
-    #define bitbucket_t uint8_t
-    static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
-    checkFactor_wheelstorage_unsafe(sieve_t* sieve, register counter_t index)
-    {
-        register uint8_t* restrict bitstorage_sized = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
-        const counter_t wheel_bit = wheel_bit_calc(index);
-        if (wheel_bit < 0) return 1; // if the number is divisible by any of the wheel primes, it is not prime
-        return (bitstorage_sized[ index_type(wheel_bit, uint8_t)] & markmask_type(wheel_bit, uint8_t)) != 0;
-
-    }
-    #undef bitbucket_t
-
-    #define CHECK_FACTOR
-    static inline uint8_t __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
-    checkFactor_wheelstorage(sieve_t* sieve, register counter_t factor) {
-        if (factor <= WHEEL_MAX) {
-            return wheelprimes[factor];
-        }
-        return checkFactor_wheelstorage_unsafe(sieve, factor);
-    }    
 
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     findUnmarked_wheelstorage(sieve_t *sieve, counter_t factor) 
     {
         #pragma GCC ivdep
         #pragma GCC unroll 4
-        for (;checkFactor_wheelstorage(sieve, ++factor););
+        for (;checkFactor_wheelstorage_uint8(sieve, ++factor););
         return factor;
     }
 
