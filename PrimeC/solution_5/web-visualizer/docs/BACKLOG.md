@@ -18,11 +18,11 @@ refactor history, read `docs/AI_MAINTENANCE.md`.
 
 ✅ 456 In the detail panel, bits section: the list of bit numbers and "more" should never be so wide that it comes over the count on the right. Show only 2-3 numbers and then more.
 
-457 When changing events, don't do a fade in/out of the detail panel.
+457 DONE ✅: When changing events, don't do a fade in/out of the detail panel.
 
-458 When playing or going to next/previous event with the < or > buttons or keys, scroll title current and annotation on the double timeline away in the appropriate direction and introduce the new ones with a scroll from the opposite direction. So when going to the next event, scroll the old title and annotation to the left and bring in the new title and annotation from the right. When going to the previous event, scroll the old title and annotation to the right and bring in the new title and annotation from the left. It's like a ticker. The speed should be taken from the |delay between events| setting, so when the user increases the delay, the scroll animation should slow down accordingly.
+458 DONE ✅: When playing or going to next/previous event with the < or > buttons or keys, scroll title current and annotation on the double timeline away in the appropriate direction and introduce the new ones with a scroll from the opposite direction. So when going to the next event, scroll the old title and annotation to the left and bring in the new title and annotation from the right. When going to the previous event, scroll the old title and annotation to the right and bring in the new title and annotation from the left. It's like a ticker. The speed should be taken from the |delay between events| setting, so when the user increases the delay, the scroll animation should slow down accordingly.
 
-459 The logic for the play button is still not correct. It should be:
+459 DONE ✅: The logic for the play button is still not correct. It should be:
 - there are two modes: events or single event (repeat mode). And two states: playing or paused.
 - when in events mode and paused, the central dragger should have the plan icon. Clicking play should start playing from the animation playhead position in the current event.
 - when in events mode and playing, the central dragger should have the pause icon. Clicking pause should pause the animation and keep the animation playhead at the current position.

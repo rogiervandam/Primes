@@ -1048,18 +1048,63 @@
   from { transform: translateX(-100px); opacity: 0; }
   to   { transform: translateX(0);      opacity: 1; }
 }
+/* item 458: exit animations — old content slides out to make room for the new */
+@keyframes dtl-slide-to-left {
+  from { transform: translateX(0);     opacity: 1; }
+  to   { transform: translateX(-100px); opacity: 0; }
+}
+@keyframes dtl-slide-to-right {
+  from { transform: translateX(0);    opacity: 1; }
+  to   { transform: translateX(100px); opacity: 0; }
+}
 /* item 325: outer bars stay fixed; animate only inner text spans */
 .dtl-title-text,
 .dtl-annotation-text {
   display: inline-block;  /* needed for translateX to work */
 }
-.double-timeline.dtl-nav-next .dtl-title-text,
-.double-timeline.dtl-nav-next .dtl-annotation-text {
-  animation: dtl-slide-from-right 260ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+/* item 458: enter animation — uses --ticker-ms so speed scales with delay between events */
+/* :not(.dtl-title-text-exit) excludes the outgoing span from the enter animation */
+.double-timeline.dtl-nav-next .dtl-title-text:not(.dtl-title-text-exit),
+.double-timeline.dtl-nav-next .dtl-annotation-text:not(.dtl-annotation-text-exit) {
+  animation: dtl-slide-from-right var(--ticker-ms, 260ms) cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
-.double-timeline.dtl-nav-prev .dtl-title-text,
-.double-timeline.dtl-nav-prev .dtl-annotation-text {
-  animation: dtl-slide-from-left 260ms cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+.double-timeline.dtl-nav-prev .dtl-title-text:not(.dtl-title-text-exit),
+.double-timeline.dtl-nav-prev .dtl-annotation-text:not(.dtl-annotation-text-exit) {
+  animation: dtl-slide-from-left var(--ticker-ms, 260ms) cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+/* item 458: exit spans — absolutely positioned so old and new content overlap during transition */
+.dtl-title-text.dtl-title-text-exit {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 0;  /* sit behind the entering span */
+}
+.dtl-annotation-text.dtl-annotation-text-exit {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75em 96px;  /* match .dtl-annotation-bar padding */
+  pointer-events: none;
+  white-space: pre-wrap;
+  overflow: hidden;
+  z-index: 0;
+}
+/* Exit direction: 'next' → slide out to left; 'prev' → slide out to right */
+.double-timeline .dtl-title-text.dtl-title-text-exit.dtl-ticker-exit-next,
+.double-timeline .dtl-annotation-text.dtl-annotation-text-exit.dtl-ticker-exit-next {
+  animation: dtl-slide-to-left var(--ticker-ms, 260ms) cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+.double-timeline .dtl-title-text.dtl-title-text-exit.dtl-ticker-exit-prev,
+.double-timeline .dtl-annotation-text.dtl-annotation-text-exit.dtl-ticker-exit-prev {
+  animation: dtl-slide-to-right var(--ticker-ms, 260ms) cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
 /* Remove old animation that moved entire title/annotation bar (including background) */
 .double-timeline.dtl-nav-next .dtl-event-title-bar,

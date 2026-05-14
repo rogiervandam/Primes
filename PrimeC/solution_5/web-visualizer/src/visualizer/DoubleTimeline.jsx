@@ -115,6 +115,8 @@ export default function DoubleTimeline({
   onRepeatSplitChange,
   repeatEndPct = 100,
   onRepeatEndPctChange,
+  // item 458: delay between events (ms) — used to scale the ticker animation speed
+  delayBetweenEvents = 2000,
 }) {
   const {
     goToStep,
@@ -130,17 +132,28 @@ export default function DoubleTimeline({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // item 306: navigation direction for slide animation
+  // item 458: ticker animation — prev content exits, new content enters
   const [navDir, setNavDir] = useState(null);  // null | 'next' | 'prev'
   const prevNavStepRef = useRef(null);
   const navDirTimerRef = useRef(null);
+  const [prevTicker, setPrevTicker] = useState(null);  // { title, annotation } during nav transition
+  const prevTitleRef = useRef('');      // holds previous step's title for exit animation
+  const prevAnnotationRef = useRef(''); // holds previous step's annotation for exit animation
+  // tickerMs: animation duration scales with delay between events (item 458)
+  const tickerMs = Math.max(120, Math.min(350, (delayBetweenEvents || 2000) * 0.35));
+  const tickerMsRef = useRef(tickerMs);
+  tickerMsRef.current = tickerMs;  // updated every render
   useEffect(() => {
     if (prevNavStepRef.current === null) { prevNavStepRef.current = currentStep; return; }
     if (currentStep === prevNavStepRef.current) return;
     const dir = currentStep > prevNavStepRef.current ? 'next' : 'prev';
     prevNavStepRef.current = currentStep;
+    // Capture old title/annotation for exit animation (prevTitleRef holds the PREVIOUS render's value
+    // because the capture effect declared later in the function runs AFTER this effect in the same commit)
+    setPrevTicker({ title: prevTitleRef.current, annotation: prevAnnotationRef.current });
     setNavDir(dir);
     if (navDirTimerRef.current) clearTimeout(navDirTimerRef.current);
-    navDirTimerRef.current = setTimeout(() => setNavDir(null), 300);
+    navDirTimerRef.current = setTimeout(() => { setNavDir(null); setPrevTicker(null); }, tickerMsRef.current);
   }, [currentStep]);
   useEffect(() => () => { if (navDirTimerRef.current) clearTimeout(navDirTimerRef.current); }, []);
 
@@ -985,16 +998,18 @@ export default function DoubleTimeline({
   }, [handleWaveWheel, handleAnimWheel]);
 
   // item 216: big play button reflects both event playback and animation state.
-  // When animation is running, clicking the big button pauses the animation.
-  // When events are playing (not animation), clicking pauses event playback.
+  // item 459: unified play/pause — events mode and repeat mode both use handlePlayPause;
+  //           only fall back to handleStepAnimToggle for standalone (non-events) animation.
   const isAnyPlaying = playing || isAnimPlaying;
   const handleMainPlayClick = useCallback(() => {
-    if (isAnimPlaying) {
-      handleStepAnimToggle?.();  // pause/resume the step animation
+    if (playing || isAnimationReplayPaused) {
+      handlePlayPause();  // pause/resume event-to-event playback (also stops animation via globalPaused)
+    } else if (isStepAnimRunning) {
+      handleStepAnimToggle?.();  // pause standalone animation (selected-events auto-loop)
     } else {
-      handlePlayPause();  // pause/resume event-to-event playback
+      handlePlayPause();  // start playing from playhead position
     }
-  }, [isAnimPlaying, handleStepAnimToggle, handlePlayPause]);
+  }, [playing, isAnimationReplayPaused, isStepAnimRunning, handleStepAnimToggle, handlePlayPause]);
 
   // item 326: long-press on play button for settings removed — play is a simple click
 
@@ -1109,6 +1124,15 @@ export default function DoubleTimeline({
     ].filter(Boolean).join(' | ')
     : 'Event timeline';
 
+  // item 458: capture current title/annotation for the ticker exit animation.
+  // This effect runs AFTER the navDir effect (declared earlier in the function body),
+  // so when navDir fires on a step change, prevTitleRef.current still holds the OLD value.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    prevTitleRef.current = eventTitle;
+    prevAnnotationRef.current = annotationText;
+  });
+
   // item 163/190: position timeline above the full detail panel (header + body) so it never covers it
   const dockedBottom = isDetailPanelFloating ? 0 : (totalDetailHeight || 0);
   // item 181: smooth transition during undock/dock animations
@@ -1148,6 +1172,8 @@ export default function DoubleTimeline({
     '--dtl-floater-unified-bg': `rgba(${zoneRgb.join(',')}, 0.88)`,
     // item 419: text color for title bar and annotation text in floating timeline
     '--dtl-text-color': timelineColors?.textColor || '#e8e8e8',
+    // item 458: ticker animation duration CSS variable (drives both exit and enter animations)
+    '--ticker-ms': `${tickerMs}ms`,
   };
   const mergedContainerStyle = { ...containerStyle, ...timelineCssVars };
 
@@ -1203,6 +1229,15 @@ export default function DoubleTimeline({
       {/* item 207: title bar is a drag handle for undocking when docked */}
       <div className="dtl-event-title-bar" title={eventTitle} onPointerDown={handleTitleBarPointerDown}>
         {/* item 325: only the text slides; background stays fixed */}
+        {/* item 458: exit span — overlays current text during navigation transition */}
+        {prevTicker && (
+          <span
+            className={`dtl-title-text dtl-title-text-exit dtl-ticker-exit-${navDir || 'next'}`}
+            aria-hidden="true"
+          >
+            {prevTicker.title}
+          </span>
+        )}
         {/* item 348: "Event N" part is a button that opens the events panel */}
         <span className="dtl-title-text">
           {activeStep ? (
@@ -1383,7 +1418,7 @@ export default function DoubleTimeline({
               style={{
                 left: `${animRangeStartDisplayPct}%`,
                 width: `${animRangeWidthDisplayPct}%`,
-                backgroundColor: `rgba(${animRgb[0]},${animRgb[1]},${animRgb[2]},0.18)`,
+                backgroundColor: `rgba(${animRgb[0]},${animRgb[1]},${animRgb[2]},0.10)`,  // item 459: dimmed to contrast with active fill
               }}
             />
             {/* item 444: active fill — from range start to playhead, bright color; wipes during delay */}
@@ -1397,7 +1432,7 @@ export default function DoubleTimeline({
               style={{
                 left: `${animRangeStartDisplayPct}%`,
                 width: `${animActiveFillWidthPct}%`,
-                backgroundColor: `rgba(${animRgb[0]},${animRgb[1]},${animRgb[2]},0.65)`,
+                backgroundColor: `rgba(${animRgb[0]},${animRgb[1]},${animRgb[2]},0.80)`,  // item 459: bright fill for visibility
                 '--delay-ms': `${delayPhaseMs}ms`,
               }}
             />
@@ -1495,6 +1530,15 @@ export default function DoubleTimeline({
             onInspectAnnotationUnit({ type: inspectableAnnotationUnit.type, index: inspectableAnnotationUnit.index });
           } : undefined}
         >
+          {/* item 458: exit span — overlays current annotation during navigation transition */}
+          {prevTicker && (
+            <span
+              className={`dtl-annotation-text dtl-annotation-text-exit dtl-ticker-exit-${navDir || 'next'}`}
+              aria-hidden="true"
+            >
+              {prevTicker.annotation}
+            </span>
+          )}
           <span className="dtl-annotation-text">{annotationText}</span>
         </div>
         <div className="dtl-center-actions dtl-annotation-actions" onPointerDown={(e) => e.stopPropagation()}>

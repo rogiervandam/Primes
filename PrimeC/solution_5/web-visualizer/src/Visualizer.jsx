@@ -1558,6 +1558,7 @@ export default function Visualizer({
     isDetailPanelFloating, setIsDetailPanelFloating, setIsDetailOpen,
     isTimelineUndocked, setIsTimelineUndocked,
     timelineColors, floaterBg, draggerColor, colorPreset, zoneBgOpacity,
+    delayBetweenEvents,  // item 458: ticker animation speed
     // Panels: events
     panelWidth, isAllEventsWidgetHidden,
     setIsEventsPanelCollapsed, setPanelWidth,

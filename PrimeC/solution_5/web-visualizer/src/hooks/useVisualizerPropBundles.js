@@ -42,6 +42,7 @@ export function useVisualizerPropBundles({
   isDetailPanelFloating, setIsDetailPanelFloating, setIsDetailOpen,
   isTimelineUndocked, setIsTimelineUndocked,
   timelineColors, floaterBg, draggerColor, colorPreset, zoneBgOpacity,
+  delayBetweenEvents,  // item 458: ticker animation speed
 
   // ── Panels: events ────────────────────────────────────────────────────────
   panelWidth, isAllEventsWidgetHidden,
@@ -251,6 +252,8 @@ export function useVisualizerPropBundles({
         timelineBg: colorPreset ? (COLOR_PRESETS[colorPreset]?.timelineBg ?? null) : null,
         // item 342: user-adjustable zone background opacity
         zoneBgOpacity,
+        // item 458: ticker animation speed (duration scales with delay between events)
+        delayBetweenEvents,
         // item 424: repeat mode — dragger on animation timeline
         isRepeatMode,
         onRepeatModeChange: setIsRepeatMode,
