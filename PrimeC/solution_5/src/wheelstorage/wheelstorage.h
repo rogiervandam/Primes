@@ -22,6 +22,7 @@
         #include "wheelstorage_repeat.h"
         #include "wheelstorage_smallrepeat.h"
         #include "wheelstorage_smallrepeat_pair.h"
+        #include "wheelstorage_smallrepeat_pair_rotate.h"
         #include "wheelstorage_smallrepeat_mmask.h"
         #include "wheelstorage_norepeat.h"
     #endif

@@ -4,6 +4,10 @@ markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counte
     logStart6(sieve->bitstorage, time_markFactors_wheelstorage, "setting factors step %3ju in %ju factor range (%ju-%ju) for prime %ju", (uintmax_t)step, (uintmax_t)safe_diff(stop,start),(uintmax_t)start,(uintmax_t)stop, (uintmax_t)(step/2));
     const counter_t prime = step / 2;
 
+    if (prime <= 7) {
+        markFactors_wheelstorage_small_repeat_pair_rotate_uint64_unroll8(sieve, start, stop, step);
+    }
+    else
     if (prime < global_largestep_faster) {
         markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve, start, stop, step);
     }

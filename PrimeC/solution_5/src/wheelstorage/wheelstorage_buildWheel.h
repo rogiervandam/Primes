@@ -9,7 +9,7 @@
     #ifndef WHEEL_MAX                           // the wheel might be defined externally to allow for different wheel sizes
         #define WHEEL_MAX 5                     // WHEEL_MAX is the largest prime in the wheel, and determines the size of the wheel. 
         #define WHEEL_BASIC_SIZE (2 * 3 * 5)    // the size of the wheel before repetition, must be a multiple of the product of the primes in the wheel (WHEEL_MAX#) 
-        #define WHEEL_REPEATS 8                 // the number of times the wheel is repeated, which might help alignment with bytes/vectors/cachelines
+        #define WHEEL_REPEATS 1                 // the number of times the wheel is repeated, which might help alignment with bytes/vectors/cachelines
         #define WHEEL_STRIPES 8                 // the number of places for potential primes in each repetition of the wheel, this determines how many bits we need
 
     #endif

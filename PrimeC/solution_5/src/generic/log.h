@@ -96,6 +96,10 @@
 #define logStop8(bitstorage, timer, printf_args...) logStop(8, bitstorage, timer, printf_args)
 #define logStop9(bitstorage, timer, printf_args...) logStop(9, bitstorage, timer, printf_args)
 
+#define logMask7(bitstorage, timer, printf_args...) log_mask(7, bitstorage, timer_function_names[timer], printf_args)
+#define logMask8(bitstorage, timer, printf_args...) log_mask(8, bitstorage, timer_function_names[timer], printf_args)
+#define logMask9(bitstorage, timer, printf_args...) log_mask(9, bitstorage, timer_function_names[timer], printf_args)
+
 #ifdef COMPILE_TRACE
 static inline void
 log_text_functionid(int level, function_id_t function_id, const char* fmt, ...)
@@ -186,7 +190,7 @@ log_event_bare(int level, const void* bitstorage, const char* fmt, ...)
 }
 
 static inline void
-log_mask(int level, const void* bitstorage, const char* label, uint64_t word_bits,
+log_mask(int level, const void* bitstorage, const char* label, const char* annotation, uint64_t word_bits,
         counter_t range_start_index, counter_t range_stop_index, counter_t step,
         const void* const* mask_ptrs, uint32_t mask_slot_count,
         size_t mask_lane_bytes, uint32_t mask_lane_count, uint32_t mask_lane_bits)
@@ -196,7 +200,7 @@ log_mask(int level, const void* bitstorage, const char* label, uint64_t word_bit
 
     // static const char* s_opnames[] = {"", "ApplyMask", "ApplyMaskPair", "ApplyMaskTriple", "ApplyMaskQuad"};
 
-    char annotation[4096] = {0};
+    // char annotation[4096] = {0};
     uint32_t all_mask_bits[4][1024];
     uint32_t all_mask_counts[4] = {0};
     char mask_bits_texts[4][1024];
@@ -227,15 +231,15 @@ log_mask(int level, const void* bitstorage, const char* label, uint64_t word_bit
         }
     }
 
-    snprintf(annotation, sizeof(annotation),
-             "%s: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju %s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
-             label,//s_opnames[mask_slot_count],
-             (uintmax_t)word_bits, (uintmax_t)range_start_index, (uintmax_t)range_stop_index, (uintmax_t)step,
-             mask_part,
-             (uintmax_t)(range_start_index * word_bits), (uintmax_t)((range_stop_index + 1) * word_bits - 1),
-             (uintmax_t)(range_start_index * word_bits), (uintmax_t)((range_stop_index + 1) * word_bits - 1));
+    // snprintf(annotation, sizeof(annotation),
+    //          "%s: word_bits=%ju word_start=%ju word_stop=%ju step_words=%ju %s focus_start=%ju focus_stop=%ju bitrange=%ju-%ju",
+    //          label,//s_opnames[mask_slot_count],
+    //          (uintmax_t)word_bits, (uintmax_t)range_start_index, (uintmax_t)range_stop_index, (uintmax_t)step,
+    //          mask_part,
+    //          (uintmax_t)(range_start_index * word_bits), (uintmax_t)((range_stop_index + 1) * word_bits - 1),
+    //          (uintmax_t)(range_start_index * word_bits), (uintmax_t)((range_stop_index + 1) * word_bits - 1));
 
-    log(level, annotation);
+    // log(level, annotation);
 
     if (primes_log_should_trace(level)) {
         /* Upper-bound capacity: all step-aligned positions × slots */
