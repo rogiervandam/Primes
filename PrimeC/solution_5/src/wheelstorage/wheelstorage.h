@@ -1,73 +1,17 @@
-
-
-// #ifndef BUILD_ONCE //---- include this once
-
 #ifndef ASSEMBLE_WHEELSTORAGE_GUARD
     #define ASSEMBLE_WHEELSTORAGE_GUARD
 
     #include "../generic/log.h"
     #include "../bitstorage/bitstorage_search.h"
     #include "../bitstorage/bitstorage_setBitsTrue.h"
-    #include "wheelstorage_buildWheel.h"
-
-    // wheel_bit_calc returns the bit index  for a given number index, or -1 if the number is divisible by any of the wheel primes
-    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    wheel_bit_calc(counter_t number_index) {
-        const counter_t wheel_index = number_index % WHEEL_SIZE;
-        if (wheelmask_bitpoint[wheel_index] < 0) return -1; 
-        return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
-    }
-
-    // wheel_bit_estimate_next returns the bit index for a given number index, and if that number is divisible by any of the wheel primes, returns the next nearest bit
-    // used for trace and logging
-    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    wheel_bit_estimate_next(counter_t number_index) {
-        counter_t wheel_index = number_index % WHEEL_SIZE;
-        return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) + abs(wheelmask_bitpoint[wheel_index]);
-    }
-
-    // wheel_bit_estimate_last returns the bit index for a given number index, and if it is divisible by any of the wheel primes, return the previous nearest bit
-    // used for trace and logging
-    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    wheel_bit_estimate_last(counter_t number_index) {
-        counter_t wheel_index = number_index % WHEEL_SIZE;
-        if (wheelmask_bitpoint[wheel_index] < 0) return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) - wheelmask_bitpoint[wheel_index] - 1;
-        return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
-    }
-
-    // returns the factor (real number) at a given bit index in the bitstorage
-    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-    getFactor(counter_t bitindex) {
-        const counter_t factor = (bitindex / wheelmask_stripe_bits) * WHEEL_SIZE + wheel_number[bitindex % wheelmask_stripe_bits];
-        return factor;
-    }
-
-    #ifdef COMPILE_TRACE
-    static inline void __attribute__((cold))
-    trace_write_current_wheel_definition(void)
-    {
-        trace_write_wheel_definition(WHEEL_SIZE, WHEEL_STRIPE_BITS, WHEEL_BASIC_SIZE, WHEEL_REPEATS, WHEEL_MAX, wheel_number, wheelmask_stripes);
-    }
-    #endif
-
+    
     #define INCLUDE_FILE "../../../src/wheelstorage/wheelstorage.h"
     #include "../generic/variants/generate.h"
 
 #endif
 
-#if (defined(BUILD_WORDS_STAGE) || defined(BUILD_VECTORS_STAGE)) && defined variant_suffix && (!defined unrolls || unrolls == 1)
-    // wheel_bucket is guaranteed to give back a bucket, regardless of the index is a multiple of a prime
-    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    function(wheel_bucket_calc,variant_suffix)(counter_t index) {
-
-        // compile time short path to avoid the index % WHEEL_SIZE
-        if (bitcount_type(bitbucket_t) % wheelmask_stripe_bits == 0) {
-            return index_type((index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t);
-        }
-
-        return index_type(((wheelmask_stripe_bits * (index / WHEEL_SIZE)) + abs(wheelmask_bitpoint[index % WHEEL_SIZE] )), bitbucket_t);
-    }
-#endif
+#include "wheelstorage_buildWheel.h"
+#include "wheelstorage_calc.h"
 
 #if defined BUILD_WORDS_STAGE //---- include only the variant function
 
@@ -84,24 +28,11 @@
 
 #endif
 
-#if defined BUILD_VECTORS_STAGE   
-
-    #if defined unrolls && unrolls > 1
-        #include "wheelstorage_smallrepeat_pair_vector.h"
-    #endif 
-
+#if defined BUILD_VECTORS_STAGE && defined unrolls && unrolls > 1
+    #include "wheelstorage_smallrepeat_pair_vector.h"
 #endif
 
 #if defined(include_once_last) //---- include this once after all variants
-
-    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
-    findUnmarked_wheelstorage(sieve_t *sieve, counter_t factor) 
-    {
-        #pragma GCC ivdep
-        #pragma GCC unroll 4
-        for (;checkFactor_wheelstorage_uint8(sieve, ++factor););
-        return factor;
-    }
-
+    #include "wheelstorage_checkFactor.h" // for findUmarkedFactors
     #include "wheelstorage_markFactors.h"
 #endif
