@@ -1072,6 +1072,7 @@ export default function Visualizer({
     stepScrubProgress,
     stepResumeMaskProgressRef,
     stepResumeStartIndexRef,
+    isRepeatModeRef,
   });
 
   // Stable wrapper — handlePlayPause recreates on every render (currentStep and

@@ -16,11 +16,19 @@ export function usePlaybackControls({
   stepScrubProgress,
   stepResumeMaskProgressRef,
   stepResumeStartIndexRef,
+  isRepeatModeRef,  // item 459: guard "immediately jump" behaviour to events mode only
 }) {
   const handlePlayPause = useCallback(() => {
     if (globalPausedRef.current) {
       globalPausedRef.current = false;
       setIsAnimationReplayPaused(false);
+      // item 459: when paused with playhead at end of event (events mode only),
+      // immediately jump to the next event without any between-events delay.
+      if (!isRepeatModeRef?.current && stepScrubProgress >= 99 && currentStep < Math.max(0, stepsLength - 1)) {
+        goToStep(currentStep + 1, { keepPlaying: true, delayMs: 0 });
+        setPlaying(true);
+        return;
+      }
       if (currentStep < Math.max(0, stepsLength - 1) || isStepAnimRunning) {
         setPlaying(true);
       }
@@ -41,6 +49,14 @@ export function usePlaybackControls({
     }
     globalPausedRef.current = false;
     setIsAnimationReplayPaused(false);
+    // item 459: when playhead is at the end of the event (events mode only),
+    // immediately jump to the next event without the between-events delay.
+    // (The third branch above already handles currentStep === last step.)
+    if (!isRepeatModeRef?.current && stepScrubProgress >= 99) {
+      goToStep(currentStep + 1, { keepPlaying: true, delayMs: 0 });
+      setPlaying(true);
+      return;
+    }
     // item 454: if the user scrubbed the animation to a non-trivial position, start
     // the current step's animation from that point so play continues from the playhead.
     // triggerAnimation sets animBusyUntilRef, so Effect 3 will wait for it before advancing.

@@ -35,6 +35,8 @@ the timeline background color, so it's clearly visible. TTherefore, the timeline
 - when in repeat mode and the user toggles repeat mode off while playing, when the repeat handles should disapper and when the animation playhead reaches the end, it should apply the logic when playing in events mode: the playhead should stop, the fade-out animation should begin, and after the delay between events, the playhead should jump to 0% and start playing the next event.
 - when in repeat mode and the user toggles repeat mode off while paused, the repeat handles should disappear and the animation playhead should remain in place.
 - when in events mode and the user toggles repeat mode on while playing, the repeat handles should appear and the animation playhead should stop when reaching the repeat end point. The fade-out animation should begin, and after the repeat delay, the playhead should jump back to the repeat start point.
+- ✅ when in events mode and paused and the users hits play, start from the current animation playhead position. When the playhead reaches the end of the event, apply the normal "delay between events" logic: stop at the end, fade out, scroll titles and annotation, and after the delay, jump to 0% and start playing the next event. When in events mode and paused and the user hits play and the playhead is at the end of the event, immediately jump to 0% and start playing.
+
 
 460 DONE ✅: when in repeat mode and playing and i click another event, the current animation should pause. We should switch to the newly selected event (events panel, detail panel, title and annotation in double timeline, etc), the repaet begin/end should be joined into a single repeat handle at the 100% progress point and the animation playhead should jump to the start (0% progress) of the new event and start playing immediately in repeat mode. When in repeat mode and paused and i click another event, we should switch to the new event but the animation playhead should not start playing immediately, it should remain paused at the start of the new event. The repaet begin/end should be joined into a single repeat handle at the 100% progress point
 
@@ -49,6 +51,8 @@ the timeline background color, so it's clearly visible. TTherefore, the timeline
 465 DONE ✅: When the double timeline is going from docked to undocked and the detail panel is open, it should not animate from the bottom of the screen, but rather from the position where it was docked: on top of the detail panel. And when going from undocked to docked with the detail panel open, it should animate back to the position on top of the detail panel.
 
 466 When from the detail panel - section bits clicking on "more" showing the modal of changed/targeted, etc bits, make that modal horizontally scrollable, draggable and resizable, so that users can explore the full list of changed/targeted bits without it being cut off by the screen width. Also make sure that the modal doesn't overlap with side panels when open.
+
+467 When the minimap is toggled on or off, it should fade in/fade out.
 
 
 Giant features
