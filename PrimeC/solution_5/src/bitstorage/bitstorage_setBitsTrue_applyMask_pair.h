@@ -69,7 +69,7 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
     }
 
     #ifdef COMPILE_TRACE
-    logMask9(bitstorage, time_applyMask_pair, "Applying", (uint64_t)bitcount_type(bitbucket_t), range_start, range_stop, step,
+    logMask9(bitstorage, time_applyMask_pair, (uint64_t)bitcount_type(bitbucket_t), range_start, range_stop, step,
              (const void* const[]){&mask1, &mask2}, 2, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
 
