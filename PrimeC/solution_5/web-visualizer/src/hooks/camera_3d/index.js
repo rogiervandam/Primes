@@ -4,5 +4,5 @@ export { useTiltState } from './useTiltState';
 export { useCameraStartupRefit } from './useCameraStartupRefit';
 export { useViewportNavigation } from './useViewportNavigation';
 export { useViewportAnchoring } from './useViewportAnchoring';
-export { useViewportFit } from './useViewportFit';
+export { useViewportFit, readContainerInsets } from './useViewportFit';
 export { useZoomControls } from './useZoomControls';

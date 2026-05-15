@@ -27,11 +27,14 @@ export function useTiltControls({
       .then(() => {
         setIntroPhase('visible');
         schedulePostLayoutRefresh(null);
+        // item 468: smoothly refit the 2D viewport so the whole sieve is
+        // visible in the area not covered by panels after the intro tilt.
+        refitViewportToContent({ duration: 500 });
       })
       .catch(() => {
         setIntroPhase('visible');
       });
-  }, [introTiltStartedRef, setIntroPhase, camera3DRef, schedulePostLayoutRefresh]);
+  }, [introTiltStartedRef, setIntroPhase, camera3DRef, schedulePostLayoutRefresh, refitViewportToContent]);
 
   const toggleTilt = useCallback(() => {
     const cam = camera3DRef.current;
@@ -40,8 +43,13 @@ export function useTiltControls({
     setIsTiltActive(newTiltActive);
     const targetTilt = newTiltActive ? Math.min(30, cam.maxTilt || 30) : 0;
     cam.animateTo({ rotateX: targetTilt, rotateY: 0, perspective: 1500 }, 900)
-      .then(() => schedulePostLayoutRefresh(null));
-  }, [camera3DRef, isTiltActive, setIsTiltActive, schedulePostLayoutRefresh]);
+      .then(() => {
+        schedulePostLayoutRefresh(null);
+        // item 468: smoothly animate the 2D viewport to show the full sieve
+        // in the panel-free area after the 2D→3D or 3D→2D tilt transition.
+        refitViewportToContent({ duration: 650 });
+      });
+  }, [camera3DRef, isTiltActive, setIsTiltActive, schedulePostLayoutRefresh, refitViewportToContent]);
 
   const enableTiltAndResize = useCallback(() => {
     const cam = camera3DRef.current;

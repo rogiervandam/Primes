@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { readContainerInsets } from './useViewportFit';
 
 export function useZoomControls({
   rendererRef,
   containerRef,
+  camera3DRef,
+  glCanvasRef,
   setZoom,
   getMinimapDetailH,
   updateMinimapAvailability,
@@ -83,9 +86,14 @@ export function useZoomControls({
     const el = containerRef.current;
     if (el) {
       const rect = el.getBoundingClientRect();
+      // item 468: fit within the visible area, excluding side panels.
+      const insets = readContainerInsets(el);
       r.unfreezeLayout();
       const savedView = { panX: r.panX, panY: r.panY, zoom: r.zoom };
-      applyViewportFit(r, rect.width, rect.height);
+      applyViewportFit(r, rect.width, rect.height, insets, {
+        camera3D: camera3DRef?.current,
+        glCanvasEl: glCanvasRef?.current,
+      });
       const targetView = { panX: r.panX, panY: r.panY, zoom: r.zoom };
       r.panX = savedView.panX;
       r.panY = savedView.panY;
@@ -95,7 +103,7 @@ export function useZoomControls({
     } else {
       animateToView({ zoom: 1, panX: 0, panY: 0 }, 300);
     }
-  }, [rendererRef, containerRef, applyViewportFit, animateToView]);
+  }, [rendererRef, containerRef, camera3DRef, glCanvasRef, applyViewportFit, animateToView]);
 
   return { doZoom, resetZoom };
 }

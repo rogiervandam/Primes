@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { readContainerInsets } from '../camera_3d/useViewportFit';
 
 export function useGoToStep({
   rendererRef,
@@ -214,7 +215,9 @@ export function useGoToStep({
       r.layoutAvailWidth = lvW;
       r.layoutAvailHeight = lvH;
       if (!initialFitDoneRef.current) {
-        applyViewportFit(r, rect.width, rect.height);
+        // item 468: account for side panels when computing the initial fit.
+        const insets = readContainerInsets(containerRef.current);
+        applyViewportFit(r, rect.width, rect.height, insets);
         const fitsViewport = r.isContentFullyVisible(rect.width, rect.height);
         if (!fitsViewport) {
           const firstRow = r.getElementBounds('cacheline', 0);

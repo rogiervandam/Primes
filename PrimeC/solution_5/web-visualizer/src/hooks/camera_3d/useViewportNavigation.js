@@ -1,9 +1,11 @@
 import { useCallback } from 'react';
+import { readContainerInsets } from './useViewportFit';
 
 export function useViewportNavigation({
   rendererRef,
   containerRef,
   camera3DRef,
+  glCanvasRef,
   viewportAnimRef,
   cancelViewportAnimation,
   applyViewportFit,
@@ -56,8 +58,14 @@ export function useViewportNavigation({
     const rect = el.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return Promise.resolve(false);
 
+    // item 468: account for side panels when computing the fit target.
+    const insets = readContainerInsets(el);
+
     const savedView = { panX: r.panX, panY: r.panY, zoom: r.zoom };
-    applyViewportFit(r, rect.width, rect.height);
+    applyViewportFit(r, rect.width, rect.height, insets, {
+      camera3D: camera3DRef.current,
+      glCanvasEl: glCanvasRef.current,
+    });
     const targetView = { panX: r.panX, panY: r.panY, zoom: r.zoom };
     r.panX = savedView.panX;
     r.panY = savedView.panY;
@@ -75,7 +83,7 @@ export function useViewportNavigation({
     }
 
     return animateViewportTo(targetView, options.duration ?? 720).then(() => true);
-  }, [rendererRef, containerRef, applyViewportFit, setZoom, getMinimapDetailH, updateMinimapAvailability, animateViewportTo]);
+  }, [rendererRef, containerRef, camera3DRef, glCanvasRef, applyViewportFit, setZoom, getMinimapDetailH, updateMinimapAvailability, animateViewportTo]);
 
   const navigateToBit = useCallback((bitIdx, targetKind = 'bit') => {
     const r = rendererRef.current;

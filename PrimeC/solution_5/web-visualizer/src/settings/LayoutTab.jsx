@@ -95,21 +95,6 @@ function SpacingControl({ title, keyH, keyV, max, className = '', columnControl 
 
 /**
  * LayoutTab — content for the "Layout" tab of the settings sidebar.
- *
- * This is the heaviest of the three tabs (~750 lines including helpers
- * and the inner `LayoutOverview` component). It owns
- * its own UI state for the grouping menu, custom-preset menu and
- * spacing popovers because none of that state is observed outside this
- * tab. All sieve settings flow in via `settings`/`onChange`; everything
- * else comes in as plain props.
- *
- * Per docs/AI_MAINTENANCE.md the original plan called for a
- * `useSettingsBundle()` hook in the parent first. The hook now exists
- * (`./useSettingsBundle`) and is consumed locally to derive `set` /
- * `setMany` / `incr` / `decr` helpers from the (`settings`, `onChange`)
- * pair. The signature still takes `settings` + `onChange` separately to
- * keep the prop contract with `SettingsPanel` unchanged — the bundle
- * is purely an internal ergonomic.
  */
 export default function LayoutTab({
   settings, onChange,

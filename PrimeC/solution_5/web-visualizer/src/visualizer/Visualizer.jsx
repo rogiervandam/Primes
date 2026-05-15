@@ -948,6 +948,7 @@ export default function Visualizer({
     rendererRef,
     containerRef,
     camera3DRef,
+    glCanvasRef,
     viewportAnimRef,
     cancelViewportAnimation,
     applyViewportFit,
@@ -1098,6 +1099,8 @@ export default function Visualizer({
   const { doZoom, resetZoom } = useZoomControls({
     rendererRef,
     containerRef,
+    camera3DRef,
+    glCanvasRef,
     setZoom,
     getMinimapDetailH,
     updateMinimapAvailability,

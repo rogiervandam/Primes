@@ -131,8 +131,12 @@ export function computeGlLayoutParams(r) {
   }
 
   // ── Downsampling: skip every N-th bit when zoomed out far enough ─────
+  // Use canvasSnapDpr (physical device DPR, without SSAA multiplier) so that
+  // bitStride – and therefore visual density – stays consistent across SSAA
+  // levels and across render modes that clamp canvasDpr differently due to
+  // their different CSS canvas sizes (item 502: SSAA zoom invariance).
   const cellSize = px;
-  const physCellSize = cellSize * (r.canvasDpr || 1);
+  const physCellSize = cellSize * (r.canvasSnapDpr || r.canvasDpr || 1);
   const bitStride    = Math.max(1, Math.min(4, Math.floor(1 / Math.max(0.0625, physCellSize))));
   const instanceCount = Math.max(0, Math.ceil((endBit - firstBit) / bitStride));
 
