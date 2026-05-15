@@ -15,7 +15,7 @@ import {
   DEFAULT_RENDER_MODE,
   getRenderModeBackendPreset,
   normalizeRenderMode,
-} from '../lib/renderModes';
+} from '../../lib/renderModes';
 
 export function useDebugTools({
   glRendererRef,

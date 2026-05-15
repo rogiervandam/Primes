@@ -122,7 +122,7 @@ PascalCase, noun or noun phrase describing what the component renders:
 
 ---
 
-## TypeScript (Phase 2 target)
+## TypeScript
 
 - Interface names: `{Domain}State`, `{Domain}Props`, `{Domain}Refs`
   - `ThemeState`, `PlaybackState`, `AnimationConfigState`

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { bitToNumber, describeWheelBit } from '../renderer/SieveRenderer.js';
+import { bitToNumber, describeWheelBit } from '../../renderer/SieveRenderer.js';
 
 /**
  * Computes the rows shown in the detail inspector overlay from the current

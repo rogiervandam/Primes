@@ -18,7 +18,15 @@ import BitHistoryBalloons from './BitHistoryBalloons';
 import KeyboardShortcutsOverlay from './KeyboardShortcutsOverlay';
 import SearchOverlay from './SearchOverlay';
 import DebugToolsPanel from './DebugToolsPanel';
-import { useTraceExport, useRawSource, useSearchState, useStepDisplayData } from '../hooks/data';
+import {
+  useTraceExport,
+  useRawSource,
+  useSearchState,
+  useStepDisplayData,
+  useVisualizerStateBundle,
+  useVisualizerPropBundles,
+  useBitInfo,
+} from '../hooks/data';
 import {
   useKeyboardShortcuts,
   usePointerGestures,
@@ -86,9 +94,6 @@ import {
   useViewPrefsSync,
   useVisualizerEffects,
 } from '../hooks/utils';
-import { useVisualizerStateBundle } from '../hooks/useVisualizerStateBundle';
-import { useVisualizerPropBundles } from '../hooks/useVisualizerPropBundles';
-import { useBitInfo } from '../hooks/useBitInfo';
 import StatusBanners from './StatusBanners';
 import {
   DEFAULT_EVENT_TITLE_SETTINGS,
@@ -960,7 +965,7 @@ export default function Visualizer({
     refitViewportToContent,
   });
 
-  // Search state + handler — extracted to src/hooks/useSearchState.js (Pattern A).
+  // Search state + handler — extracted to src/hooks/data/useSearchState.js (Pattern A).
   // Placed here so navigateToBit is in scope for the hook's dep arrays.
   // activateRangeOverlay: set and enable the range overlay from a search query.
   // item 254: use navigateToRange so the camera zooms to show the full range.
@@ -1168,7 +1173,7 @@ export default function Visualizer({
     flyModeActiveRef,
   });
 
-  // Keyboard shortcuts — see src/hooks/useKeyboardShortcuts.js for the full key map.
+  // Keyboard shortcuts — see src/hooks/interactions/useKeyboardShortcuts.js for the full key map.
   useKeyboardShortcuts({
     currentStep,
     stepCount: steps.length,
@@ -1189,7 +1194,7 @@ export default function Visualizer({
     toggleSpotlight: useCallback(() => setIsSpotlightOpen((v) => !v), []),
   });
 
-  // PNG snapshot + WebM video export. See src/hooks/useTraceExport.js.
+  // PNG snapshot + WebM video export. See src/hooks/data/useTraceExport.js.
   const { exporting, exportProgress, exportError, exportPng, exportVideo, cancelExport } = useTraceExport({
     rendererRef,
     glCanvasRef,
@@ -1202,7 +1207,7 @@ export default function Visualizer({
   });
 
   // Search: navigate to a specific bit, byte, uint64, vector, or number.
-  // State and handler live in useSearchState (src/hooks/useSearchState.js),
+  // State and handler live in useSearchState (src/hooks/data/useSearchState.js),
   // wired above after navigateToBit.
 
   const { currentStepData, surroundingEvents } = useStepDisplayData({ steps, currentStep, selectedSteps, buildCombinedSelectionOverlay });
@@ -1446,7 +1451,7 @@ export default function Visualizer({
   });
 
   // ============================================================================
-  // 2.1: Semantic state bundles (→ src/hooks/useVisualizerStateBundle.js)
+  // 2.1: Semantic state bundles (→ src/hooks/data/useVisualizerStateBundle.js)
   // Bundles are available for DevTools inspection; not consumed in this file.
   // ============================================================================
   // eslint-disable-next-line no-unused-vars
@@ -1533,7 +1538,7 @@ export default function Visualizer({
   });
 
   // ============================================================================
-  // 2.2: Props bundles for child components (→ src/hooks/useVisualizerPropBundles.js)
+  // 2.2: Props bundles for child components (→ src/hooks/data/useVisualizerPropBundles.js)
   // ============================================================================
   const { visualizerMainContentProps, toolbarProps } = useVisualizerPropBundles({
     // Canvas & rendering

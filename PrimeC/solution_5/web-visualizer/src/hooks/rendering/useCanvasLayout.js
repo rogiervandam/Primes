@@ -3,8 +3,8 @@ import {
   getProjectedCanvasMapper,
   computeSafeTiltDegrees,
   computeAutoGlYOffset,
-} from '../lib/canvasProjection';
-import { usesWebGLTilt, usesViewportSizeCanvas, usesGridSizeCanvas } from '../lib/renderModes';
+} from '../../lib/canvasProjection';
+import { usesWebGLTilt, usesViewportSizeCanvas, usesGridSizeCanvas } from '../../lib/renderModes';
 
 /**
  * Owns the oversized-plane canvas geometry, GL CSS lock management,

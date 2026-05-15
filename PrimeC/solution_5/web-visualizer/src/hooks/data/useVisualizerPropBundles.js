@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { COLOR_PRESETS } from '../renderer/constants';
+import { COLOR_PRESETS } from '../../renderer/constants';
 
 /**
  * useVisualizerPropBundles

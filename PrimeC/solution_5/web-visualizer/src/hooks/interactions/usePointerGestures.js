@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { applyPan } from '../visualizer/gestures/pan';
-import { applyRotate } from '../visualizer/gestures/rotate';
-import { applyWheel } from '../visualizer/gestures/wheel';
-import { getTwoPointerState } from '../visualizer/gestures/pinch';
+import { applyPan } from '../../visualizer/gestures/pan';
+import { applyRotate } from '../../visualizer/gestures/rotate';
+import { applyWheel } from '../../visualizer/gestures/wheel';
+import { getTwoPointerState } from '../../visualizer/gestures/pinch';
 
 /**
  * Sets up all pointer / mouse / wheel event listeners on the canvas container

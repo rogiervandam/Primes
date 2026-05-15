@@ -1,6 +1,6 @@
 # AI Maintenance Guide
 
-Read this first before changing the web visualizer. This document is for AI
+Read this first before changing the web visualizer. This document is for 
 agents and maintainers who need to keep the project healthy without redoing old
 work or breaking subtle runtime contracts.
 
@@ -9,8 +9,6 @@ For broader maps, also read:
 - `docs/ARCHITECTURE.md` for module ownership and data flow.
 - `docs/COMPONENTS.md` for component boundaries and prop surfaces.
 - `docs/BACKLOG.md` for short-term product ideas from the user.
-- `src/ARCHITECTURE.md` is a redirect stub only; keep architecture updates in
-  `docs/ARCHITECTURE.md`.
 
 ## Agent Startup Checklist
 

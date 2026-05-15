@@ -15,7 +15,7 @@
  * @param {{ initialPrefs: object }} params
  */
 import { useState, useRef, useCallback, useMemo } from 'react';
-import { clampMs as clampMsPure } from '../lib/animationTiming';
+import { clampMs as clampMsPure } from '../../lib/animationTiming';
 
 export function useAnimationConfig({ initialPrefs }) {
   const [animMode, setAnimMode] = useState('sequential');

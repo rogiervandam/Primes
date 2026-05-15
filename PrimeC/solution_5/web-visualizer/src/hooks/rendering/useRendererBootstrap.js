@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { SieveRenderer } from '../renderer/SieveRenderer.js';
-import { BitGridGLWorker } from '../renderer/gl/BitGridGLWorker';
-import { GlyphTextGLCore } from '../renderer/gl/GlyphTextGLCore';
-import { GlyphTextCanvas2D } from '../renderer/canvas/GlyphTextCanvas2D';
-import { usesWebGLTilt, usesViewportSizeCanvas, usesGridSizeCanvas } from '../lib/renderModes';
+import { SieveRenderer } from '../../renderer/SieveRenderer.js';
+import { BitGridGLWorker } from '../../renderer/gl/BitGridGLWorker';
+import { GlyphTextGLCore } from '../../renderer/gl/GlyphTextGLCore';
+import { GlyphTextCanvas2D } from '../../renderer/canvas/GlyphTextCanvas2D';
+import { usesWebGLTilt, usesViewportSizeCanvas, usesGridSizeCanvas } from '../../lib/renderModes';
 
 /** item 426: Normalized [r,g,b,a] tints for each bitsGridView flag mode. */
 const _GV_TINTS = {

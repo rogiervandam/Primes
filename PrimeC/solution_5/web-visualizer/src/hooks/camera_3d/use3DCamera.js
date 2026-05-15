@@ -23,7 +23,7 @@
  *     split it further.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera3D } from '../renderer/Camera3D.js';
+import { Camera3D } from '../../renderer/Camera3D.js';
 
 function sameContainerStyle(a, b) {
   if (a === b) return true;

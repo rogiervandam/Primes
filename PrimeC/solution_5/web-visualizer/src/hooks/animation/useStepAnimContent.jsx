@@ -6,7 +6,7 @@
  * without prop" pattern, keeping Visualizer.jsx's return block clean.
  */
 import React from 'react';
-import AllEventsTransport from '../visualizer/AllEventsTransport';
+import AllEventsTransport from '../../visualizer/AllEventsTransport';
 
 export function useStepAnimContent({
   // AllEventsTransport

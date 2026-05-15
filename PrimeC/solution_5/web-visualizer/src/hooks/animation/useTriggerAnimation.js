@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { getFadeOutDuration as getFadeOutDurationPure } from '../lib/animationTiming.js';
+import { getFadeOutDuration as getFadeOutDurationPure } from '../../lib/animationTiming.js';
 
 export function useTriggerAnimation({ ...flatArgs }) {
   const animRefs = flatArgs.animRefs || flatArgs;

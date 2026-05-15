@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { useRendererBootstrap } from './useRendererBootstrap';
-import { useLoadingOverlayLifecycle } from './useLoadingOverlayLifecycle';
+import { useLoadingOverlayLifecycle } from '../overlays/useLoadingOverlayLifecycle';
 import { useRendererLayoutSync } from './useRendererLayoutSync';
 import { usePanelResizeRefresh } from './usePanelResizeRefresh';
 import { useWindowResize } from './useWindowResize';
 import {
   DEFAULT_LAYOUT_SETTINGS as DEFAULT_SETTINGS,
-} from '../lib/viewPrefs';
+} from '../../lib/viewPrefs';
 
 /**
  * Bundles all renderer bootstrap / sync hooks and associated inline effects.

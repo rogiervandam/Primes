@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { computeBitInfoFromSteps } from '../lib/bitInfo';
+import { computeBitInfoFromSteps } from '../../lib/bitInfo';
 
 export function useBitInfo({ rendererRef, stepsRef, wheelDefinition }) {
   const computeBitInfo = useCallback((idx) => {

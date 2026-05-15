@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { bitToNumber, numberToBit } from '../renderer/SieveRenderer.js';
+import { bitToNumber, numberToBit } from '../../renderer/SieveRenderer.js';
 
 /**
  * Manages search-box state and the "navigate-to-bit" search handler.

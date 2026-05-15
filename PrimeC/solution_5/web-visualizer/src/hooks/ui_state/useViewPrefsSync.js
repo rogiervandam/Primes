@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { writeViewPrefs } from '../lib/viewPrefs';
+import { writeViewPrefs } from '../../lib/viewPrefs';
 
 /**
  * Persists view preferences to localStorage whenever they change.

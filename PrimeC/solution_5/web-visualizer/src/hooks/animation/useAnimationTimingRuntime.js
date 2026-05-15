@@ -6,9 +6,9 @@ import {
   computeEventNormalDuration as computeEventNormalDurationPure,
   computeEventDuration as computeEventDurationPure,
   getFadeOutDuration as getFadeOutDurationPure,
-} from '../lib/animationTiming';
-import { DEFAULT_EVENT_TIME_TARGETS } from '../lib/viewPrefs';
-import { estimateAnimDuration as estimateAnimDurationHelper } from '../lib/animationHelpers';
+} from '../../lib/animationTiming';
+import { DEFAULT_EVENT_TIME_TARGETS } from '../../lib/viewPrefs';
+import { estimateAnimDuration as estimateAnimDurationHelper } from '../../lib/animationHelpers';
 
 export function useAnimationTimingRuntime({
   bitAnimInterval,
