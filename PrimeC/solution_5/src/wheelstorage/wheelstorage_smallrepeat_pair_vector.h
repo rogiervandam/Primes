@@ -19,13 +19,10 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
     }
 
     bitbucket_t current_mask = BITBUCKET0, pending_mask = BITBUCKET0;
-    counter_t pending_bucket = 0;
+    counter_t pending_bucket = 0, current_mask_changes = 0; 
 
     for (counter_t index = range_start; index <= range_stop_unique; index += step) {
-        const counter_t wheel_bit = wheel_bit_calc(index);
         const counter_t new_bucket = function(wheel_bucket_calc,variant_suffix)(index);
-
-        if (wheel_bit <= 0) continue; 
 
         if (new_bucket != current_bucket) {
             if (((pending_bucket + 1) == current_bucket)) { 
@@ -42,14 +39,19 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(sieve_t* siev
             current_bucket = new_bucket;
             current_mask = BITBUCKET0;
         }
-        const counter_t element = index_type(wheel_bit, variant_base_type_t) & bitbucket_element_mask(bitbucket_t, variant_base_type_t);
-        current_mask[element] |= markmask_type(wheel_bit, variant_base_type_t);
+
+        const counter_t wheel_bit = wheel_bit_calc(index);
+        if (wheel_bit >= 0) {
+            const counter_t element = index_type(wheel_bit, variant_base_type_t) & bitbucket_element_mask(bitbucket_t, variant_base_type_t);
+            current_mask[element] |= markmask_type(wheel_bit, variant_base_type_t);
+            current_mask_changes++;
+        }
     }
 
     if (pending_bucket) {
         function(applyMask_index,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
     }
-    if (current_bucket) {
+    if (current_mask_changes) {
         function(applyMask_index,suffix)(sieve->bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
     }
 

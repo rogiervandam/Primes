@@ -1,5 +1,4 @@
 #include "sieve_check.h"
-#include "sieve_usage.h"
 #include "sieve_parseCommandline.h"
 #include "sieve_benchmark.h"
 #include "sieve_explain.h"

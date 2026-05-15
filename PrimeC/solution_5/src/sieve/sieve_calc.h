@@ -25,12 +25,6 @@ calcFactor_max(counter_t range_stop)
     return (usqrt(range_stop));
 }
 
-enum {
-    STORAGE_FULL      = 0,
-    STORAGE_HALF      = 1,
-    STORAGE_WHEEL     = 2
-};
-
 static const storage_t storage_table[STORAGE_WHEEL + 1] = {
     [STORAGE_FULL] = { STORAGE_FULL, 1, 1 }
     ,[STORAGE_HALF] = { STORAGE_HALF, 1, 2 }
@@ -40,24 +34,72 @@ static const storage_t storage_table[STORAGE_WHEEL + 1] = {
 };
 // these are necessary for a generic calculation in the benchmark settings
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-calcBitsize(counter_t factorsize, int storage_id) 
+calcBitsize(counter_t factorsize, storage_type storage_id) 
 {
     return (factorsize * storage_table[storage_id].bitsize) / storage_table[storage_id].factorsize + ((factorsize * storage_table[storage_id].bitsize) % storage_table[storage_id].factorsize != 0);
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-calcFactorsize(counter_t bitsize, int storage_id) 
+calcFactorsize(counter_t bitsize, storage_type storage_id) 
 {
     return (bitsize * storage_table[storage_id].factorsize) / storage_table[storage_id].bitsize + ((bitsize * storage_table[storage_id].factorsize) % storage_table[storage_id].bitsize != 0);
 }
 
 static inline const char*
-getStorageModelName(int storage_id)
+getStorageModelName(storage_type storage_id)
 {
     switch (storage_id) {
         case STORAGE_FULL:             return "full";
         case STORAGE_HALF:             return "half";
-        case STORAGE_WHEEL:     return "wheel";
+        case STORAGE_WHEEL:            return "wheel";
         default:                       return "unknown";
     }
+}
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcSize(counter_t factorsize, storage_type storage_id) 
+{
+    return (factorsize * storage_table[storage_id].bitsize) / storage_table[storage_id].factorsize + ((factorsize * storage_table[storage_id].bitsize) % storage_table[storage_id].factorsize != 0);
+}
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcMax(counter_t sieve_size, storage_type storage_id) 
+{
+    return calcFactor_max(sieve_size);
+}
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcStep(counter_t prime, storage_type storage_id) 
+{
+    #if defined(STORAGE_HALF_DEFINED)
+    if (storage_id == STORAGE_HALF) {
+        return calcFactor_step_half(prime);
+    }
+    #endif
+
+    return calcFactor_step(prime);
+}
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcStart(counter_t prime, counter_t block_start, storage_type storage_id) 
+{
+    #if defined(STORAGE_HALF_DEFINED)
+    if (storage_id == STORAGE_HALF) {
+        return calcFactor_start_half(prime, block_start);
+    }
+    #endif
+
+    return calcFactor_start(prime, block_start);
+}
+
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcStop(counter_t sieve_size, storage_type storage_id) 
+{
+    #if defined(STORAGE_HALF_DEFINED)
+    if (storage_id == STORAGE_HALF) {
+        return calcBitsize_half(sieve_size);
+    }
+    #endif
+
+    return sieve_size;
 }

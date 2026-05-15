@@ -4,6 +4,12 @@
 #include "../generic/settings.h"
 // #include <inttypes.h>
 #include "sieve_benchmark_settings.h"
+
+typedef enum storage_type {
+    STORAGE_FULL      = 0,
+    STORAGE_HALF      = 1,
+    STORAGE_WHEEL     = 2
+} storage_type;
 typedef struct  {
     benchmark_settings_t fixed_benchmark_settings;
     counter_t show_explain_factor_max;
@@ -159,7 +165,7 @@ setDefaultOptions()
     option.fixed_benchmark_settings.blocksize_bits          = 0;
     option.fixed_benchmark_settings.vectorsize              = 0;
     option.fixed_benchmark_settings.algorithm               = 0;
-    option.fixed_benchmark_settings.storage                 = 0;
+    option.fixed_benchmark_settings.storage                 = STORAGE_HALF;
     option.fixed_benchmark_settings.sample_duration         = 5;
 
     option.dockerfile_type = getenv("DOCKERFILE_TYPE"); 

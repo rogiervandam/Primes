@@ -32,7 +32,7 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings, const char* algorith
                  trace_storage_model, trace_settings_tag, trace_title, trace_info);
 
         #if defined(WHEEL_SIZE) && defined(WHEEL_STRIPE_BITS)
-        if (g_trace.enabled) trace_write_current_wheel_definition();
+        if (g_trace.enabled) trace_write_wheel_definition(WHEEL_SIZE, WHEEL_STRIPE_BITS, WHEEL_BASIC_SIZE, WHEEL_REPEATS, WHEEL_MAX, wheel_number, wheelmask_stripes);
         #endif
 
         if (g_trace.enabled) {

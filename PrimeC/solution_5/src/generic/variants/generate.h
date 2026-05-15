@@ -7,6 +7,10 @@
 #include INCLUDE_FILE_FULL
 #define BUILD_ONCE 1
 
+#define include_once_first 1
+    #include INCLUDE_FILE_FULL
+#undef include_once_first
+
 #define BUILD_WORDS_STAGE 1
     #undef unrolls
     

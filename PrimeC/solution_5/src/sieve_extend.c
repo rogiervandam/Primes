@@ -48,7 +48,7 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
 
     switch( algorithm ) 
     {
-        case 1:
+        case 1: // extend for the whole sieve, then stripe off the remaining primes block by block
         {
             // fill the entire sieve for lower primes by striping off the multiples in a small sieve
             // and copying this pattern to a extended sieve, until the sieve size matches the entire sieve
@@ -62,13 +62,13 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
             markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime, prime_max);
         } break;
 
-        case 2: // process both extend and stripe block by block
+        case 2: // extend block by block and stripe block by block
         {
             counter_t prime_next = markExtendSieveBlockByBlock(sieve, sieve_size, blocksize_factor, stripeprime_faster);
             markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime_next, prime_max);
         } break;
 
-        case 3: // process everything block by block -- can be set via --set a3 on command line
+        case 3: // stripe everything block by block, no extend used
         {
             markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, 3, prime_max);
         } break;

@@ -34,9 +34,11 @@
 #if defined(USE_64BIT_COUNTER)
     typedef int64_t counter_t;
     #define COUNTER_T_MAX_VALUE INT64_MAX
+    #define counter_suffix _uint64
 #else
     typedef int32_t counter_t;
     #define COUNTER_T_MAX_VALUE INT32_MAX
+    #define counter_suffix _uint32
 #endif
 
 // type used to shift bits

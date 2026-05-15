@@ -45,6 +45,7 @@
 #define time_markFactors_wheelstorage_small_repeat_pairv2 40
 #define time_markFactors_wheelstorage_small_repeat_pairv2_align 41
 #define time_markFactors_wheelstorage_small_repeat_pairv2_copy 42
+#define time_markFactors_wheelstorage_small_repeat_pair_rotate 43
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",
@@ -90,6 +91,7 @@ static const char* timer_function_names[100] = {
     [time_markFactors_wheelstorage_small_repeat_pairv2] = "markFactors_wheelstorage_small_repeat_pairv2",
     [time_markFactors_wheelstorage_small_repeat_pairv2_align] = "markFactors_wheelstorage_small_repeat_pairv2_align",
     [time_markFactors_wheelstorage_small_repeat_pairv2_copy] = "markFactors_wheelstorage_small_repeat_pairv2_copy",
+    [time_markFactors_wheelstorage_small_repeat_pair_rotate] = "markFactors_wheelstorage_small_repeat_pair_rotate",
 };
 
 #endif
@@ -111,36 +113,36 @@ typedef struct {
 // Global array with all setBitsTrue functions
 static SetBitsTrueMethod setBitsTrueMethods[] = {
     { "setBitsTrue                                 ", setBitsTrue                                 , 0, INT32_MAX, 1 },
-    { "setBitsTrue_range                           ", setBitsTrue_range_uint64                    , 0, INT32_MAX, 1},
-    { "setBitsTrue_smallstep_rotate_pair_uint64v8  ", setBitsTrue_smallstep_rotate_pair_uint64v8  , 0, 63, 1},
+    { "setBitsTrue_range                           ", setBitsTrue_range_uint8                    , 0, INT32_MAX, 1},
+    // { "setBitsTrue_smallstep_rotate_pair_uint64v8  ", setBitsTrue_smallstep_rotate_pair_uint64v8  , 0, 63, 1},
     { "setBitsTrue_smallstep_rotate_pair_uint64v4  ", setBitsTrue_smallstep_rotate_pair_uint64v4  , 0, 63, 1},
-    { "setBitsTrue_smallstep_rotate_pair_uint32v16 ", setBitsTrue_smallstep_rotate_pair_uint32v16 , 0, 31, 1},
-    { "setBitsTrue_smallstep_rotate_pair_uint16v16 ", setBitsTrue_smallstep_rotate_pair_uint16v16 , 0, 15, 1},
-    { "setBitsTrue_smallstep_rotate_pair_uint32v4  ", setBitsTrue_smallstep_rotate_pair_uint32v4  , 0, 31, 1},
-    { "setBitsTrue_smallstep_rotate_pair_uint16v8  ", setBitsTrue_smallstep_rotate_pair_uint16v8  , 0, 15, 1},
-    { "setBitsTrue_largestep_vector_uint64v8       ", setBitsTrue_largestep_vector_uint64v8       , 65, 511, 1},
+    // { "setBitsTrue_smallstep_rotate_pair_uint32v16 ", setBitsTrue_smallstep_rotate_pair_uint32v16 , 0, 31, 1},
+    // { "setBitsTrue_smallstep_rotate_pair_uint16v16 ", setBitsTrue_smallstep_rotate_pair_uint16v16 , 0, 15, 1},
+    // { "setBitsTrue_smallstep_rotate_pair_uint32v4  ", setBitsTrue_smallstep_rotate_pair_uint32v4  , 0, 31, 1},
+    // { "setBitsTrue_smallstep_rotate_pair_uint16v8  ", setBitsTrue_smallstep_rotate_pair_uint16v8  , 0, 15, 1},
+    // { "setBitsTrue_largestep_vector_uint64v8       ", setBitsTrue_largestep_vector_uint64v8       , 65, 511, 1},
     { "setBitsTrue_largestep_vector_uint64v4       ", setBitsTrue_largestep_vector_uint64v4       , 65, 255, 1},
     // { "setBitsTrue_largestep_vector_uint32v16      ", setBitsTrue_largestep_vector_uint32v16      , 33, 255, 0},
     { "setBitsTrue_largestep_repeat_uint64         ", setBitsTrue_largestep_repeat_uint64         , 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_repeat_uint32         ", setBitsTrue_largestep_repeat_uint32         , 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_repeat_uint8_unroll16 ", setBitsTrue_largestep_repeat_uint8_unroll16 , 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_repeat_uint8_unroll8  ", setBitsTrue_largestep_repeat_uint8_unroll8  , 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_repeat_uint8_unroll4  ", setBitsTrue_largestep_repeat_uint8_unroll4  , 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_repeat_uint8          ", setBitsTrue_largestep_repeat_uint8          , 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_repeat_uint32         ", setBitsTrue_largestep_repeat_uint32         , 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_repeat_uint8_unroll16 ", setBitsTrue_largestep_repeat_uint8_unroll16 , 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_repeat_uint8_unroll8  ", setBitsTrue_largestep_repeat_uint8_unroll8  , 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_repeat_uint8_unroll4  ", setBitsTrue_largestep_repeat_uint8_unroll4  , 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_repeat_uint8          ", setBitsTrue_largestep_repeat_uint8          , 0, INT32_MAX, 1},
     { "setBitsTrue_largestep_norepeat_uint8_unroll8", setBitsTrue_largestep_norepeat_uint8_unroll8, 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_norepeat_uint8_unroll4", setBitsTrue_largestep_norepeat_uint8_unroll4, 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_norepeat_uint8        ", setBitsTrue_largestep_norepeat_uint8        , 0, INT32_MAX, 1},
-    { "setBitsTrue_smallstep_repeat_base           ", setBitsTrue_smallstep_repeat_base           , 0, 15, 1},
-    { "setBitsTrue_smallstep_norepeat              ", setBitsTrue_smallstep_norepeat              , 0, 15, 1},
+    // { "setBitsTrue_largestep_norepeat_uint8_unroll4", setBitsTrue_largestep_norepeat_uint8_unroll4, 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_norepeat_uint8        ", setBitsTrue_largestep_norepeat_uint8        , 0, INT32_MAX, 1},
+    // { "setBitsTrue_smallstep_repeat_base           ", setBitsTrue_smallstep_repeat_base           , 0, 15, 1},
+    // { "setBitsTrue_smallstep_norepeat              ", setBitsTrue_smallstep_norepeat              , 0, 15, 1},
     { "setBitsTrue_largestep_repeat_mmask_uint64  ", setBitsTrue_largestep_repeat_mmask_uint64  , 0, INT32_MAX, 1},
     { "setBitsTrue_largestep_repeat_mmask_uint32  ", setBitsTrue_largestep_repeat_mmask_uint32  , 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_repeat_mmask_uint8   ", setBitsTrue_largestep_repeat_mmask_uint8   , 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_repeat_old_uint8_unroll8  ", setBitsTrue_largestep_repeat_old_uint8_unroll8  , 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_repeat_old_uint8_unroll8  ", setBitsTrue_largestep_repeat_old_uint8_unroll8  , 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_repeat_mmask_uint8   ", setBitsTrue_largestep_repeat_mmask_uint8   , 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_repeat_old_uint8_unroll8  ", setBitsTrue_largestep_repeat_old_uint8_unroll8  , 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_repeat_old_uint8_unroll8  ", setBitsTrue_largestep_repeat_old_uint8_unroll8  , 0, INT32_MAX, 1},
     { "setBitsTrue_largestep_repeat_uint8_unroll8  ", setBitsTrue_largestep_repeat_uint8_unroll8  , 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_repeat_uint8_unroll8  ", setBitsTrue_largestep_repeat_uint8_unroll8  , 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_repeat_old_uint64_unroll8  ", setBitsTrue_largestep_repeat_old_uint64_unroll8  , 0, INT32_MAX, 1},
-    { "setBitsTrue_largestep_repeat_uint64_unroll8  ", setBitsTrue_largestep_repeat_uint64_unroll8  , 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_repeat_uint8_unroll8  ", setBitsTrue_largestep_repeat_uint8_unroll8  , 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_repeat_old_uint64_unroll8  ", setBitsTrue_largestep_repeat_old_uint64_unroll8  , 0, INT32_MAX, 1},
+    // { "setBitsTrue_largestep_repeat_uint64_unroll8  ", setBitsTrue_largestep_repeat_uint64_unroll8  , 0, INT32_MAX, 1},
     // { }
 };
 

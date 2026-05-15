@@ -2,7 +2,8 @@
 
 #include "../bitstorage/bitstorage_search.h"
 #include "../bitstorage/bitstorage_setBitsTrue.h"
-#include "../sieve/sieve_calc.h"
+
+#define STORAGE_HALF_DEFINED 1
 
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
 markFactor(sieve_t *sieve, counter_t index)
@@ -73,3 +74,5 @@ static inline uint8_t checkFactor_half(sieve_t *sieve, counter_t factor) {
     if (factor > 2 && factor % 2 == 0) return 1;
     return checkBitTrue_uint8(sieve->bitstorage, factor >> 1);
 }
+
+#include "../sieve/sieve_calc.h"
