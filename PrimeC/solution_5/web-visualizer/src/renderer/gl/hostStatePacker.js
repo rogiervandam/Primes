@@ -28,26 +28,32 @@ export function packState(host, buf, slots) {
   // Base pass: set bit (flag 1).
   for (let i = 0; i < bitCount; i++) buf[i] = bitState[i] ? 1 : 0;
 
+  // item 445: when animation visuals are hidden ("Animate: off"), skip all
+  // animation highlight flags (changed=2, ghost=4, repeated=8) so bits render
+  // with their plain set/cleared colour only. Structural overlays (prime, range,
+  // multiples, focus) are still applied below.
+  const showAnim = host.showAnimVisuals !== false;
+
   const changed = host.changedBits;
-  if (changed && typeof changed.forEach === 'function') {
+  if (showAnim && changed && typeof changed.forEach === 'function') {
     changed.forEach((bit) => {
       if (bit >= 0 && bit < bitCount) buf[bit] |= 2;
     });
   }
   const ghost = host.maskGhostBits;
-  if (ghost && typeof ghost.forEach === 'function') {
+  if (showAnim && ghost && typeof ghost.forEach === 'function') {
     ghost.forEach((bit) => {
       if (bit >= 0 && bit < bitCount && (buf[bit] & 1)) buf[bit] |= 4;
     });
   }
   const repeated = host.repeatedChangedBits;
-  if (repeated && typeof repeated.forEach === 'function') {
+  if (showAnim && repeated && typeof repeated.forEach === 'function') {
     repeated.forEach((bit) => {
       if (bit >= 0 && bit < bitCount) buf[bit] |= 8;
     });
   }
   const hits = host.targetHitCounts;
-  if (hits && typeof hits.forEach === 'function') {
+  if (showAnim && hits && typeof hits.forEach === 'function') {
     hits.forEach((count, bit) => {
       if (count > 1 && bit >= 0 && bit < bitCount) buf[bit] |= 8;
     });
