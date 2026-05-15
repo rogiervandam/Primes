@@ -327,6 +327,25 @@ export default function DetailPanel({
   const [bodyAnimClass, setBodyAnimClass] = useState('');
   const [isBodyAnimatingOut, setIsBodyAnimatingOut] = useState(false);
   const [maskPopoverOpen, setMaskPopoverOpen] = useState(false);
+  // item 463: measure the available width of the mask preview container so we
+  // can proportionally scale masks down when the panel is narrow.
+  const [maskListAvailableW, setMaskListAvailableW] = useState(0);
+  const maskListResizeObRef = useRef(null);
+  const maskListCallbackRef = useCallback((el) => {
+    if (maskListResizeObRef.current) {
+      maskListResizeObRef.current.disconnect();
+      maskListResizeObRef.current = null;
+    }
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width;
+      if (w > 0) setMaskListAvailableW(w);
+    });
+    ro.observe(el);
+    maskListResizeObRef.current = ro;
+    const initial = el.getBoundingClientRect().width;
+    if (initial > 0) setMaskListAvailableW(initial);
+  }, []);
   // item 301: show nearby-events sidebar only when events panel is collapsed
   // item 349: toggleEventsPanel for the nearby button that slides the events panel in from the left
   const { isEventsPanelCollapsed, toggleEventsPanel } = usePanelLayoutContext();
@@ -598,16 +617,30 @@ export default function DetailPanel({
     );
   }
 
-  // Scale preview to fit in a small fixed area; clicking expands to a popover
-  const MAX_PREVIEW_W = 160;
-  const MAX_PREVIEW_H = 130;
+  // Scale preview to fit in a small fixed area; clicking expands to a popover.
+  // item 463: also cap to the measured container width so masks never get
+  // cut off in a narrow panel — keep aspect ratio (130/160) when shrinking.
+  const BASE_PREVIEW_W = 160;
+  const BASE_PREVIEW_H = 130;
+  const slotCount = maskPreview ? maskPreview.slots.length : 1;
+  // item 463: account for slot decorations (padding 8px×2=16 + border 1px×2=2 = 18px per slot)
+  // and the list gap between slots (10px from .mask-preview-list { gap: 10px }).
+  // Cap scale at 1.0 so masks are never enlarged beyond their natural pixel size.
+  const SLOT_DECO_W = 18; // 2 × padding(8) + 2 × border(1) per slot
+  const LIST_GAP = 10;    // gap from .mask-preview-list { gap: 10px }
+  const listGapTotal = Math.max(0, slotCount - 1) * LIST_GAP;
+  const perSlotMaxW = maskListAvailableW > 0
+    ? Math.max(40, (maskListAvailableW - listGapTotal) / slotCount - SLOT_DECO_W)
+    : BASE_PREVIEW_W;
+  const MAX_PREVIEW_W = Math.min(BASE_PREVIEW_W, perSlotMaxW);
+  const MAX_PREVIEW_H = Math.round(MAX_PREVIEW_W * (BASE_PREVIEW_H / BASE_PREVIEW_W));
   const maskPreviewScale = maskPreview
-    ? Math.min(MAX_PREVIEW_W / maskPreview.previewWidth, MAX_PREVIEW_H / maskPreview.previewHeight, 2.0)
+    ? Math.min(MAX_PREVIEW_W / maskPreview.previewWidth, MAX_PREVIEW_H / maskPreview.previewHeight, 1.0)
     : 1;
 
   const maskPreviewContent = maskPreview ? (
     <>
-      <div className="mask-preview-list">
+      <div className="mask-preview-list" ref={maskListCallbackRef}>
         {maskPreview.slots.map((slot) => (
           <div key={slot.slotIndex} className={`mask-preview-slot slot-${slot.slotIndex % 2}`}>
             <div className="mask-preview-slot-label">Mask {slot.slotIndex + 1}</div>

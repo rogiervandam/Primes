@@ -32,7 +32,8 @@ export class MinimapRenderer {
 
   _hideAttachedCanvas() {
     if (!this._canvas) return;
-    this._canvas.style.display = 'none';
+    // item 467: use opacity so the CSS transition animates the hide.
+    this._canvas.style.opacity = '0';
   }
 
   /** Attach (or detach when canvas is null) the dedicated minimap overlay canvas. */
@@ -130,7 +131,8 @@ export class MinimapRenderer {
         this._canvas.width = nextW;
         this._canvas.height = nextH;
       }
-      this._canvas.style.display = 'block';
+      // item 467: reveal with opacity (CSS transition fades it in); keep display:block implicitly.
+      this._canvas.style.opacity = '1';
       this._canvas.style.width = `${mapW}px`;
       this._canvas.style.height = `${mapH}px`;
       this._canvas.style.left = `${fixedLeft}px`;

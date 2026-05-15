@@ -66,8 +66,8 @@ export function useTriggerAnimation({ ...flatArgs }) {
     }
     const r = rendererRef.current;
     const mode = bitAnimationModeRef.current;
-    const maskModeActive = mode === 'mask' || mode === 'combined';
-    const combinedMode = mode === 'combined';
+    const maskModeActive = mode === 'mask' || mode === 'both';
+    const combinedMode = mode === 'both';
     const hasMaskAnimation = !!(maskModeActive && r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0 && Number.isFinite(r.maskWordBits) && r.maskWordBits > 0);
     if (!r || !changedSet || (!hasMaskAnimation && changedSet.size === 0) || (!hasMaskAnimation && changedSet.size >= 100000)) return;
 
@@ -140,15 +140,19 @@ export function useTriggerAnimation({ ...flatArgs }) {
         const stepIdx = currentStep;
         const bs = bitStateRef.current;
         const allSteps = stepsRef.current;
-        const step = allSteps[stepIdx];
-        if (bs && step && step.changedBits && step.changedBits.length > 0) {
-          const sorted = Array.from(step.changedBits).sort((a, b) => a - b);
+        // item 471b: use changedSet (the actual changed bits for this step) instead of
+        // step.changedBits which may be undefined for some step types. This ensures the
+        // bit-reveal animation runs alongside mask stamps when mode is 'both'.
+        if (bs && changedSet.size > 0) {
+          const sorted = Array.from(changedSet).sort((a, b) => a - b);
           bs.fill(0);
           for (let i = 0; i < stepIdx; i++) {
             const s = allSteps[i];
-            for (let j = 0; j < s.changedBits.length; j++) {
-              const bit = s.changedBits[j];
-              if (bit < bs.length) bs[bit] = 1;
+            if (s.changedBits) {
+              for (let j = 0; j < s.changedBits.length; j++) {
+                const bit = s.changedBits[j];
+                if (bit < bs.length) bs[bit] = 1;
+              }
             }
           }
           if (resumeStartProgress > 0) {
@@ -193,7 +197,9 @@ export function useTriggerAnimation({ ...flatArgs }) {
       setDelayPhaseMsRef.current(null);
       if (!isStillLive()) return;
       if (setIsStepAnimRunningRef.current) setIsStepAnimRunningRef.current(false);
-      return;
+      if (!combinedMode) return;
+      // item 471: 'both' mode — fall through to the sequential bit animation
+      // below so bits also animate individually after the mask stamps complete.
     }
 
     if ((animMode === 'sequential' || animMode === 'bounce') && effectiveBitInterval > 0) {

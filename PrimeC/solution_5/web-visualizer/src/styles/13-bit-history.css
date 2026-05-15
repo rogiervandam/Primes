@@ -159,12 +159,19 @@
   position: absolute;
   inset: 12px;
   z-index: 45;
+  /* Default: center the panel horizontally at the top of the overlay area */
   display: flex;
   align-items: flex-start;
   justify-content: center;
   pointer-events: none;
 }
+/* item 466: when user has dragged the panel, switch overlay to an absolute
+   coordinate system so left/top on the panel work as expected. */
+.detail-inspector-overlay--floating {
+  display: block;
+}
 .detail-inspector-panel {
+  position: relative; /* item 466: needed so absolute children (resize handle) work */
   width: min(920px, calc(100% - 24px));
   max-height: calc(100% - 24px);
   border: 1px solid var(--border-light);
@@ -182,6 +189,15 @@
   justify-content: space-between;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
+}
+/* item 466: draggable header — show grab cursor; user-select: none prevents
+   text selection while dragging. */
+.detail-inspector-header--draggable {
+  cursor: grab;
+  user-select: none;
+}
+.detail-inspector-header--draggable:active {
+  cursor: grabbing;
 }
 .detail-inspector-title {
   font-size: 13px;
@@ -209,11 +225,15 @@
   color: var(--fg-muted);
 }
 .detail-inspector-table-wrap {
+  /* item 466: enable both horizontal and vertical scroll */
   overflow: auto;
-  max-height: 60vh;
+  flex: 1;
+  min-height: 0;
 }
 .detail-inspector-table {
-  width: 100%;
+  /* item 466: prevent cell wrapping so horizontal scroll activates when needed */
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 12px;
 }
@@ -222,6 +242,7 @@
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
   text-align: left;
+  white-space: nowrap;
 }
 .detail-inspector-table th {
   position: sticky;
@@ -229,4 +250,21 @@
   background: color-mix(in srgb, var(--bg-surface) 96%, #000 4%);
   color: var(--fg-muted);
   z-index: 1;
+}
+/* item 466: resize handle — triangle at bottom-right corner */
+.detail-inspector-resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  cursor: se-resize;
+  /* Draw a visual cue with a CSS border triangle */
+  background: linear-gradient(135deg, transparent 50%, var(--border-light) 50%);
+  border-radius: 0 0 12px 0;
+  opacity: 0.6;
+  z-index: 2;
+}
+.detail-inspector-resize-handle:hover {
+  opacity: 1;
 }

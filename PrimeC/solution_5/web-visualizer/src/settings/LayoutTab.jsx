@@ -328,16 +328,26 @@ export default function LayoutTab({
 
   const outline = outlineSettings || { targets: [] };
 
-  const CL_ANNOT_CYCLE = ['none', 'hits', 'age', 'both'];
-  const CL_ANNOT_HINTS = {
-    none: 'Annotation off — click to enable',
-    hits: 'Hit count (\u00d7N) per cache line',
-    age:  'Steps since last hit (\u0394N) per cache line',
-    both: 'Hit count + steps since last hit per cache line',
+  // item 469: 3-state cachelines grid mode combining annotation and heatmap
+  const cachelinesGridMode = isHeatMapEnabled ? 'heatmap'
+    : (cachelineAnnotation && cachelineAnnotation !== 'none') ? 'numbers'
+    : 'none';
+  const CACHELINES_GRID_HINTS = {
+    none:    'Cacheline visualization off — click to show cacheline numbers',
+    numbers: 'Cacheline numbers on grid — click for heatmap view',
+    heatmap: 'Cacheline heatmap active — click to turn off',
   };
-  const cycleCLAnnotation = () => {
-    const i = CL_ANNOT_CYCLE.indexOf(cachelineAnnotation);
-    onCachelineAnnotationChange(CL_ANNOT_CYCLE[(i + 1) % CL_ANNOT_CYCLE.length]);
+  const cycleCachelinesGridMode = () => {
+    if (cachelinesGridMode === 'none') {
+      onCachelineAnnotationChange && onCachelineAnnotationChange('hits');
+      if (isHeatMapEnabled) onHeatMapToggle && onHeatMapToggle(false);
+    } else if (cachelinesGridMode === 'numbers') {
+      onHeatMapToggle && onHeatMapToggle(true);
+      onCachelineAnnotationChange && onCachelineAnnotationChange('none');
+    } else {
+      onHeatMapToggle && onHeatMapToggle(false);
+      onCachelineAnnotationChange && onCachelineAnnotationChange('none');
+    }
   };
 
   const annotationGroupingLabel = isCustomVectorMode
@@ -444,7 +454,7 @@ export default function LayoutTab({
             )}
           />
           <AnnotationButton
-            title="Grouping"
+            title="Groups"
             hint={`Grouping and uint64 labels (${annotationGroupingLabel})`}
             active={s.showVectorLabels !== false}
             onClick={() => set('showVectorLabels', s.showVectorLabels === false)}
@@ -458,33 +468,16 @@ export default function LayoutTab({
             )}
           />
           <AnnotationButton
-            title="Touch order"
-            hint="Touch order above vectors"
-            active={!!s.showVectorTouchOrder}
-            onClick={() => set('showVectorTouchOrder', !(s.showVectorTouchOrder === true))}
+            title="Cachelines"
+            hint="Cacheline index labels on grid groups"
+            active={!!s.showCachelineLabels}
+            onClick={() => set('showCachelineLabels', !s.showCachelineLabels)}
             preview={(
               <svg viewBox="0 0 44 18" width="44" height="22" aria-hidden="true">
-                <rect x="2" y="8" width="10" height="6" rx="1" />
-                <rect x="16" y="8" width="10" height="6" rx="1" />
-                <rect x="30" y="8" width="10" height="6" rx="1" />
-                <text x="5" y="6" fontSize="6">1</text>
-                <text x="16" y="6" fontSize="6">(2,6)</text>
-              </svg>
-            )}
-          />
-          <AnnotationButton
-            title={cachelineAnnotation === 'none' ? 'Cacheline hits' : `Cacheline: ${cachelineAnnotation}`}
-            hint={CL_ANNOT_HINTS[cachelineAnnotation]}
-            active={cachelineAnnotation !== 'none'}
-            onClick={cycleCLAnnotation}
-            preview={(
-              <svg viewBox="0 0 44 18" width="44" height="22" aria-hidden="true">
-                <rect x="1" y="2" width="20" height="13" rx="1" fill="rgba(239,68,68,0.28)" stroke="currentColor" strokeWidth="0.5" />
-                <rect x="3" y="10" width="16" height="4" rx="1" fill="rgba(239,68,68,0.85)" />
-                <text x="4" y="13.5" fontSize="4.5" fill="#fff">×4 Δ3</text>
-                <rect x="23" y="2" width="20" height="13" rx="1" fill="rgba(59,130,246,0.28)" stroke="currentColor" strokeWidth="0.5" />
-                <rect x="25" y="10" width="16" height="4" rx="1" fill="rgba(59,130,246,0.85)" />
-                <text x="26" y="13.5" fontSize="4.5" fill="#fff">×1 Δ12</text>
+                <rect x="1" y="4" width="18" height="10" rx="1" />
+                <text x="2" y="12" fontSize="5">CL0</text>
+                <rect x="23" y="4" width="18" height="10" rx="1" />
+                <text x="24" y="12" fontSize="5">CL1</text>
               </svg>
             )}
           />
@@ -797,19 +790,22 @@ export default function LayoutTab({
   return (
     <>
       <div className="settings-section">
-        <label>Grid view</label>
+        <label>Grid views</label>
+        {/* item 469: row 1 — Range, Primes, Multiples */}
         <div className="preview-btn-grid preview-btn-grid-3">
           <PreviewOptionButton
             compact
-            label="Heatmap"
-            hint="Color cachelines by hit count and recency"
-            active={!!isHeatMapEnabled}
-            onClick={() => onHeatMapToggle(!isHeatMapEnabled)}
+            label="Range"
+            hint="Highlight a contiguous range of bit indices"
+            active={!!isRangeOverlayEnabled}
+            extraClass="range-overlay-preview-btn"
+            onClick={() => onRangeOverlayToggle && onRangeOverlayToggle(!isRangeOverlayEnabled)}
             preview={(
               <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="4" y="5" width="10" height="12" fill="#ef4444" stroke="none" />
-                <rect x="18" y="5" width="10" height="12" fill="#f59e0b" stroke="none" />
-                <rect x="32" y="5" width="10" height="12" fill="#3b82f6" stroke="none" />
+                <rect x="4" y="5" width="8" height="10" rx="1" fill="rgba(34,211,238,0.35)" stroke="none" />
+                <rect x="14" y="5" width="8" height="10" rx="1" fill="#22d3ee" stroke="none" />
+                <rect x="24" y="5" width="8" height="10" rx="1" fill="#22d3ee" stroke="none" />
+                <rect x="34" y="5" width="8" height="10" rx="1" fill="rgba(34,211,238,0.35)" stroke="none" />
               </svg>
             )}
           />
@@ -831,22 +827,6 @@ export default function LayoutTab({
           />
           <PreviewOptionButton
             compact
-            label="Range"
-            hint="Highlight a contiguous range of bit indices"
-            active={!!isRangeOverlayEnabled}
-            extraClass="range-overlay-preview-btn"
-            onClick={() => onRangeOverlayToggle && onRangeOverlayToggle(!isRangeOverlayEnabled)}
-            preview={(
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="4" y="5" width="8" height="10" rx="1" fill="rgba(34,211,238,0.35)" stroke="none" />
-                <rect x="14" y="5" width="8" height="10" rx="1" fill="#22d3ee" stroke="none" />
-                <rect x="24" y="5" width="8" height="10" rx="1" fill="#22d3ee" stroke="none" />
-                <rect x="34" y="5" width="8" height="10" rx="1" fill="rgba(34,211,238,0.35)" stroke="none" />
-              </svg>
-            )}
-          />
-          <PreviewOptionButton
-            compact
             label="Multiples"
             hint="Highlight multiples of a given prime"
             active={!!isMultiplesOverlayEnabled}
@@ -858,52 +838,6 @@ export default function LayoutTab({
                 <rect x="14" y="5" width="8" height="10" rx="1" fill="rgba(167,139,250,0.35)" stroke="none" />
                 <rect x="24" y="5" width="8" height="10" rx="1" fill="#a78bfa" stroke="none" />
                 <rect x="34" y="5" width="8" height="10" rx="1" fill="rgba(167,139,250,0.35)" stroke="none" />
-              </svg>
-            )}
-          />
-          {minimapControlVisible && (
-            <PreviewOptionButton
-              compact
-              label="Minimap"
-              hint="Show navigation minimap"
-              active={isMinimapVisible !== false}
-              onClick={() => onShowMinimapChange && onShowMinimapChange(!(isMinimapVisible !== false))}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <rect x="3" y="3" width="42" height="16" rx="2" />
-                  <rect x="18" y="7" width="12" height="8" rx="1" />
-                </svg>
-              )}
-            />
-          )}
-          <PreviewOptionButton
-            compact
-            label={balloonMode === 'off' ? 'Balloon: off' : balloonMode === 'bit-clock' ? 'Balloon: click' : 'Balloon: hover'}
-            hint={balloonMode === 'off' ? 'Balloons off — click to enable on bit click' : balloonMode === 'bit-clock' ? 'Balloons on bit click — click for click+hover' : 'Balloons on click+hover — click to disable'}
-            active={balloonMode !== 'off'}
-            onClick={() => set('balloonMode', balloonMode === 'off' ? 'bit-clock' : balloonMode === 'bit-clock' ? 'click-hover' : 'off')}
-            preview={balloonMode === 'off' ? (
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="8" y="4" width="28" height="14" rx="3" fill="var(--bg-input)" stroke="var(--border-light)" strokeWidth="1.5" />
-                <line x1="10" y1="6" x2="34" y2="18" stroke="var(--fg-muted)" strokeWidth="2" strokeLinecap="round" />
-                <line x1="34" y1="6" x2="10" y2="18" stroke="var(--fg-muted)" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            ) : balloonMode === 'bit-clock' ? (
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="7" y="2" width="24" height="13" rx="2" fill="var(--bg-raised)" stroke="var(--border-light)" strokeWidth="1.5" />
-                <polygon points="13,15 19,15 16,19" fill="var(--border-light)" />
-                <rect x="11" y="5" width="12" height="2" rx="1" fill="var(--fg-muted)" />
-                <rect x="11" y="9" width="8" height="2" rx="1" fill="var(--fg-dim)" />
-                <circle cx="38" cy="16" r="4" fill="none" stroke="var(--fg-muted)" strokeWidth="1.5" />
-                <line x1="36" y1="18" x2="42" y2="22" stroke="var(--fg-muted)" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="4" y="2" width="24" height="13" rx="2" fill="var(--bg-raised)" stroke="var(--accent)" strokeWidth="1.5" />
-                <polygon points="10,15 16,15 13,19" fill="var(--accent)" />
-                <rect x="8" y="5" width="12" height="2" rx="1" fill="var(--fg-muted)" />
-                <rect x="8" y="9" width="8" height="2" rx="1" fill="var(--fg-dim)" />
-                <circle cx="38" cy="11" r="5" fill="var(--accent-bg)" stroke="var(--accent)" strokeWidth="1.5" />
               </svg>
             )}
           />
@@ -1011,24 +945,8 @@ export default function LayoutTab({
           </div>
         )}
 
-        {/* item 426: grid view — independent toggle buttons, multiple can be active simultaneously */}
-        {/* item 430: removed duplicate "Grid view" label; buttons use PreviewOptionButton like others */}
+        {/* item 469: row 2 — Targeted, Already set, Newly set */}
         <div className="preview-btn-grid preview-btn-grid-3" style={{ marginTop: 8 }}>
-          <PreviewOptionButton
-            compact
-            label="Changed"
-            hint="Highlight bits changed in this step (amber)"
-            active={!!bitsGridView?.changed}
-            onClick={() => onBitsGridViewChange && onBitsGridViewChange({ ...bitsGridView, changed: !bitsGridView?.changed })}
-            preview={(
-              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="4" y="5" width="8" height="12" rx="1" fill="#f59e0b" stroke="none" />
-                <rect x="16" y="5" width="8" height="12" rx="1" fill="rgba(245,158,11,0.3)" stroke="none" />
-                <rect x="28" y="5" width="8" height="12" rx="1" fill="#f59e0b" stroke="none" />
-                <rect x="40" y="5" width="4" height="12" rx="1" fill="rgba(245,158,11,0.3)" stroke="none" />
-              </svg>
-            )}
-          />
           <PreviewOptionButton
             compact
             label="Targeted"
@@ -1075,26 +993,65 @@ export default function LayoutTab({
             )}
           />
         </div>
-        {/* item 428: inspector toggle — show/hide the byte/group/cacheline inspector on click */}
-        {/* item 435: animation toggle — show/hide bit animation in grid view */}
+        {/* item 469: row 3 — Changed, Touch order, Cachelines (3-state: off/numbers/heatmap) */}
         <div className="preview-btn-grid preview-btn-grid-3" style={{ marginTop: 6 }}>
           <PreviewOptionButton
             compact
-            label={isGroupInspectorEnabled !== false ? 'Inspector: on' : 'Inspector: off'}
-            hint="Toggle the byte/group/cacheline inspector panel (click a unit in the grid to open it)"
-            active={isGroupInspectorEnabled !== false}
-            onClick={() => onGroupInspectorEnabledChange && onGroupInspectorEnabledChange(!(isGroupInspectorEnabled !== false))}
+            label="Changed"
+            hint="Highlight bits changed in this step (amber)"
+            active={!!bitsGridView?.changed}
+            onClick={() => onBitsGridViewChange && onBitsGridViewChange({ ...bitsGridView, changed: !bitsGridView?.changed })}
             preview={(
               <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                <rect x="3" y="3" width="26" height="16" rx="2" fill="var(--bg-input)" stroke="var(--border-light)" strokeWidth="1.2" />
-                <rect x="5" y="6" width="18" height="2" rx="1" fill="var(--fg-muted)" />
-                <rect x="5" y="10" width="14" height="2" rx="1" fill="var(--fg-muted)" opacity="0.6" />
-                <rect x="5" y="14" width="10" height="2" rx="1" fill="var(--fg-muted)" opacity="0.4" />
-                <circle cx="38" cy="11" r="6" fill="none" stroke="var(--fg-muted)" strokeWidth="1.5" />
-                <line x1="43" y1="16" x2="45" y2="18" stroke="var(--fg-muted)" strokeWidth="2" strokeLinecap="round" />
+                <rect x="4" y="5" width="8" height="12" rx="1" fill="#f59e0b" stroke="none" />
+                <rect x="16" y="5" width="8" height="12" rx="1" fill="rgba(245,158,11,0.3)" stroke="none" />
+                <rect x="28" y="5" width="8" height="12" rx="1" fill="#f59e0b" stroke="none" />
+                <rect x="40" y="5" width="4" height="12" rx="1" fill="rgba(245,158,11,0.3)" stroke="none" />
               </svg>
             )}
           />
+          <PreviewOptionButton
+            compact
+            label="Touch order"
+            hint="Touch order above vectors"
+            active={!!s.showVectorTouchOrder}
+            onClick={() => set('showVectorTouchOrder', !(s.showVectorTouchOrder === true))}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="2" y="9" width="12" height="7" rx="1" />
+                <rect x="18" y="9" width="12" height="7" rx="1" />
+                <rect x="34" y="9" width="12" height="7" rx="1" />
+                <text x="5" y="8" fontSize="6">1</text>
+                <text x="17" y="8" fontSize="6">(2,6)</text>
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label={cachelinesGridMode === 'heatmap' ? 'CL: heatmap' : cachelinesGridMode === 'numbers' ? 'CL: numbers' : 'Cachelines'}
+            hint={CACHELINES_GRID_HINTS[cachelinesGridMode]}
+            active={cachelinesGridMode !== 'none'}
+            onClick={cycleCachelinesGridMode}
+            preview={cachelinesGridMode === 'heatmap' ? (
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="4" y="5" width="10" height="12" fill="#ef4444" stroke="none" />
+                <rect x="18" y="5" width="10" height="12" fill="#f59e0b" stroke="none" />
+                <rect x="32" y="5" width="10" height="12" fill="#3b82f6" stroke="none" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="1" y="2" width="21" height="14" rx="1" fill="rgba(239,68,68,0.28)" stroke="currentColor" strokeWidth="0.5" />
+                <rect x="3" y="11" width="17" height="4" rx="1" fill="rgba(239,68,68,0.85)" />
+                <text x="4" y="14.5" fontSize="4.5" fill="#fff">×4 Δ3</text>
+                <rect x="25" y="2" width="21" height="14" rx="1" fill="rgba(59,130,246,0.28)" stroke="currentColor" strokeWidth="0.5" />
+                <rect x="27" y="11" width="17" height="4" rx="1" fill="rgba(59,130,246,0.85)" />
+                <text x="28" y="14.5" fontSize="4.5" fill="#fff">×1 Δ12</text>
+              </svg>
+            )}
+          />
+        </div>
+        {/* item 469: row 4 — Animations */}
+        <div className="preview-btn-grid preview-btn-grid-3" style={{ marginTop: 6 }}>
           <PreviewOptionButton
             compact
             label={isAutoAnimateOnSelect !== false ? 'Animate: on' : 'Animate: off'}
@@ -1110,6 +1067,76 @@ export default function LayoutTab({
                 <line x1="16" y1="11" x2="22" y2="11" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
                 <line x1="19" y1="8" x2="22" y2="11" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
                 <line x1="19" y1="14" x2="22" y2="11" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            )}
+          />
+        </div>
+      </div>
+
+      {/* item 469: Assistants section — Minimap, Balloon, Inspector */}
+      <div className="settings-section">
+        <label>Assistants</label>
+        <div className="preview-btn-grid preview-btn-grid-3">
+          {minimapControlVisible && (
+            <PreviewOptionButton
+              compact
+              label="Minimap"
+              hint="Show navigation minimap"
+              active={isMinimapVisible !== false}
+              onClick={() => onShowMinimapChange && onShowMinimapChange(!(isMinimapVisible !== false))}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="3" y="3" width="42" height="16" rx="2" />
+                  <rect x="18" y="7" width="12" height="8" rx="1" />
+                </svg>
+              )}
+            />
+          )}
+          <PreviewOptionButton
+            compact
+            label={balloonMode === 'off' ? 'Balloon: off' : balloonMode === 'bit-clock' ? 'Balloon: click' : 'Balloon: hover'}
+            hint={balloonMode === 'off' ? 'Balloons off — click to enable on bit click' : balloonMode === 'bit-clock' ? 'Balloons on bit click — click for click+hover' : 'Balloons on click+hover — click to disable'}
+            active={balloonMode !== 'off'}
+            onClick={() => set('balloonMode', balloonMode === 'off' ? 'bit-clock' : balloonMode === 'bit-clock' ? 'click-hover' : 'off')}
+            preview={balloonMode === 'off' ? (
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="8" y="4" width="28" height="14" rx="3" fill="var(--bg-input)" stroke="var(--border-light)" strokeWidth="1.5" />
+                <line x1="10" y1="6" x2="34" y2="18" stroke="var(--fg-muted)" strokeWidth="2" strokeLinecap="round" />
+                <line x1="34" y1="6" x2="10" y2="18" stroke="var(--fg-muted)" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            ) : balloonMode === 'bit-clock' ? (
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="7" y="2" width="24" height="13" rx="2" fill="var(--bg-raised)" stroke="var(--border-light)" strokeWidth="1.5" />
+                <polygon points="13,15 19,15 16,19" fill="var(--border-light)" />
+                <rect x="11" y="5" width="12" height="2" rx="1" fill="var(--fg-muted)" />
+                <rect x="11" y="9" width="8" height="2" rx="1" fill="var(--fg-dim)" />
+                <circle cx="38" cy="16" r="4" fill="none" stroke="var(--fg-muted)" strokeWidth="1.5" />
+                <line x1="36" y1="18" x2="42" y2="22" stroke="var(--fg-muted)" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="4" y="2" width="24" height="13" rx="2" fill="var(--bg-raised)" stroke="var(--accent)" strokeWidth="1.5" />
+                <polygon points="10,15 16,15 13,19" fill="var(--accent)" />
+                <rect x="8" y="5" width="12" height="2" rx="1" fill="var(--fg-muted)" />
+                <rect x="8" y="9" width="8" height="2" rx="1" fill="var(--fg-dim)" />
+                <circle cx="38" cy="11" r="5" fill="var(--accent-bg)" stroke="var(--accent)" strokeWidth="1.5" />
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label={isGroupInspectorEnabled !== false ? 'Inspector: on' : 'Inspector: off'}
+            hint="Toggle the byte/group/cacheline inspector panel (click a unit in the grid to open it)"
+            active={isGroupInspectorEnabled !== false}
+            onClick={() => onGroupInspectorEnabledChange && onGroupInspectorEnabledChange(!(isGroupInspectorEnabled !== false))}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="3" y="3" width="26" height="16" rx="2" fill="var(--bg-input)" stroke="var(--border-light)" strokeWidth="1.2" />
+                <rect x="5" y="6" width="18" height="2" rx="1" fill="var(--fg-muted)" />
+                <rect x="5" y="10" width="14" height="2" rx="1" fill="var(--fg-muted)" opacity="0.6" />
+                <rect x="5" y="14" width="10" height="2" rx="1" fill="var(--fg-muted)" opacity="0.4" />
+                <circle cx="38" cy="11" r="6" fill="none" stroke="var(--fg-muted)" strokeWidth="1.5" />
+                <line x1="43" y1="16" x2="45" y2="18" stroke="var(--fg-muted)" strokeWidth="2" strokeLinecap="round" />
               </svg>
             )}
           />

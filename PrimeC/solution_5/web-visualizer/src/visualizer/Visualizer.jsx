@@ -560,6 +560,20 @@ export default function Visualizer({
 
   const { updateMinimapAvailability } = useMinimapAvailability({ rendererRef, containerRef, isMinimapVisible, setIsMinimapAvailable });
 
+  // item 472: when the double timeline docks or undocks, the clearance height
+  // for the minimap changes. Re-check availability and reposition the minimap
+  // after the DOM has updated (useEffect runs post-paint, so the
+  // .dtl-timeline-undocked class will already be in sync).
+  useEffect(() => {
+    const r = rendererRef.current;
+    if (!r) return;
+    const raf = requestAnimationFrame(() => {
+      updateMinimapAvailability();
+      r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isTimelineUndocked, updateMinimapAvailability, getMinimapDetailH]); // rendererRef is stable
+
   const {
     getCanvasTargetSize,
     getCanvasPlaneMetrics,
@@ -1287,6 +1301,14 @@ export default function Visualizer({
     playSpeedPercent,
   ]);
 
+  // item 471: compute whether the current step has mask write-order data so
+  // AnimationTab can show a hint when the user selects mask mode but the
+  // current event has no mask data.
+  const currentStepHasMasks = useMemo(() => {
+    const step = steps[currentStep];
+    return !!(step && step.maskWriteOrderWords && step.maskWriteOrderWords.length > 0);
+  }, [steps, currentStep]);
+
   const animationConfigContextValue = useMemo(() => ({
     animMode,
     setAnimMode,
@@ -1308,6 +1330,7 @@ export default function Visualizer({
     setIsAutoAnimateOnSelect,
     animateBitsMode,          // item 244
     setAnimateBitsMode,       // item 244
+    currentStepHasMasks,      // item 471
   }), [
     animMode,
     setAnimMode,
@@ -1329,6 +1352,7 @@ export default function Visualizer({
     setIsAutoAnimateOnSelect,
     animateBitsMode,          // item 244
     setAnimateBitsMode,       // item 244
+    currentStepHasMasks,      // item 471
   ]);
 
   // item 318: toolbar detail-panel toggle must target floating panel when undocked

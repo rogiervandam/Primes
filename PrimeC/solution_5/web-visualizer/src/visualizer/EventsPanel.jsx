@@ -764,7 +764,10 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     };
     for (const g of tree) for (const n of buildDepthTree(g.children)) collectKeys(n);
     setCollapsed(prev => {
-      const next = new Set(prev);
+      // item 474: in 'collapse:N' mode expand all top-level prime groups (numeric
+      // IDs) so the saved collapse-level preference is immediately visible after
+      // a new trace loads. Node-level collapse keys use 'node-N' string format.
+      const next = new Set([...prev].filter(k => typeof k !== 'number'));
       for (const k of toExpand) next.delete(k);
       for (const k of toCollapse) next.add(k);
       return next;

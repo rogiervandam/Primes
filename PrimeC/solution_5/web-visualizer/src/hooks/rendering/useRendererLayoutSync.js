@@ -142,6 +142,7 @@ export function useRendererLayoutSync({ ...flatArgs }) {
     r.cachelineSize = cachelineSize;
     r.isHeatMapEnabled = isHeatMapEnabled;
     r.cachelineAnnotation = cachelineAnnotation;
+    r.showCachelineLabels = layoutSettings.showCachelineLabels === true; // item 473
     r.primeOverlay = isPrimeOverlayEnabled;
     if (isPrimeOverlayEnabled) r.buildPrimeOverlay();
     r.rangeOverlay = isRangeOverlayEnabled;

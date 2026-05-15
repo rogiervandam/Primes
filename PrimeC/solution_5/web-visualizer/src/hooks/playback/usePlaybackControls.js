@@ -105,7 +105,7 @@ export function usePlaybackControls({
         const hasMaskData = isAggregate
           ? !!(r && r.maskWriteOrderWords && r.maskWriteOrderWords.length > 0)
           : !!(curStep && curStep.maskWriteOrderWords && curStep.maskWriteOrderWords.length > 0);
-        const inMaskOrCombined = (bitAnimationModeRef.current === 'mask' || bitAnimationModeRef.current === 'combined')
+        const inMaskOrCombined = (bitAnimationModeRef.current === 'mask' || bitAnimationModeRef.current === 'both')
           && hasMaskData;
         if (inMaskOrCombined) {
           stepResumeMaskProgressRef.current = finished ? 0 : stepScrubProgress / 100;

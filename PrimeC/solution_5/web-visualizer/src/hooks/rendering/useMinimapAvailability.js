@@ -19,7 +19,12 @@ export function useMinimapAvailability({
     const available = isMinimapVisibleRef.current !== false && !fullyVisible;
     r.minimapEnabled = available;
     setIsMinimapAvailable(available);
-    if (!available) r.minimapRenderer._rect = null;
+    if (!available) {
+      r.minimapRenderer._rect = null;
+      // item 467: hide the canvas immediately; without this it stays visible
+      // until the next render() call sets opacity back to 0.
+      r.minimapRenderer._hideAttachedCanvas();
+    }
   }, [rendererRef, containerRef, setIsMinimapAvailable]); // isMinimapVisible read via ref (item 255)
 
   return { updateMinimapAvailability };

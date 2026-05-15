@@ -358,6 +358,10 @@
   border: 1px solid var(--border-light);
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg) 82%, transparent);
+  /* item 463: anchor the CSS scale transform to the top-left corner so the
+     scaled content aligns with the top of the scaler-wrapper div and is not
+     clipped at the bottom when the panel is narrow. */
+  transform-origin: top left;
 }
 .mask-preview-byte {
   position: absolute;

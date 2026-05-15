@@ -536,6 +536,12 @@ export function useCanvasLayout({
     // projection is unchanged (no lean/tilt artefact). In 2D the content
     // drifts by dWindowW/2 — the natural "window-center moved" effect —
     // which is far less disruptive than the original 1.1×dWindowW drift.
+    //
+    // item 470: keep canvas-centre-relative pan stable on resize.
+    // The delta approach (half the canvas size change) correctly keeps the
+    // viewport-centre content point stable for both 2-D and 3-D modes.
+    // Anchor-based restoration caused extreme panY jumps in edge-cases (e.g.
+    // when r.canvasWidth=0 at capture time, causing a huge contentY value).
     if (oldCanvasW > 0) {
       r.panX += (canvasW - oldCanvasW) / 2;
       r.panY += (canvasH - oldCanvasH) / 2;
@@ -566,16 +572,6 @@ export function useCanvasLayout({
     // minimap canvas can be placed correctly relative to the viewport.
     r.viewportLeft = rect.left;
     r.viewportTop = rect.top;
-
-    // NOTE: anchor-based panX/panY compensation removed for panel toggles.
-    // With the canvas pinned to the VIEWPORT center (see canvasAnchorPx and
-    // renderCanvasStyle), the canvas no longer moves when the container
-    // reshapes on a panel toggle (canvasW/H are based on windowW/H, not
-    // containerW/H, so they don't change on panel toggles), so there is
-    // nothing to compensate for. Window-resize is handled above via the
-    // dCanvasW/2 adjustment which preserves canvas-center-relative content
-    // positions and keeps the 3D perspective projection stable.
-    void anchor;
 
     const glRenderSeq = r.render(); // eslint-disable-line no-unused-vars
     // After r.render() the patched render has posted resize+positions+render

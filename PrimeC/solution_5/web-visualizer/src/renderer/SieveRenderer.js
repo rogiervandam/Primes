@@ -229,6 +229,7 @@ export class SieveRenderer {
     this.clMaxHitCount = 0;
     // Annotation mode: 'none' | 'hits' | 'age' | 'both'
     this.cachelineAnnotation = 'none';
+    this.showCachelineLabels = false; // item 473: draw CL0, CL1, … labels on group boundaries
 
     // Frozen wrapping: once set, zoom doesn't change layout
     this._frozenClPerVRow = 0;

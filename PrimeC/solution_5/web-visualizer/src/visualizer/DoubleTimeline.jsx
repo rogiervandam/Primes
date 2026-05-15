@@ -1158,9 +1158,11 @@ export default function DoubleTimeline({
         width: `${undockSize.width}px`,
         height: undefined,  /* floating strip has no fixed height — sized by content */
         transition: floatTransitionStyle,
-        opacity: undockTransition === 'leaving-fade' ? 0 : 1,
+        // item 462: leaving-fade overrides to 0; otherwise use zoneBgOpacity so the
+        // entire widget (title, timelines, annotation) fades with the Zone opacity slider.
+        opacity: undockTransition === 'leaving-fade' ? 0 : zoneBgOpacity,
       }
-    : { bottom: `${dockedBottom}px` };
+    : { bottom: `${dockedBottom}px`, opacity: zoneBgOpacity }; // item 462: docked state also respects Zone opacity
 
   // item 321: CSS variables derived from timelineColors for focus-state highlights
   const eventsRgb = hexToRgb(timelineColors?.events);

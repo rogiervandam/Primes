@@ -187,6 +187,7 @@ export default function SettingsPanel({
     setIsAutoAnimateOnSelect,
     animateBitsMode,       // item 244
     setAnimateBitsMode,    // item 244
+    currentStepHasMasks,   // item 471
   } = useAnimationConfigContext();
   const {
     isSettingsCollapsed: collapsed,
@@ -376,6 +377,7 @@ export default function SettingsPanel({
             isAnimationReplayPaused={isAnimationReplayPaused} onAnimationReplayPausedChange={setIsAnimationReplayPaused}
             eventDurationMode={eventDurationMode} onEventDurationModeChange={setEventDurationMode}
             bitAnimationMode={bitAnimationMode} onBitAnimationModeChange={handleBitAnimationModeChange}
+            currentStepHasMasks={currentStepHasMasks}
             isAutoAnimateOnSelect={isAutoAnimateOnSelect} onAutoAnimateOnSelectChange={setIsAutoAnimateOnSelect}
             animateBitsMode={animateBitsMode} onAnimateBitsModeChange={setAnimateBitsMode}
           />
