@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SieveRenderer } from '../../SieveRenderer.js';
+import { SieveRenderer } from '../SieveRenderer.js';
 
 describe('SieveRenderer performance snapshots', () => {
   it('reports recent frame timing samples in render order', () => {

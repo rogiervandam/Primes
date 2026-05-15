@@ -1,18 +1,18 @@
-﻿export * from './renderer/SieveRenderer.js';/**
+﻿/**
  * Canvas-based renderer for sieve bitstorage visualization.
  *
  * Supports configurable layouts, adjustable spacing, light/dark themes,
  * operation-colored highlighting, vector grouping, and vector labels.
  *
  * Constants (THEMES / COLOR_PRESETS / layouts / cache presets / storage
- * models) live in `./renderer/constants` and are re-exported below to keep
+ * models) live in `./constants` and are re-exported below to keep
  * existing import sites working.
  */
-import { SearchOverlay } from './renderer/overlays/SearchOverlay';
-import { MaskWriteOverlay } from './renderer/overlays/MaskWriteOverlay';
-import { VectorTouchOrderOverlay } from './renderer/overlays/VectorTouchOrderOverlay';
-import { CachelineAnnotationsOverlay } from './renderer/overlays/CachelineAnnotationsOverlay';
-import { MinimapRenderer } from './renderer/MinimapRenderer';
+import { SearchOverlay } from './overlays/SearchOverlay';
+import { MaskWriteOverlay } from './overlays/MaskWriteOverlay';
+import { VectorTouchOrderOverlay } from './overlays/VectorTouchOrderOverlay';
+import { CachelineAnnotationsOverlay } from './overlays/CachelineAnnotationsOverlay';
+import { MinimapRenderer } from './MinimapRenderer';
 
 import {
   THEMES,
@@ -24,8 +24,8 @@ import {
   CACHE_PRESETS,
   GRID3X3_MAP,
   STORAGE_MODELS,
-} from './renderer/constants';
-import { bitToNumber, numberToBit, describeWheelBit, wheelSignature } from './renderer/bitMath';
+} from './constants';
+import { bitToNumber, numberToBit, describeWheelBit, wheelSignature } from './bitMath';
 import {
   hexToRgb,
   mixRgb,
@@ -33,27 +33,27 @@ import {
   fitLabelFontSize,
   truncateTextToWidth,
   glMeasureAdapter,
-} from './renderer/drawingHelpers';
-import { requestPrimeOverlay } from './renderer/workers/bitPrePassClient';
-import { GlyphCommandBuffer } from './renderer/gl/GlyphCommandBuffer';
-import { RenderStateController } from './renderer/core/RenderState';
-import { HeatMapStateController } from './renderer/core/HeatMapState';
-import { FrameContextBuilder } from './renderer/core/FrameContextBuilder';
-import { RenderEngine } from './renderer/core/RenderEngine';
-import { MotionTrailRenderer } from './renderer/effects/MotionTrailRenderer';
-import { CachelineOverlayRenderer } from './renderer/effects/CachelineOverlayRenderer';
-import { VectorRenderPipeline } from './renderer/pipeline/VectorRenderPipeline';
-import { LayoutMetricsEngine } from './renderer/layout/LayoutMetricsEngine';
+} from './drawingHelpers';
+import { requestPrimeOverlay } from './workers/bitPrePassClient';
+import { GlyphCommandBuffer } from './gl/GlyphCommandBuffer';
+import { RenderStateController } from './core/RenderState';
+import { HeatMapStateController } from './core/HeatMapState';
+import { FrameContextBuilder } from './core/FrameContextBuilder';
+import { RenderEngine } from './core/RenderEngine';
+import { MotionTrailRenderer } from './effects/MotionTrailRenderer';
+import { CachelineOverlayRenderer } from './effects/CachelineOverlayRenderer';
+import { VectorRenderPipeline } from './pipeline/VectorRenderPipeline';
+import { LayoutMetricsEngine } from './layout/LayoutMetricsEngine';
 import {
   bitVisualRow,
   getElementBounds,
   multiBitBounds,
   multiBitBoundsSegments,
-} from './renderer/layout/geometry';
+} from './layout/geometry';
 import {
   bitIndexToCanvas as _bitIndexToCanvas,
   canvasToBitIndex as _canvasToBitIndex,
-} from './renderer/layout/transforms';
+} from './layout/transforms';
 import {
   maskEntriesBySlot,
   maskEntryBits,
@@ -61,7 +61,7 @@ import {
   maskTintColor,
   maskWordOrderSummary,
   maskWriteEntries,
-} from './renderer/mask/maskMetadata';
+} from './mask/maskMetadata';
 import {
   drawMaskImprint,
   drawCurvedTrail,
@@ -70,8 +70,8 @@ import {
   renderPulse as _renderPulse,
   renderMaskStamp as _renderMaskStamp,
   renderMaskHover as _renderMaskHover,
-} from './renderer/effects/RendererAnimations';
-import { computeGlLayoutParams } from './renderer/layout/glLayoutComputer';
+} from './effects/RendererAnimations';
+import { computeGlLayoutParams } from './layout/glLayoutComputer';
 
 export {
   THEMES,
@@ -243,11 +243,11 @@ export class SieveRenderer {
     // are rendered via `_glyphCtx` (a GlyphTextGLCore) instead of Canvas 2D.
     // Set by Visualizer.jsx from layoutSettings.webglText.
     this.webglText = false;
-    /** @type {import('./renderer/gl/GlyphTextGLCore').GlyphTextGLCore|null} */
+    /** @type {import('./gl/GlyphTextGLCore').GlyphTextGLCore|null} */
     this._glyphCtx = null;
     /** @type {GlyphCommandBuffer|null} Used in worker-mode instead of _glyphCtx. */
     this._glyphBuf = null;
-    /** @type {import('./renderer/gl/BitGridGLWorker').BitGridGLWorker|null} */
+    /** @type {import('./gl/BitGridGLWorker').BitGridGLWorker|null} */
     this._glWorker = null;
     this._glyphFramePrimed = false;
     /** Encoded glyph commands for the current frame; consumed by Visualizer.jsx. */
@@ -405,7 +405,7 @@ export class SieveRenderer {
   /**
    * Attach the WebGL glyph-text canvas. Called once from Visualizer.jsx when
    * the GlyphTextGLCore has been initialised on the glyph canvas element.
-   * @param {import('./renderer/gl/GlyphTextGLCore').GlyphTextGLCore} glyphRenderer
+  * @param {import('./gl/GlyphTextGLCore').GlyphTextGLCore} glyphRenderer
    */
   attachGlyphRenderer(glyphRenderer) {
     this._glyphCtx = glyphRenderer || null;
@@ -421,7 +421,7 @@ export class SieveRenderer {
    * Attach the bit-grid GL worker as the glyph renderer (worker mode).
    * Uses atlas data from the worker's ready message to build a GlyphCommandBuffer
    * for encoding draw commands on the main thread.
-   * @param {import('./renderer/gl/BitGridGLWorker').BitGridGLWorker} worker
+  * @param {import('./gl/BitGridGLWorker').BitGridGLWorker} worker
    */
   attachGLWorker(worker) {
     this._glWorker = worker || null;

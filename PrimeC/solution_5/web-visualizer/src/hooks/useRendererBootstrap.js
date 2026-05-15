@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { SieveRenderer } from '../SieveRenderer';
+import { SieveRenderer } from '../renderer/SieveRenderer.js';
 import { BitGridGLWorker } from '../renderer/gl/BitGridGLWorker';
 import { GlyphTextGLCore } from '../renderer/gl/GlyphTextGLCore';
 import { GlyphTextCanvas2D } from '../renderer/canvas/GlyphTextCanvas2D';

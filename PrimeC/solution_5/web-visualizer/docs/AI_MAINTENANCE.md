@@ -183,7 +183,7 @@ are currently used (set/changed/ghost/repeated/prime/range/multiples/focus).
 
 Left to do:
 
-- Run `parity.html` after shader, packing, or state-texture changes.
+- Run `/dev/parity.html` after shader, packing, or state-texture changes.
 - Keep the OffscreenCanvas capability check and `isGlUnavailable` warning. There is
   no Canvas2D cell-fill fallback anymore.
 - Consider partial `texSubImage2D` updates only after profiling shows full state

@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus } from '../Icons';
+import { Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus } from '../components/Icons.jsx';
 
 /**
  * Compact all-events transport control for use inside the detail panel

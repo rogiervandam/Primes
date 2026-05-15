@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback, startTransition } from 'react';
-import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from '../Icons';
+import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from '../components/Icons.jsx';
 import { bumpRender, recordStepCallback, setEventNodeCount } from '../lib/debugCounters';
 import { formatNs } from './TimingPanel';
 import { isWindowAvailable } from '../lib/browser.js';

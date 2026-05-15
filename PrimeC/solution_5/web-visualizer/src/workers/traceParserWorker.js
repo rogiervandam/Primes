@@ -10,7 +10,7 @@
  *   { type: 'error',    message }                   — if parsing fails
  */
 
-import { extractTextTraceHeader, parseTextTraceLine, parseTrace } from '../traceParser.js';
+import { extractTextTraceHeader, parseTextTraceLine, parseTrace } from '../parser/traceParser.js';
 import {
   inferPrimeFromAnnotation,
   parsePrimeFromText,

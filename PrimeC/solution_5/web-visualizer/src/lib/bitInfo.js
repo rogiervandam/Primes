@@ -1,4 +1,4 @@
-import { bitToNumber } from '../SieveRenderer';
+import { bitToNumber } from '../renderer/SieveRenderer.js';
 
 /** Trial division primality test for positive integers. */
 export function isPrimeNumber(n) {

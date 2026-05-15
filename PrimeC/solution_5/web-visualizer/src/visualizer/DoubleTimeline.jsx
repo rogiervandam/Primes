@@ -2,7 +2,7 @@ import React, { useRef, useState, useCallback, useMemo, useEffect, useLayoutEffe
 import {
   Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus,
   PanelLeft, PanelBottom, PanelRight, Repeat,
-} from '../Icons';
+} from '../components/Icons.jsx';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
 
 const MIN_DETAIL_HEIGHT = 180;

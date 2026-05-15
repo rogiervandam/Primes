@@ -1,5 +1,5 @@
 import React from 'react';
-import { PanelLeft, PanelBottom, PanelRight } from '../Icons';
+import { PanelLeft, PanelBottom, PanelRight } from '../components/Icons.jsx';
 import { usePanelLayoutContext } from '../contexts/PanelLayoutContext';
 
 export default function ToolbarPanelToggles() {

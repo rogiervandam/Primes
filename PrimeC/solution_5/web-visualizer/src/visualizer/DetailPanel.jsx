@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from '../SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from '../renderer/SieveRenderer.js';
 import { formatNs } from './TimingPanel';
 import { useDragResize } from '../hooks/interactions';
 import { usePlaybackContext } from '../contexts/PlaybackContext';

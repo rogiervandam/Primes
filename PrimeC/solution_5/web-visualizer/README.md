@@ -103,7 +103,7 @@ Open http://localhost:5173 and drag a `.sievetrace` file onto the page.
 ```bash
 npm run build
 npx vite preview
-```
+```s
 
 The built files are in `dist/` — serve them with any static file server.
 

@@ -9,10 +9,10 @@
  * texture); the Canvas2D reference uses the same SieveRenderer instance.
  * A pixel match between the two validates the GLSL position arithmetic.
  *
- * Invoked from `parity.html`. Dev-only; not bundled into the app.
+ * Invoked from `/dev/parity.html`. Dev-only; not bundled into the app.
  */
 
-import { SieveRenderer } from '../SieveRenderer.js';
+import { SieveRenderer } from '../renderer/SieveRenderer.js';
 import { BitGridGLWorker, isWorkerGLSupported } from '../renderer/gl/BitGridGLWorker.js';
 import { packState } from '../renderer/gl/hostStatePacker.js';
 

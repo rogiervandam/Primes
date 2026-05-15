@@ -1,5 +1,24 @@
-export { default } from './visualizer/Visualizer.jsx';
-import { useTraceExport, useRawSource, useSearchState, useStepDisplayData } from './hooks/data';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { bumpRender } from '../lib/debugCounters';
+import { SieveRenderer } from '../renderer/SieveRenderer.js';
+import { hexToRgb, labelTextColor } from '../renderer/drawingHelpers';
+import { BitGridGLWorker, isWorkerGLSupported } from '../renderer/gl/BitGridGLWorker';
+import { GlyphTextGLCore } from '../renderer/gl/GlyphTextGLCore';
+
+import EventsPanel from './EventsPanel';
+import DetailPanel from './DetailPanel';
+import SettingsPanel from './SettingsPanel';
+import TimingPanel from './TimingPanel';
+import Toolbar from './Toolbar';
+import ExportProgress from './ExportProgress';
+import CanvasStage from './CanvasStage';
+import VisualizerMainContent from './VisualizerMainContent';
+import DetailInspectorOverlay from './DetailInspectorOverlay';
+import BitHistoryBalloons from './BitHistoryBalloons';
+import KeyboardShortcutsOverlay from './KeyboardShortcutsOverlay';
+import SearchOverlay from './SearchOverlay';
+import DebugToolsPanel from './DebugToolsPanel';
+import { useTraceExport, useRawSource, useSearchState, useStepDisplayData } from '../hooks/data';
 import {
   useKeyboardShortcuts,
   usePointerGestures,
@@ -7,7 +26,7 @@ import {
   useStepSelectionHandlers,
   useSelectionOrchestration,
   useWASDNavigation,
-} from './hooks/interactions';
+} from '../hooks/interactions';
 import {
   use3DCamera,
   useTiltControls,
@@ -16,28 +35,28 @@ import {
   useViewportNavigation,
   useViewportAnchoring,
   useZoomControls,
-} from './hooks/camera_3d';
+} from '../hooks/camera_3d';
 import {
   usePlaybackClock,
   usePlaybackLoop,
   usePlaybackControls,
   useStopPlayback,
   useGoToStep,
-} from './hooks/playback';
+} from '../hooks/playback';
 import {
   useAnimationConfig,
   useStepAnimation,
   useAnimationPipeline,
   useSeekStepAnimation,
   useStepAnimContent,
-} from './hooks/animation';
+} from '../hooks/animation';
 import {
   useOverlays,
   useBalloonGeometry,
   useDetailInspectorRows,
   useDetailInspectorActions,
   useSelectionOverlay,
-} from './hooks/overlays';
+} from '../hooks/overlays';
 import {
   usePanelState,
   useWidgetState,
@@ -45,7 +64,7 @@ import {
   useIntroSequence,
   useThemeAndColors,
   usePanelChoreography,
-} from './hooks/ui_state';
+} from '../hooks/ui_state';
 import {
   useCanvasRefs,
   useCanvasLayout,
@@ -54,7 +73,7 @@ import {
   useRendererPipeline,
   useMinimapAvailability,
   useMinimapDetailHeight,
-} from './hooks/rendering';
+} from '../hooks/rendering';
 import {
   useDebugTools,
   useDetailPanelStateSync,
@@ -66,26 +85,26 @@ import {
   useBitStateCheckpoints,
   useViewPrefsSync,
   useVisualizerEffects,
-} from './hooks/utils';
-import { useVisualizerStateBundle } from './hooks/useVisualizerStateBundle';
-import { useVisualizerPropBundles } from './hooks/useVisualizerPropBundles';
-import { useBitInfo } from './hooks/useBitInfo';
-import StatusBanners from './visualizer/StatusBanners';
+} from '../hooks/utils';
+import { useVisualizerStateBundle } from '../hooks/useVisualizerStateBundle';
+import { useVisualizerPropBundles } from '../hooks/useVisualizerPropBundles';
+import { useBitInfo } from '../hooks/useBitInfo';
+import StatusBanners from './StatusBanners';
 import {
   DEFAULT_EVENT_TITLE_SETTINGS,
   getInitialViewState,
-} from './lib/viewPrefs';
+} from '../lib/viewPrefs';
 import {
   isRenderMode,
   usesWebGLTilt,
-} from './lib/renderModes';
-import { buildTraceInfoSections } from './lib/traceHeader';
-import { detectIsMac, detectIsWindows, detectIsElectron } from './lib/platform';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { PlaybackProvider } from './contexts/PlaybackContext';
-import { ActiveStepProvider } from './contexts/ActiveStepContext';
-import { AnimationConfigProvider } from './contexts/AnimationConfigContext';
-import { PanelLayoutProvider } from './contexts/PanelLayoutContext';
+} from '../lib/renderModes';
+import { buildTraceInfoSections } from '../lib/traceHeader';
+import { detectIsMac, detectIsWindows, detectIsElectron } from '../lib/platform';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { PlaybackProvider } from '../contexts/PlaybackContext';
+import { ActiveStepProvider } from '../contexts/ActiveStepContext';
+import { AnimationConfigProvider } from '../contexts/AnimationConfigContext';
+import { PanelLayoutProvider } from '../contexts/PanelLayoutContext';
 
 /**
  * Top-level visualizer component. Owns all playback, rendering, and UI state.

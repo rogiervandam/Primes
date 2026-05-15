@@ -9,7 +9,7 @@ import { BIT_LAYOUTS, BYTE_LAYOUTS, GRID3X3_MAP } from '../constants';
 
 /**
  * Compute the full set of GL layout parameters from the current renderer state.
- * @param {import('../../SieveRenderer').SieveRenderer} r
+ * @param {import('../SieveRenderer').SieveRenderer} r
  */
 export function computeGlLayoutParams(r) {
   // ── Invariant layout values ──────────────────────────────────────────

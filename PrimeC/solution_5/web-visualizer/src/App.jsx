@@ -4,10 +4,10 @@ import { useTraceParser } from './workers/useTraceParser';
 // Lazy-load the Visualizer (+ SieveRenderer and all renderer deps) so the
 // welcome screen ships without them.  The chunk starts downloading as soon as
 // the user opens a file (see preloadVisualizer below).
-const Visualizer = React.lazy(() => import('./Visualizer'));
+const Visualizer = React.lazy(() => import('./visualizer/Visualizer.jsx'));
 
 /** Fire-and-forget: start fetching the Visualizer chunk early. */
-function preloadVisualizer() { import('./Visualizer'); }
+function preloadVisualizer() { import('./visualizer/Visualizer.jsx'); }
 
 export default function App() {
   // Streaming parse state (replaces the old atomic `trace` + `rawSource`).

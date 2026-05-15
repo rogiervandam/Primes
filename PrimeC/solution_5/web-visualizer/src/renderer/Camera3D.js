@@ -1,4 +1,4 @@
-export * from './renderer/Camera3D.js';/**
+/**
  * 3D camera system for the sieve visualizer.
  *
  * Manages perspective tilt and rotation of the 2D canvas plane in 3D space.

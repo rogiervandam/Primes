@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   SkipBack, StepBack, Play, Pause, StepForward, SkipForward, Minus, Plus,
-} from '../Icons';
+} from '../components/Icons.jsx';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
 import { useCurrentStep } from '../contexts/ActiveStepContext';
 

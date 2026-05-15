@@ -1,5 +1,5 @@
 import React from 'react';
-import { BIT_LAYOUTS, BYTE_LAYOUTS, CACHELINE_SIZES, CACHE_PRESETS, bitToNumber, numberToBit } from '../SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS, CACHELINE_SIZES, CACHE_PRESETS, bitToNumber, numberToBit } from '../renderer/SieveRenderer.js';
 import { useDraftInput } from '../hooks/ui_state';
 import { useSettingsBundle } from './useSettingsBundle';
 import {

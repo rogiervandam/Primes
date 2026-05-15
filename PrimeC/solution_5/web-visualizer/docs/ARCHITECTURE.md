@@ -114,7 +114,7 @@ src/
 │       ├── rotate.js             3D mouse-rotate handler (returns {startX,startY})
 │       └── wheel.js              Wheel / zoom handler
 ├── dev/                  Dev-only modules (not bundled in production)
-│   └── parityHarness.js          GL vs Canvas2D visual-diff harness (parity.html)
+│   └── parityHarness.js          GL vs Canvas2D visual-diff harness (/dev/parity.html)
 └── styles/               Per-concern stylesheets
     └── index.css             @imports the numbered section files
 ```

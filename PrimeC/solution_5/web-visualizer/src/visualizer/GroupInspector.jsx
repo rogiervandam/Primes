@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { BIT_LAYOUTS, BYTE_LAYOUTS } from '../SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS } from '../renderer/SieveRenderer.js';
 
 const GRID3X3_MAP = [0, 1, 2, 3, 5, 6, 7, 8];
 

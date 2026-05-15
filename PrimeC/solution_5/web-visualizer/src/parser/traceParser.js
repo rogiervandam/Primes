@@ -1,4 +1,4 @@
-export * from './parser/traceParser.js';/**
+/**
  * Sieve Trace File Parser
  *
  * Parses current .sievetrace formats produced by PrimeC solution_5:
@@ -15,24 +15,24 @@ import {
   collectTitleInfo,
   normalizeStorageModelName,
   normalizeBitCountForStorage,
-} from './parser/parseUtils';
+} from './parseUtils';
 import {
   parsePrimeFromText,
   inferMissingPrimes,
-} from './parser/primeInference';
+} from './primeInference';
 import {
   deriveMaskMeta,
   derivePatternMeta,
   inferMetaFromAnnotation,
   inferOperationFromAnnotation,
-} from './parser/maskMetadata';
+} from './maskMetadata';
 import {
   extractTitleMetadata,
   extractBenchmarkMetadata,
   parseBenchmarkOutputLine,
   buildTracePresentation,
-} from './parser/headerParser';
-import { parseDump } from './parser/dumpParser';
+} from './headerParser';
+import { parseDump } from './dumpParser';
 
 export function parseTrace(buffer) {
   let text;
@@ -462,7 +462,7 @@ function extractNewStyleStepData(annotation, meta, inferredDepth) {
 }
 
 // Pure utilities (number/string normalisation and list parsing) live in
-// `./parser/parseUtils` so this file stays focused on trace dialect parsing.
+// `./parseUtils` so this file stays focused on trace dialect parsing.
 
 // ---------------------------------------------------------------------------
 // Streaming / worker helpers — used by traceParserWorker.js
