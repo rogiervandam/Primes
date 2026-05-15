@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { logApiPlugin } from './server/server-plugin.mjs';
 import path from 'path';
@@ -21,5 +21,10 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+  },
+  test: {
+    include: ['src/**/__tests__/**/*.{js,jsx}', 'src/**/*.test.{js,jsx}'],
+    environment: 'node',
+    setupFiles: ['src/test/setupConsoleGuards.js'],
   },
 });
