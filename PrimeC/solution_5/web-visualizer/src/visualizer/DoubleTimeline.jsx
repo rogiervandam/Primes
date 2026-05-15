@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useMemo, useEffect, useLayoutEffect } from 'react';
 import {
   Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus,
   PanelLeft, PanelBottom, PanelRight, Repeat,
@@ -506,7 +506,9 @@ export default function DoubleTimeline({
     const insets = getFloatingSideInsets();
     const targetW = Math.max(320, insets.right - insets.left);
     const panelH = containerRef.current?.getBoundingClientRect().height || 120;
-    const ty = Math.max(0, window.innerHeight - panelH);
+    // item 465: when detail panel is open and docked, animate to the position just above it
+    const detailH = isDetailPanelFloatingRef.current ? 0 : (totalDetailHeightRef.current || 0);
+    const ty = Math.max(0, window.innerHeight - panelH - detailH);
     // Save the current floating width before animating to full width.
     preDockWidthRef.current = undockSizeRef.current.width;
 
@@ -1016,8 +1018,10 @@ export default function DoubleTimeline({
   // item 326: long-press on play button for settings removed — play is a simple click
 
   // item 181: FLIP animation when transitioning between docked ↔ undocked
+  // item 465: useLayoutEffect so Phase 1 position is applied before the first paint,
+  // preventing a flash of the element at the stale float position (bottom of screen).
   const prevUndockedRef = useRef(isTimelineUndocked);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const wasUndocked = prevUndockedRef.current;
     prevUndockedRef.current = isTimelineUndocked;
 
@@ -1092,7 +1096,9 @@ export default function DoubleTimeline({
         const startCenterX = r.left + Math.max(1, Math.round(r.width)) / 2;
         const tx = Math.max(insets.left, Math.min(insets.right - desiredFloatingWidth, Math.round(startCenterX - desiredFloatingWidth / 2)));
         // item 201: default float position near the bottom (40px from bottom, strip ≈ 90px tall)
-        const ty = Math.max(8, Math.round(window.innerHeight - 90 - 40));
+        // item 465: when detail panel is open and docked, float just above it instead of behind it
+        const detailH = isDetailPanelFloatingRef.current ? 0 : (totalDetailHeightRef.current || 0);
+        const ty = Math.max(8, Math.round(window.innerHeight - 90 - 40 - detailH));
         const finalPos = { x: tx, y: ty };
 
         requestAnimationFrame(() => {

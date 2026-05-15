@@ -44,9 +44,11 @@ the timeline background color, so it's clearly visible. TTherefore, the timeline
 
 463 if the window is small and the detail panel is forced into more vertical rows, the masks are cut off halfway. Make sure that the masks are fully visible, by making them smaller (keep them proportional x/y).
 
-464 When animation is off, don't show any animation artifacts, also when scrubbing the animation timeline. When animation is off, the animation playhead should not be visible and there should be no fade-in/fade-out of the detail panel when changing events. Show the text "ANIMATION OFF" in the middle of the animation timeline when animation is off. When the user clicks on the text "ANIMATION OFF", turn animation on and start playing the current event from the beginning.
+464 DONE ✅: When animation is off, don't show any animation artifacts, also when scrubbing the animation timeline. When animation is off, the animation playhead should not be visible and there should be no fade-in/fade-out of the detail panel when changing events. Show the text "ANIMATION OFF" in the middle of the animation timeline when animation is off. When the user clicks on the text "ANIMATION OFF", turn animation on and start playing the current event from the beginning.
 
+465 DONE ✅: When the double timeline is going from docked to undocked and the detail panel is open, it should not animate from the bottom of the screen, but rather from the position where it was docked: on top of the detail panel. And when going from undocked to docked with the detail panel open, it should animate back to the position on top of the detail panel.
 
+466 When from the detail panel - section bits clicking on "more" showing the modal of changed/targeted, etc bits, make that modal horizontally scrollable, draggable and resizable, so that users can explore the full list of changed/targeted bits without it being cut off by the screen width. Also make sure that the modal doesn't overlap with side panels when open.
 
 
 Giant features
