@@ -1,8 +1,8 @@
-import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useMemo, useEffect, useLayoutEffect } from 'react';
 import {
   Play, Pause, SkipBack, StepBack, StepForward, SkipForward, Minus, Plus,
-  PanelLeft, PanelBottom, PanelRight,
-} from '../Icons';
+  PanelLeft, PanelBottom, PanelRight, Repeat,
+} from '../components/Icons.jsx';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
 
 const MIN_DETAIL_HEIGHT = 180;
@@ -105,6 +105,18 @@ export default function DoubleTimeline({
   onInspectAnnotationUnit,
   // item 348: reveal current step in events panel (open + scroll to center)
   onRevealCurrentStepInPanel,
+  // item 424: repeat mode dragger on animation timeline
+  isRepeatMode = false,
+  onRepeatModeChange,
+  repeatStartPct = 0,
+  onRepeatStartPctChange,
+  // item 433: split repeat handle into start + end handles via long press
+  isRepeatSplit = false,
+  onRepeatSplitChange,
+  repeatEndPct = 100,
+  onRepeatEndPctChange,
+  // item 458: delay between events (ms) — used to scale the ticker animation speed
+  delayBetweenEvents = 2000,
 }) {
   const {
     goToStep,
@@ -120,17 +132,28 @@ export default function DoubleTimeline({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // item 306: navigation direction for slide animation
+  // item 458: ticker animation — prev content exits, new content enters
   const [navDir, setNavDir] = useState(null);  // null | 'next' | 'prev'
   const prevNavStepRef = useRef(null);
   const navDirTimerRef = useRef(null);
+  const [prevTicker, setPrevTicker] = useState(null);  // { title, annotation } during nav transition
+  const prevTitleRef = useRef('');      // holds previous step's title for exit animation
+  const prevAnnotationRef = useRef(''); // holds previous step's annotation for exit animation
+  // tickerMs: animation duration scales with delay between events (item 458)
+  const tickerMs = Math.max(120, Math.min(350, (delayBetweenEvents || 2000) * 0.35));
+  const tickerMsRef = useRef(tickerMs);
+  tickerMsRef.current = tickerMs;  // updated every render
   useEffect(() => {
     if (prevNavStepRef.current === null) { prevNavStepRef.current = currentStep; return; }
     if (currentStep === prevNavStepRef.current) return;
     const dir = currentStep > prevNavStepRef.current ? 'next' : 'prev';
     prevNavStepRef.current = currentStep;
+    // Capture old title/annotation for exit animation (prevTitleRef holds the PREVIOUS render's value
+    // because the capture effect declared later in the function runs AFTER this effect in the same commit)
+    setPrevTicker({ title: prevTitleRef.current, annotation: prevAnnotationRef.current });
     setNavDir(dir);
     if (navDirTimerRef.current) clearTimeout(navDirTimerRef.current);
-    navDirTimerRef.current = setTimeout(() => setNavDir(null), 300);
+    navDirTimerRef.current = setTimeout(() => { setNavDir(null); setPrevTicker(null); }, tickerMsRef.current);
   }, [currentStep]);
   useEffect(() => () => { if (navDirTimerRef.current) clearTimeout(navDirTimerRef.current); }, []);
 
@@ -252,18 +275,20 @@ export default function DoubleTimeline({
         ctx.fillStyle = activeColor;
       } else if (isPast) {
         // item 321/340: use a brightened events color (mix toward white) for better contrast on dark presets
+        // item 461: slightly dimmed to 0.70 so progress stands out against the more visible inactive bars
         const [r, g, b] = hexToRgb(timelineColors?.events);
         const pr = Math.round(r + (255 - r) * 0.35);
         const pg = Math.round(g + (255 - g) * 0.35);
         const pb = Math.round(b + (255 - b) * 0.35);
-        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.75)`;
+        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.70)`;
       } else {
         // item 321/340: future bars — brightened color at lower opacity
+        // item 461: increased to 0.55 so the unplayed portion of the events timeline has more visible color
         const [r, g, b] = hexToRgb(timelineColors?.events);
         const pr = Math.round(r + (255 - r) * 0.35);
         const pg = Math.round(g + (255 - g) * 0.35);
         const pb = Math.round(b + (255 - b) * 0.35);
-        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.42)`;
+        ctx.fillStyle = `rgba(${pr},${pg},${pb},0.55)`;
       }
       ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.round(h) || 1);
     }
@@ -290,8 +315,43 @@ export default function DoubleTimeline({
   // Ref so repeat-handle handler can check playhead proximity without a stale closure
   const stepScrubProgressRef = useRef(stepScrubProgress);
   stepScrubProgressRef.current = stepScrubProgress;
+  // item 420/423: stable refs for detail panel state — needed inside drag callback closure
+  const isDetailOpenRef = useRef(isDetailOpen);
+  isDetailOpenRef.current = isDetailOpen;
+  const totalDetailHeightRef = useRef(totalDetailHeight);
+  totalDetailHeightRef.current = totalDetailHeight;
+  const isDetailPanelFloatingRef = useRef(isDetailPanelFloating);
+  isDetailPanelFloatingRef.current = isDetailPanelFloating;
+
+  // item 420/423: when the detail panel opens while the timeline is floating, push the
+  // timeline up so it stays above the panel rather than being covered by it.
+  useEffect(() => {
+    if (!isTimelineUndocked || !isDetailOpen || isDetailPanelFloating) return;
+    const dh = totalDetailHeight;
+    if (!dh || dh <= 0) return;
+    const panelH = containerRef.current?.getBoundingClientRect().height || 120;
+    const maxY = window.innerHeight - dh - panelH - 8;
+    if (undockPosRef.current.y > maxY) {
+      const newY = Math.max(8, maxY);
+      undockPosRef.current = { ...undockPosRef.current, y: newY };
+      setUndockPos((prev) => ({ ...prev, y: newY }));
+    }
+  }, [isDetailOpen, isTimelineUndocked, isDetailPanelFloating, totalDetailHeight]);
+
   // Ref: true while the repeat handle is being dragged — gates zone pointer handlers
   const isRepeatDraggingRef = useRef(false);
+  // item 437: true if the repeat handle was dragged since last pointerdown — suppresses onClick toggle
+  const repeatHandleWasDraggedRef = useRef(false);
+  // item 433: long-press timer ref for splitting the repeat handle
+  const repeatLongPressTimerRef = useRef(null);
+  // item 424: stable ref for repeatStartPct (used in drag callback)
+  const repeatStartPctRef = useRef(repeatStartPct);
+  repeatStartPctRef.current = repeatStartPct;
+  // item 433: stable refs for split state
+  const repeatEndPctRef = useRef(repeatEndPct);
+  repeatEndPctRef.current = repeatEndPct;
+  const isRepeatSplitRef = useRef(isRepeatSplit);
+  isRepeatSplitRef.current = isRepeatSplit;
   // Latest pointer X during a wave drag — the RAF always reads this so it uses
   // the most recent position even when intermediate pointer events are coalesced.
   const waveLatestClientXRef = useRef(null);
@@ -396,9 +456,12 @@ export default function DoubleTimeline({
         x: startPos.x + ev.clientX - startX,
         y: Math.max(0, startPos.y + ev.clientY - startY),
       };
-      // Auto-dock only when the floater actually touches the bottom boundary.
+      // item 423: dock when dragged into the detail panel area (not just viewport bottom)
       const panelH = containerRef.current?.getBoundingClientRect().height || 120;
-      const touchBoundary = window.innerHeight;
+      const dh = totalDetailHeightRef.current;
+      const touchBoundary = (isDetailOpenRef.current && !isDetailPanelFloatingRef.current && dh > 0)
+        ? window.innerHeight - dh
+        : window.innerHeight;
       if (newPos.y + panelH >= touchBoundary) {
         docked = true;
         triggerDockAnimation();
@@ -443,7 +506,9 @@ export default function DoubleTimeline({
     const insets = getFloatingSideInsets();
     const targetW = Math.max(320, insets.right - insets.left);
     const panelH = containerRef.current?.getBoundingClientRect().height || 120;
-    const ty = Math.max(0, window.innerHeight - panelH);
+    // item 465: when detail panel is open and docked, animate to the position just above it
+    const detailH = isDetailPanelFloatingRef.current ? 0 : (totalDetailHeightRef.current || 0);
+    const ty = Math.max(0, window.innerHeight - panelH - detailH);
     // Save the current floating width before animating to full width.
     preDockWidthRef.current = undockSizeRef.current.width;
 
@@ -769,7 +834,23 @@ export default function DoubleTimeline({
     if (isRepeatDraggingRef.current) return;   // ignore: repeat handle drag will release its own capture
     if (isScrubbingTopRef) isScrubbingTopRef.current = false;
     animSeek(e);
-  }, [isScrubbingTopRef, animSeek]);
+    // item 439: if released beyond the repeat end boundary, snap back to the limit
+    if (isRepeatMode) {
+      const el = animActiveAreaRef.current || animZoneRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const { start: zStart, end: zEnd } = animZoomRangeRef.current;
+      const mappedPercent = zStart + frac * (zEnd - zStart);
+      // Non-split: single handle at repeatStartPct is the end stop
+      // Split: end handle at repeatEndPct is the end stop
+      const endLimit = isRepeatSplit ? repeatEndPct : repeatStartPct;
+      if (mappedPercent > endLimit) {
+        setStepScrubProgress?.(endLimit);
+        seekStepAnimation?.(endLimit / 100);
+      }
+    }
+  }, [isScrubbingTopRef, animSeek, isRepeatMode, isRepeatSplit, repeatEndPct, repeatStartPct, seekStepAnimation, setStepScrubProgress]);
 
   // item 289: wheel zoom for the anim zone
   const handleAnimWheel = useCallback((e) => {
@@ -794,6 +875,87 @@ export default function DoubleTimeline({
     setAnimZoomRange(next);
   }, []);
 
+  // item 424: repeat handle drag — sets the loop start point on the animation timeline
+  const handleRepeatHandlePointerDown = useCallback((e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    isRepeatDraggingRef.current = true;
+    repeatHandleWasDraggedRef.current = false; // item 437: reset drag flag on each pointerdown
+    const downX = e.clientX;
+
+    // item 433: long press (500ms) splits the single handle into start+end handles
+    repeatLongPressTimerRef.current = setTimeout(() => {
+      repeatLongPressTimerRef.current = null;
+      if (!isRepeatSplitRef.current) {
+        const startPct = repeatStartPctRef.current;
+        const newEndPct = Math.min(100, startPct + 20);
+        onRepeatSplitChange?.(true);
+        onRepeatEndPctChange?.(newEndPct);
+        // item 447: mark as "dragged" so the subsequent pointerup→click doesn't toggle repeat mode
+        repeatHandleWasDraggedRef.current = true;
+      }
+    }, 500);
+
+    const activeArea = animActiveAreaRef.current;
+    const onMove = (ev) => {
+      // item 437: mark as dragged if pointer moved more than 3px
+      if (!repeatHandleWasDraggedRef.current && Math.abs(ev.clientX - downX) > 3) {
+        repeatHandleWasDraggedRef.current = true;
+      }
+      // item 433: any movement cancels the long-press timer
+      if (repeatLongPressTimerRef.current) {
+        clearTimeout(repeatLongPressTimerRef.current);
+        repeatLongPressTimerRef.current = null;
+      }
+      if (!activeArea) return;
+      const rect = activeArea.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100));
+      onRepeatStartPctChange?.(pct);
+    };
+    const onUp = () => {
+      // item 433: cancel long-press if pointer lifted before 500ms
+      if (repeatLongPressTimerRef.current) {
+        clearTimeout(repeatLongPressTimerRef.current);
+        repeatLongPressTimerRef.current = null;
+      }
+      isRepeatDraggingRef.current = false;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  }, [onRepeatStartPctChange, onRepeatSplitChange, onRepeatEndPctChange]);
+
+  // item 433: drag handler for the repeat end handle (only visible when split)
+  const handleRepeatEndHandlePointerDown = useCallback((e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    isRepeatDraggingRef.current = true;
+    const activeArea = animActiveAreaRef.current;
+    const onMove = (ev) => {
+      if (!activeArea) return;
+      const rect = activeArea.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100));
+      // item 433: if end handle dragged within 2% of start, merge handles
+      if (Math.abs(pct - repeatStartPctRef.current) < 2) {
+        onRepeatSplitChange?.(false);
+      } else {
+        onRepeatEndPctChange?.(pct);
+      }
+    };
+    const onUp = () => {
+      isRepeatDraggingRef.current = false;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+  }, [onRepeatEndPctChange, onRepeatSplitChange]);
+
   const isAnimPlaying = (playing || isStepAnimRunning) && !isAnimationReplayPaused;
   const stepCount = steps.length;
   const canNavigate = stepCount > 0 && !exporting;
@@ -815,9 +977,18 @@ export default function DoubleTimeline({
     ? ((stepScrubProgress - animZoomRange.start) / animZoomSpan) * 100
     : stepScrubProgress;
   const animPlayheadVisible = !animIsZoomed || (stepScrubProgress >= animZoomRange.start - 0.1 && stepScrubProgress <= animZoomRange.end + 0.1);
-  const animFillPct = animIsZoomed && animZoomSpan > 0
-    ? Math.max(0, Math.min(100, ((Math.min(stepScrubProgress, animZoomRange.end) - animZoomRange.start) / animZoomSpan) * 100))
-    : stepScrubProgress;
+  // item 444: active range bounds and active fill width for two-color progress bar
+  const animActiveRangeStartRaw = isRepeatMode && isRepeatSplit ? repeatStartPct : 0;
+  const animActiveRangeEndRaw   = isRepeatMode ? (isRepeatSplit ? repeatEndPct : repeatStartPct) : 100;
+  const toAnimDisplayPct = (pct) =>
+    animIsZoomed && animZoomSpan > 0
+      ? Math.max(0, Math.min(100, ((pct - animZoomRange.start) / animZoomSpan) * 100))
+      : pct;
+  const animRangeStartDisplayPct = toAnimDisplayPct(animActiveRangeStartRaw);
+  const animRangeEndDisplayPct   = toAnimDisplayPct(animActiveRangeEndRaw);
+  const animRangeWidthDisplayPct = Math.max(0, animRangeEndDisplayPct - animRangeStartDisplayPct);
+  // Active (bright) portion: from range start to playhead, clamped within range
+  const animActiveFillWidthPct = Math.max(0, Math.min(animRangeWidthDisplayPct, animPlayheadPct - animRangeStartDisplayPct));
   // item 289: attach non-passive wheel listeners for zoom (React wheel events are passive by default)
   useEffect(() => {
     const waveEl = waveContainerRef.current;
@@ -831,22 +1002,26 @@ export default function DoubleTimeline({
   }, [handleWaveWheel, handleAnimWheel]);
 
   // item 216: big play button reflects both event playback and animation state.
-  // When animation is running, clicking the big button pauses the animation.
-  // When events are playing (not animation), clicking pauses event playback.
+  // item 459: unified play/pause — events mode and repeat mode both use handlePlayPause;
+  //           only fall back to handleStepAnimToggle for standalone (non-events) animation.
   const isAnyPlaying = playing || isAnimPlaying;
   const handleMainPlayClick = useCallback(() => {
-    if (isAnimPlaying) {
-      handleStepAnimToggle?.();  // pause/resume the step animation
+    if (playing || isAnimationReplayPaused) {
+      handlePlayPause();  // pause/resume event-to-event playback (also stops animation via globalPaused)
+    } else if (isStepAnimRunning) {
+      handleStepAnimToggle?.();  // pause standalone animation (selected-events auto-loop)
     } else {
-      handlePlayPause();  // pause/resume event-to-event playback
+      handlePlayPause();  // start playing from playhead position
     }
-  }, [isAnimPlaying, handleStepAnimToggle, handlePlayPause]);
+  }, [playing, isAnimationReplayPaused, isStepAnimRunning, handleStepAnimToggle, handlePlayPause]);
 
   // item 326: long-press on play button for settings removed — play is a simple click
 
   // item 181: FLIP animation when transitioning between docked ↔ undocked
+  // item 465: useLayoutEffect so Phase 1 position is applied before the first paint,
+  // preventing a flash of the element at the stale float position (bottom of screen).
   const prevUndockedRef = useRef(isTimelineUndocked);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const wasUndocked = prevUndockedRef.current;
     prevUndockedRef.current = isTimelineUndocked;
 
@@ -921,7 +1096,9 @@ export default function DoubleTimeline({
         const startCenterX = r.left + Math.max(1, Math.round(r.width)) / 2;
         const tx = Math.max(insets.left, Math.min(insets.right - desiredFloatingWidth, Math.round(startCenterX - desiredFloatingWidth / 2)));
         // item 201: default float position near the bottom (40px from bottom, strip ≈ 90px tall)
-        const ty = Math.max(8, Math.round(window.innerHeight - 90 - 40));
+        // item 465: when detail panel is open and docked, float just above it instead of behind it
+        const detailH = isDetailPanelFloatingRef.current ? 0 : (totalDetailHeightRef.current || 0);
+        const ty = Math.max(8, Math.round(window.innerHeight - 90 - 40 - detailH));
         const finalPos = { x: tx, y: ty };
 
         requestAnimationFrame(() => {
@@ -955,6 +1132,15 @@ export default function DoubleTimeline({
     ].filter(Boolean).join(' | ')
     : 'Event timeline';
 
+  // item 458: capture current title/annotation for the ticker exit animation.
+  // This effect runs AFTER the navDir effect (declared earlier in the function body),
+  // so when navDir fires on a step change, prevTitleRef.current still holds the OLD value.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    prevTitleRef.current = eventTitle;
+    prevAnnotationRef.current = annotationText;
+  });
+
   // item 163/190: position timeline above the full detail panel (header + body) so it never covers it
   const dockedBottom = isDetailPanelFloating ? 0 : (totalDetailHeight || 0);
   // item 181: smooth transition during undock/dock animations
@@ -972,9 +1158,11 @@ export default function DoubleTimeline({
         width: `${undockSize.width}px`,
         height: undefined,  /* floating strip has no fixed height — sized by content */
         transition: floatTransitionStyle,
-        opacity: undockTransition === 'leaving-fade' ? 0 : 1,
+        // item 462: leaving-fade overrides to 0; otherwise use zoneBgOpacity so the
+        // entire widget (title, timelines, annotation) fades with the Zone opacity slider.
+        opacity: undockTransition === 'leaving-fade' ? 0 : zoneBgOpacity,
       }
-    : { bottom: `${dockedBottom}px` };
+    : { bottom: `${dockedBottom}px`, opacity: zoneBgOpacity }; // item 462: docked state also respects Zone opacity
 
   // item 321: CSS variables derived from timelineColors for focus-state highlights
   const eventsRgb = hexToRgb(timelineColors?.events);
@@ -982,10 +1170,12 @@ export default function DoubleTimeline({
   const zoneRgb   = hexToRgb(timelineBg ?? floaterBg);    // item 322/323/342
   const dragRgb   = hexToRgb(draggerColor); // item 322/323
   const timelineCssVars = {
-    '--dtl-events-color-bg': `rgba(${eventsRgb.join(',')}, 0.82)`,
-    '--dtl-events-color-hl': `rgba(${eventsRgb.join(',')}, 0.70)`,
-    '--dtl-anim-color-bg':   `rgba(${animRgb.join(',')},   0.82)`,
-    '--dtl-anim-color-hl':   `rgba(${animRgb.join(',')},   0.70)`,
+    '--dtl-events-color-bg': `rgba(${eventsRgb.join(',')}, 0.60)`,   // item 461: dimmed from 0.82 → 0.60
+    '--dtl-events-color-hl': `rgba(${eventsRgb.join(',')}, 0.55)`,   // item 461: dimmed from 0.70 → 0.55
+    '--dtl-events-color-bg-dim': `rgba(${eventsRgb.join(',')}, 0.22)`,  // item 461: subtle tint for inactive zone
+    '--dtl-anim-color-bg':   `rgba(${animRgb.join(',')},   0.60)`,   // item 461: dimmed from 0.82 → 0.60
+    '--dtl-anim-color-hl':   `rgba(${animRgb.join(',')},   0.55)`,   // item 461: dimmed from 0.70 → 0.55
+    '--dtl-anim-color-bg-dim': `rgba(${animRgb.join(',')},   0.22)`,  // item 461: subtle tint for inactive zone
     '--dtl-zone-bg':         `rgba(${zoneRgb.join(',')}, ${zoneBgOpacity})`,    // item 342: zone background from per-preset timelineBg
     '--dtl-dragger-color':   `rgba(${dragRgb.join(',')}, 0.88)`,    // item 322/323: dragger base color
     // item 340/343: override active chart bar colour for light-theme presets
@@ -994,6 +1184,8 @@ export default function DoubleTimeline({
     '--dtl-floater-unified-bg': `rgba(${zoneRgb.join(',')}, 0.88)`,
     // item 419: text color for title bar and annotation text in floating timeline
     '--dtl-text-color': timelineColors?.textColor || '#e8e8e8',
+    // item 458: ticker animation duration CSS variable (drives both exit and enter animations)
+    '--ticker-ms': `${tickerMs}ms`,
   };
   const mergedContainerStyle = { ...containerStyle, ...timelineCssVars };
 
@@ -1049,6 +1241,15 @@ export default function DoubleTimeline({
       {/* item 207: title bar is a drag handle for undocking when docked */}
       <div className="dtl-event-title-bar" title={eventTitle} onPointerDown={handleTitleBarPointerDown}>
         {/* item 325: only the text slides; background stays fixed */}
+        {/* item 458: exit span — overlays current text during navigation transition */}
+        {prevTicker && (
+          <span
+            className={`dtl-title-text dtl-title-text-exit dtl-ticker-exit-${navDir || 'next'}`}
+            aria-hidden="true"
+          >
+            {prevTicker.title}
+          </span>
+        )}
         {/* item 348: "Event N" part is a button that opens the events panel */}
         <span className="dtl-title-text">
           {activeStep ? (
@@ -1159,12 +1360,23 @@ export default function DoubleTimeline({
             {/* Main play button — items 123, 128, 216: unified play/pause for events + animation */}
             {/* item 241: dtl-repeat-on class added when repeat is active to show a visible indicator */}
             <button
-              className={`dtl-btn dtl-play`}
+              className={`dtl-btn dtl-play${isRepeatMode ? ' dtl-repeat-on' : ''}`}
               onClick={() => { if (!exporting && stepCount > 0) handleMainPlayClick(); }}
               disabled={exporting || stepCount === 0}
               title={isAnyPlaying ? 'Pause' : 'Play all events'}
             >
               {isAnyPlaying ? <Pause size={16} /> : <Play size={16} />}
+              {/* item 429: repeat toggle button above the play button — click to disable repeat */}
+              {isRepeatMode && (
+                <button
+                  type="button"
+                  className="dtl-repeat-toggle-btn"
+                  onClick={(e) => { e.stopPropagation(); onRepeatModeChange?.(false); }}
+                  title="Repeat mode on — click to turn off"
+                >
+                  <Repeat size={7} />
+                </button>
+              )}
             </button>
             <button className="dtl-btn dtl-speed" onClick={() => setPlaySpeedPercent?.((v) => Math.min(1600, Math.round(v * 1.25)))} disabled={exporting} title="Faster">
               <Plus size={9} />
@@ -1197,7 +1409,7 @@ export default function DoubleTimeline({
           onPointerMove={handleAnimPointerMove}
           onPointerUp={handleAnimPointerUp}
           onPointerCancel={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
-          title="Click or drag to scrub animation"
+          title="Click or drag to see animation progress"
         >
           {/* item 291: active area — inset past the settings toggle on the right */}
           <div className="dtl-anim-active-area" ref={animActiveAreaRef}>
@@ -1212,16 +1424,28 @@ export default function DoubleTimeline({
             {/* item 154: fill bar that grows 0→100% and fades out during delay phase */}
             {/* item 240: empty event — same bar but CSS-animated left-fill then fade */}
             {/* item 289: fill bar is also zoom-aware */}
+            {/* item 444: inactive background — covers the full active range, faded color */}
             <div
-              key={isEmptyEvent && playing ? `empty-${currentStep}` : 'fill'}
-              className={`dtl-anim-fill${
+              className="dtl-anim-fill"
+              style={{
+                left: `${animRangeStartDisplayPct}%`,
+                width: `${animRangeWidthDisplayPct}%`,
+                backgroundColor: `rgba(${animRgb[0]},${animRgb[1]},${animRgb[2]},0.25)`,  // item 459/461: more visible inactive track so progress stands out
+              }}
+            />
+            {/* item 444: active fill — from range start to playhead, bright color; wipes during delay */}
+            <div
+              key={isEmptyEvent && playing ? `empty-${currentStep}` : (isInDelayPhase ? `delay-${currentStep}` : 'active')}
+              className={`dtl-anim-fill-active${
                 isEmptyEvent && playing
                   ? ' dtl-anim-fill--empty'
-                  : isInDelayPhase ? ' dtl-anim-fill--fading' : ''
+                  : isInDelayPhase ? ' dtl-anim-fill-active--fading' : ''
               }`}
-              style={{ width: `${animFillPct}%`, '--delay-ms': `${delayPhaseMs}ms`,
-                // item 321: animation fill bar uses animation color
-                backgroundColor: (() => { const [r, g, b] = hexToRgb(timelineColors?.animation); return `rgba(${r},${g},${b},0.35)`; })()
+              style={{
+                left: `${animRangeStartDisplayPct}%`,
+                width: `${animActiveFillWidthPct}%`,
+                backgroundColor: `rgba(${animRgb[0]},${animRgb[1]},${animRgb[2]},0.80)`,  // item 459: bright fill for visibility
+                '--delay-ms': `${delayPhaseMs}ms`,
               }}
             />
             {/* item 289: zoom range indicators when zoomed in on animation */}
@@ -1230,6 +1454,41 @@ export default function DoubleTimeline({
                 <span className="dtl-zoom-range-start">{parseFloat(animZoomRange.start.toFixed(1))}%</span>
                 <span className="dtl-zoom-range-end">{parseFloat(animZoomRange.end.toFixed(1))}%</span>
               </div>
+            )}
+            {/* item 424: repeat mode dragger — sets loop-back point; click to toggle repeat on/off */}
+            <div
+              className={`dtl-repeat-handle${isRepeatMode ? ' dtl-repeat-handle--active' : ''}`}
+              style={{ left: `${repeatStartPct}%` }}
+              onPointerDown={handleRepeatHandlePointerDown}
+              onClick={(e) => {
+                e.stopPropagation();
+                // item 437: suppress toggle when the handle was dragged
+                if (repeatHandleWasDraggedRef.current) { repeatHandleWasDraggedRef.current = false; return; }
+                onRepeatModeChange?.(!isRepeatMode);
+              }}
+              title={isRepeatMode
+                ? `Loop from ${Math.round(repeatStartPct)}% — click to disable, long-press to set range`
+                : `Click to enable loop from ${Math.round(repeatStartPct)}%, long-press to set range`}
+            >
+              <Repeat size={8} />
+            </div>
+            {/* item 433: split mode — range highlight + end handle */}
+            {isRepeatMode && isRepeatSplit && (
+              <>
+                <div
+                  className="dtl-repeat-range"
+                  style={{ left: `${Math.min(repeatStartPct, repeatEndPct)}%`, width: `${Math.abs(repeatEndPct - repeatStartPct)}%` }}
+                />
+                <div
+                  className="dtl-repeat-end-handle"
+                  style={{ left: `${repeatEndPct}%` }}
+                  onPointerDown={handleRepeatEndHandlePointerDown}
+                  onClick={(e) => e.stopPropagation()}
+                  title={`Loop end at ${Math.round(repeatEndPct)}% — drag to adjust, drag to start to merge`}
+                >
+                  <Repeat size={8} />
+                </div>
+              </>
             )}
           </div>
           {/* Header row: items 194, 195: ANIMATION centered, speed to its right */}
@@ -1283,6 +1542,15 @@ export default function DoubleTimeline({
             onInspectAnnotationUnit({ type: inspectableAnnotationUnit.type, index: inspectableAnnotationUnit.index });
           } : undefined}
         >
+          {/* item 458: exit span — overlays current annotation during navigation transition */}
+          {prevTicker && (
+            <span
+              className={`dtl-annotation-text dtl-annotation-text-exit dtl-ticker-exit-${navDir || 'next'}`}
+              aria-hidden="true"
+            >
+              {prevTicker.annotation}
+            </span>
+          )}
           <span className="dtl-annotation-text">{annotationText}</span>
         </div>
         <div className="dtl-center-actions dtl-annotation-actions" onPointerDown={(e) => e.stopPropagation()}>

@@ -11,7 +11,7 @@
 import React from 'react';
 import { describe, it, beforeEach, afterEach, expect, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import Visualizer from '../../Visualizer';
+import Visualizer from '../Visualizer.jsx';
 
 // Known false positives in the Node/renderToString SSR environment.
 const SSR_ONLY_PATTERNS = [

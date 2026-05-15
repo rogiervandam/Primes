@@ -28,10 +28,12 @@ export class RenderEngine {
       host._renderVisualRow(frame, visualRow);
     }
 
-    if (host.showMaskWriteOverlay) {
+    if (host.showMaskWriteOverlay && host.showAnimVisuals !== false) {
       host.maskWriteOverlay.render(glCtx);
     }
-    host.vectorTouchOrderOverlay.render(frame.ctx, glCtx);
+    if (host.showAnimVisuals !== false) {
+      host.vectorTouchOrderOverlay.render(frame.ctx, glCtx);
+    }
     host.cachelineAnnotationsOverlay.render(frame.ctx, glCtx);
     host.searchOverlay.render(frame.cw, frame.ch, glCtx);
 

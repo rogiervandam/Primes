@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useLayoutEffect, useState, useMemo, useCallback, startTransition } from 'react';
-import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from '../Icons';
+import { Play, Pause, StepBack, StepForward, SkipBack, SkipForward, Minus, Plus, Eye } from '../components/Icons.jsx';
 import { bumpRender, recordStepCallback, setEventNodeCount } from '../lib/debugCounters';
 import { formatNs } from './TimingPanel';
 import { isWindowAvailable } from '../lib/browser.js';
@@ -389,8 +389,15 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
   }, []);
 
   // filterLevel encoding: '' (all) | 'exact:N' | 'upto:N' | 'collapse:N'
+  // item 427: save default to localStorage synchronously so the [steps] effect
+  // (which also reads localStorage) sees the preference even on the very first render.
   const [filterLevel, setFilterLevel] = useState(() => {
-    try { return localStorage.getItem('sieve-filter-level') || 'collapse:7'; } catch { return 'collapse:7'; }
+    try {
+      const saved = localStorage.getItem('sieve-filter-level');
+      if (saved) return saved;
+      localStorage.setItem('sieve-filter-level', 'collapse:7');
+      return 'collapse:7';
+    } catch { return 'collapse:7'; }
   });
 
   const [hideUntimed, setHideUntimed] = useState(false);
@@ -441,7 +448,7 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     } else {
       onStepClick(stepIdx);
       onMultiStepSelect(new Set());
-      onEnableRepeat?.();  // item 215: clicking an event enables repeat mode
+      onEnableRepeat?.(stepIdx);  // item 431: pass stepIdx so parent can toggle repeat on/off
     }
     lastClickedRef.current = stepIdx;
   }, [onStepClick, onMultiStepSelect, onEnableRepeat]);
@@ -757,7 +764,10 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     };
     for (const g of tree) for (const n of buildDepthTree(g.children)) collectKeys(n);
     setCollapsed(prev => {
-      const next = new Set(prev);
+      // item 474: in 'collapse:N' mode expand all top-level prime groups (numeric
+      // IDs) so the saved collapse-level preference is immediately visible after
+      // a new trace loads. Node-level collapse keys use 'node-N' string format.
+      const next = new Set([...prev].filter(k => typeof k !== 'number'));
       for (const k of toExpand) next.delete(k);
       for (const k of toCollapse) next.add(k);
       return next;

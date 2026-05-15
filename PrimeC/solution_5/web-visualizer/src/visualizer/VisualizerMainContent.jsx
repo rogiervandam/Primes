@@ -117,7 +117,7 @@ export default function VisualizerMainContent(props) {
   const { expandEventsPanel: expandEventsPanelFromWidget, dockEventsToTopBar: dockEventsWidgetToTopBar, dockEventsToDetail: dockEventsWidgetToDetailPanel, pushEventsToPanel: pushJoinedWidgetToEventsPanel, pushEventsToDetail: pushJoinedWidgetToDetailPanel, hideJoined: hideJoinedWidget, split: splitWidgets, join: joinWidgets, setPendingDragStart: setPendingBannerDragStart, toggleAllEventsFloater, isAllEventsInDetailPanel } = widgetHandlers;
 
   // Overlays
-  const { balloons: overlayBalloons = {}, heatMap: overlayHeatMap = {}, cache: overlayCache = {}, prime: overlayPrime = {}, range: overlayRange = {}, multiples: overlayMultiples = {}, minimap: overlayMinimap = {}, groupInspector: overlayGroupInspector = {} } = overlays;
+  const { balloons: overlayBalloons = {}, heatMap: overlayHeatMap = {}, cache: overlayCache = {}, prime: overlayPrime = {}, range: overlayRange = {}, multiples: overlayMultiples = {}, minimap: overlayMinimap = {}, groupInspector: overlayGroupInspector = {}, bitsGridView: overlayBitsGridView = {} } = overlays;
   const { pinnedIndices: pinnedBitIndices, hoveredBitInfo, liveLayout: balloonLiveLayout, cachelineSize, handlers: balloonHandlers = {} } = overlayBalloons;
   const { setPinnedIndices: setPinnedBitIndices, computeBitInfo, getVisibleStyles: getVisibleBalloonStyles } = balloonHandlers;
   const { isEnabled: isHeatMapEnabled, handlers: heatMapHandlers = {} } = overlayHeatMap;
@@ -128,13 +128,16 @@ export default function VisualizerMainContent(props) {
   const { setEnabled: setIsPrimeOverlayEnabled } = primeHandlers;
   const { isEnabled: isRangeOverlayEnabled, start: rangeOverlayStart, end: rangeOverlayEnd, unit: rangeOverlayUnit, autoSet: rangeAutoSet, handlers: rangeHandlers = {} } = overlayRange;
   const { setEnabled: setIsRangeOverlayEnabled, setStart: setRangeOverlayStart, setEnd: setRangeOverlayEnd, setUnit: setRangeOverlayUnit, onToggle: onRangeOverlayToggle, onReset: onRangeOverlayReset, onAutoSetChange: onRangeAutoSetChange } = rangeHandlers;
-  const { isEnabled: isMultiplesOverlayEnabled, prime: multiplesOverlayPrime, handlers: multiplesHandlers = {} } = overlayMultiples;
-  const { setEnabled: setIsMultiplesOverlayEnabled, setPrime: setMultiplesOverlayPrime, onToggle: onMultiplesOverlayToggle, onReset: onMultiplesOverlayReset } = multiplesHandlers;
+  const { isEnabled: isMultiplesOverlayEnabled, prime: multiplesOverlayPrime, mode: multiplesOverlayMode = 'number', handlers: multiplesHandlers = {} } = overlayMultiples;
+  const { setEnabled: setIsMultiplesOverlayEnabled, setPrime: setMultiplesOverlayPrime, setMode: setMultiplesOverlayMode, onToggle: onMultiplesOverlayToggle, onReset: onMultiplesOverlayReset } = multiplesHandlers;
   const { isVisible: isMinimapVisible, handlers: minimapHandlers = {} } = overlayMinimap;
   const { setVisible: setIsMinimapVisible } = minimapHandlers;
+  // item 426: bits grid view overlay
+  const { mode: bitsGridViewMode = {}, handlers: bitsGridViewHandlers = {} } = overlayBitsGridView;
+  const { setMode: onBitsGridViewChange } = bitsGridViewHandlers;
   // item 331: group inspector
-  const { unit: groupInspectorUnit, effectiveGroupBits: groupInspectorEffectiveGroupBits, storageModel: groupInspectorStorageModel, wheelDefinition: groupInspectorWheelDefinition, bitLayout: groupInspectorBitLayout, byteLayout: groupInspectorByteLayout, bitCount: groupInspectorBitCount, handlers: groupInspectorHandlers = {} } = overlayGroupInspector;
-  const { open: openGroupInspector, close: closeGroupInspector } = groupInspectorHandlers;
+  const { unit: groupInspectorUnit, effectiveGroupBits: groupInspectorEffectiveGroupBits, storageModel: groupInspectorStorageModel, wheelDefinition: groupInspectorWheelDefinition, bitLayout: groupInspectorBitLayout, byteLayout: groupInspectorByteLayout, bitCount: groupInspectorBitCount, isEnabled: isGroupInspectorEnabled, handlers: groupInspectorHandlers = {} } = overlayGroupInspector;
+  const { open: openGroupInspector, close: closeGroupInspector, setEnabled: setIsGroupInspectorEnabled } = groupInspectorHandlers;
 
   // Detail Inspector
   const { isOpen: isDetailInspectorOpen, mode: detailInspectorMode, query: detailInspectorQuery, rows: detailInspectorRows, filteredRows: filteredDetailInspectorRows, handlers: detailInspectorHandlers = {} } = detailInspector;
@@ -154,6 +157,28 @@ export default function VisualizerMainContent(props) {
   // on EventsPanel can skip re-renders when currentStep changes during playback.
   // currentStep is intentionally excluded — EventsPanel receives it via
   // ActiveStepContext subscription (zero React re-renders per step).
+
+  // item 431: track which step linked to repeat mode; use refs so the callback is stable
+  const repeatLinkedStepRef = useRef(null);
+  const isRepeatModeRef2 = useRef(false);
+  const onRepeatModeChangeRef2 = useRef(null);
+  const playingRef2 = useRef(false);
+  isRepeatModeRef2.current = doubleTimelineProps.isRepeatMode;
+  onRepeatModeChangeRef2.current = doubleTimelineProps.onRepeatModeChange;
+  playingRef2.current = playing;
+  const handleRepeatFromEvent = useCallback((stepIdx) => {
+    if (!playingRef2.current && isRepeatModeRef2.current && repeatLinkedStepRef.current === stepIdx) {
+      // Same event clicked again while NOT playing → deactivate repeat
+      onRepeatModeChangeRef2.current?.(false);
+      repeatLinkedStepRef.current = null;
+    } else {
+      // New or different event, or currently playing → activate/update repeat
+      // (while playing, never toggle repeat off — clicking navigates but keeps looping)
+      onRepeatModeChangeRef2.current?.(true);
+      repeatLinkedStepRef.current = stepIdx;
+    }
+  }, []);
+
   const stableEventsState = useMemo(() => ({
     steps,
     selectedSteps,
@@ -175,12 +200,13 @@ export default function VisualizerMainContent(props) {
     onUserScroll: undefined,
     onExternalOpFilterConsumed: () => setTimingFocusOp(''),
     onShowEventTitle: showEventTitleAboveCurrentDetail,
-    onEnableRepeat: undefined,
+    onEnableRepeat: handleRepeatFromEvent,
     onInspectAnnotationUnit: openGroupInspector,
   }), [handleStepSelection, handleMultiStepSelect, setPanelWidth,
       expandEventsPanelFromWidget, dockEventsWidgetToTopBar,
       dockEventsWidgetToDetailPanel, joinWidgets,
-      setTimingFocusOp, showEventTitleAboveCurrentDetail, openGroupInspector]);
+      setTimingFocusOp, showEventTitleAboveCurrentDetail, openGroupInspector,
+      handleRepeatFromEvent]);
 
   return (
     <div
@@ -318,6 +344,7 @@ export default function VisualizerMainContent(props) {
               onWidthChange: setDetailWidth,
               onInspectChangedBits: () => openDetailInspector('bits'),
               onInspectMarkedNumbers: () => openDetailInspector('numbers'),
+              onInspectBitCategory: (mode) => openDetailInspector(mode),  // item 446
               // item 350: let the detail panel open the group inspector even when balloons are off
               onInspectAnnotationUnit: openGroupInspector,
               onShowEventTitle,
@@ -326,6 +353,9 @@ export default function VisualizerMainContent(props) {
               onAggMaskStepChange: aggMaskStepSetterRef ? (idx) => aggMaskStepSetterRef.current?.(idx) : undefined,
               onToggleAllEventsFloater: undefined,
               onDockDetailPanel: dockDetailPanel,
+              // item 426: bits grid view
+              bitsGridView: bitsGridViewMode,
+              onBitsGridViewChange,
             }}
           />
         );
@@ -375,7 +405,10 @@ export default function VisualizerMainContent(props) {
           rangeAutoSet,
           isMultiplesOverlayEnabled,
           multiplesOverlayPrime,
+          multiplesOverlayMode,  // item 425
+          bitsGridView: bitsGridViewMode,  // item 426
           isMinimapVisible,
+          isGroupInspectorEnabled,  // item 428
           eventTitleSettings,
           outlineSettings: layoutSettings.outlines,
           activeTabRequest: settingsTabRequest,
@@ -396,10 +429,13 @@ export default function VisualizerMainContent(props) {
           onRangeOverlayUnitChange: setRangeOverlayUnit,
           onMultiplesOverlayToggle: onMultiplesOverlayToggle,
           onMultiplesOverlayPrimeChange: setMultiplesOverlayPrime,
+          onMultiplesOverlayModeChange: setMultiplesOverlayMode,  // item 425
+          onBitsGridViewChange,  // item 426
           onRangeOverlayReset,
           onRangeAutoSetChange,
           onMultiplesOverlayReset,
           onShowMinimapChange: setIsMinimapVisible,
+          onGroupInspectorEnabledChange: setIsGroupInspectorEnabled,  // item 428
           onEventTitleSettingsChange: setEventTitleSettings,
           onOutlineChange: (outlines) => setLayoutSettings((prev) => ({ ...prev, outlines })),
         }}

@@ -1031,7 +1031,8 @@ if [ "$VISUALIZE" = "visualize" ]; then
             (cd web-visualizer && npx electron . "$TRACE_PATH")
         else
             # Start Vite dev server in background and capture output to find port
-            VITE_LOG="web-visualizer/vite_visualize.log"
+            mkdir -p web-visualizer/logs
+            VITE_LOG="web-visualizer/logs/vite_visualize.log"
             (cd web-visualizer && npx vite > "../$VITE_LOG" 2>&1) &
             VITE_PID=$!
             

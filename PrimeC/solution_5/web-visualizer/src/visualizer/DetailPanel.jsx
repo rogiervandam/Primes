@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from '../SieveRenderer';
+import { BIT_LAYOUTS, BYTE_LAYOUTS, bitToNumber } from '../renderer/SieveRenderer.js';
 import { formatNs } from './TimingPanel';
 import { useDragResize } from '../hooks/interactions';
 import { usePlaybackContext } from '../contexts/PlaybackContext';
@@ -95,6 +95,11 @@ export default function DetailPanel({
     onToggleAllEventsFloater,
     // item 157: dock floating panel back to the bottom
     onDockDetailPanel,
+    // item 426: bits grid view — highlight set of bits in the main grid
+    bitsGridView = {},
+    onBitsGridViewChange,
+    // item 446: open modal to inspect bits by category
+    onInspectBitCategory,
   } = detailHandlers;
 
   // item 178: goToStep from playback context for nearby-events navigation
@@ -117,6 +122,27 @@ export default function DetailPanel({
       hits: Number(match.hits) || 0,
     };
   }, [step, benchmarkTimingData]);
+  // item 446: helper to compute compact range text from a list of bit indices
+  const computeRanges = (bits) => {
+    if (!bits || bits.length === 0) return null;
+    const sorted = Array.from(bits).sort((a, b) => a - b);
+    const ranges = [];
+    let start = sorted[0], end = sorted[0];
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] === end + 1) {
+        end = sorted[i];
+      } else {
+        ranges.push(start === end ? `${start}` : `${start}–${end}`);
+        start = end = sorted[i];
+      }
+    }
+    ranges.push(start === end ? `${start}` : `${start}–${end}`);
+    if (ranges.length > 3) {
+      return { text: ranges.slice(0, 3).join(', '), more: ranges.length - 3 };
+    }
+    return { text: ranges.join(', '), more: 0 };
+  };
+
   // Compact representation of changed bit ranges
   const bitRanges = useMemo(() => {
     if (!step || step.changedBits.length === 0) return '';
@@ -133,10 +159,18 @@ export default function DetailPanel({
     }
     ranges.push(start === end ? `${start}` : `${start}–${end}`);
     // Limit display to a few items — click the button to see all
-    if (ranges.length > 5) {
-      return { text: ranges.slice(0, 5).join(', '), more: ranges.length - 5 };
+    if (ranges.length > 3) {
+      return { text: ranges.slice(0, 3).join(', '), more: ranges.length - 3 };
     }
     return { text: ranges.join(', '), more: 0 };
+  }, [step]);
+
+  // item 446: compact range text for targeted / already-set bit categories
+  const targetBitsRanges = useMemo(() => computeRanges(step?.targetBits), [step]);
+  const alreadySetBitsRanges = useMemo(() => {
+    if (!step?.targetBits?.length) return null;
+    const changedSet = new Set(step.changedBits);
+    return computeRanges(step.targetBits.filter((b) => !changedSet.has(b)));
   }, [step]);
 
   // Convert changed bits to number representation
@@ -144,11 +178,11 @@ export default function DetailPanel({
     if (!step || step.changedBits.length === 0) return '';
     const bits = Array.from(step.changedBits).sort((a, b) => a - b);
     const model = storageModel || 'half';
-    const nums = bits.slice(0, 5).map((bit) => {
+    const nums = bits.slice(0, 3).map((bit) => {
       const number = bitToNumber(bit, model, wheelDefinition);
       return number == null ? 'unmapped' : number;
     });
-    const more = bits.length - 5;
+    const more = bits.length - 3;
     return { text: nums.join(', '), more: more > 0 ? more : 0 };
   }, [step, storageModel, wheelDefinition]);
 
@@ -293,6 +327,25 @@ export default function DetailPanel({
   const [bodyAnimClass, setBodyAnimClass] = useState('');
   const [isBodyAnimatingOut, setIsBodyAnimatingOut] = useState(false);
   const [maskPopoverOpen, setMaskPopoverOpen] = useState(false);
+  // item 463: measure the available width of the mask preview container so we
+  // can proportionally scale masks down when the panel is narrow.
+  const [maskListAvailableW, setMaskListAvailableW] = useState(0);
+  const maskListResizeObRef = useRef(null);
+  const maskListCallbackRef = useCallback((el) => {
+    if (maskListResizeObRef.current) {
+      maskListResizeObRef.current.disconnect();
+      maskListResizeObRef.current = null;
+    }
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width;
+      if (w > 0) setMaskListAvailableW(w);
+    });
+    ro.observe(el);
+    maskListResizeObRef.current = ro;
+    const initial = el.getBoundingClientRect().width;
+    if (initial > 0) setMaskListAvailableW(initial);
+  }, []);
   // item 301: show nearby-events sidebar only when events panel is collapsed
   // item 349: toggleEventsPanel for the nearby button that slides the events panel in from the left
   const { isEventsPanelCollapsed, toggleEventsPanel } = usePanelLayoutContext();
@@ -408,10 +461,37 @@ export default function DetailPanel({
   }, [step]);
 
   const bitsFacts = [
-    { label: 'Bits changed', value: step.numChanged ?? 0 },
-    { label: 'Bits targeted', value: traceSetStats?.totalAttempted ?? '—' },
-    { label: 'Already set', value: traceSetStats?.alreadySet ?? stepStats?.reSet ?? '—' },
-    { label: 'Newly set', value: traceSetStats?.newlySet ?? stepStats?.newlySet ?? '—' },
+    // item 446: 'Bits targeted' first (swapped from 'Bits changed')
+    {
+      label: 'Bits targeted',
+      value: traceSetStats?.totalAttempted ?? '—',
+      gridViewMode: 'targeted',
+      // item 446: only show inspect when count is real (traceSetStats available)
+      bitsRanges: traceSetStats ? targetBitsRanges : null,
+      inspectMode: 'targeted',
+    },
+    {
+      label: 'Bits changed',
+      value: step.numChanged ?? 0,
+      gridViewMode: 'changed',
+      bitsRanges: bitRanges || null,
+      inspectMode: 'bits',
+    },
+    {
+      label: 'Already set',
+      value: traceSetStats?.alreadySet ?? stepStats?.reSet ?? '—',
+      gridViewMode: 'alreadySet',
+      // item 446: only show inspect when count is real
+      bitsRanges: traceSetStats ? alreadySetBitsRanges : null,
+      inspectMode: 'alreadySet',
+    },
+    {
+      label: 'Newly set',
+      value: traceSetStats?.newlySet ?? stepStats?.newlySet ?? '—',
+      gridViewMode: 'newlySet',
+      bitsRanges: bitRanges || null,
+      inspectMode: 'newlySet',
+    },
     { label: 'Tried >1x', value: stepStats?.duplicateTargets ?? '—' },
     { label: 'Total set', value: stepStats?.totalSet ?? '—' },
   ];
@@ -537,16 +617,30 @@ export default function DetailPanel({
     );
   }
 
-  // Scale preview to fit in a small fixed area; clicking expands to a popover
-  const MAX_PREVIEW_W = 160;
-  const MAX_PREVIEW_H = 130;
+  // Scale preview to fit in a small fixed area; clicking expands to a popover.
+  // item 463: also cap to the measured container width so masks never get
+  // cut off in a narrow panel — keep aspect ratio (130/160) when shrinking.
+  const BASE_PREVIEW_W = 160;
+  const BASE_PREVIEW_H = 130;
+  const slotCount = maskPreview ? maskPreview.slots.length : 1;
+  // item 463: account for slot decorations (padding 8px×2=16 + border 1px×2=2 = 18px per slot)
+  // and the list gap between slots (10px from .mask-preview-list { gap: 10px }).
+  // Cap scale at 1.0 so masks are never enlarged beyond their natural pixel size.
+  const SLOT_DECO_W = 18; // 2 × padding(8) + 2 × border(1) per slot
+  const LIST_GAP = 10;    // gap from .mask-preview-list { gap: 10px }
+  const listGapTotal = Math.max(0, slotCount - 1) * LIST_GAP;
+  const perSlotMaxW = maskListAvailableW > 0
+    ? Math.max(40, (maskListAvailableW - listGapTotal) / slotCount - SLOT_DECO_W)
+    : BASE_PREVIEW_W;
+  const MAX_PREVIEW_W = Math.min(BASE_PREVIEW_W, perSlotMaxW);
+  const MAX_PREVIEW_H = Math.round(MAX_PREVIEW_W * (BASE_PREVIEW_H / BASE_PREVIEW_W));
   const maskPreviewScale = maskPreview
-    ? Math.min(MAX_PREVIEW_W / maskPreview.previewWidth, MAX_PREVIEW_H / maskPreview.previewHeight, 2.0)
+    ? Math.min(MAX_PREVIEW_W / maskPreview.previewWidth, MAX_PREVIEW_H / maskPreview.previewHeight, 1.0)
     : 1;
 
   const maskPreviewContent = maskPreview ? (
     <>
-      <div className="mask-preview-list">
+      <div className="mask-preview-list" ref={maskListCallbackRef}>
         {maskPreview.slots.map((slot) => (
           <div key={slot.slotIndex} className={`mask-preview-slot slot-${slot.slotIndex % 2}`}>
             <div className="mask-preview-slot-label">Mask {slot.slotIndex + 1}</div>
@@ -661,7 +755,7 @@ export default function DetailPanel({
 
   return (
     <div className={`detail-panel ${open ? 'open' : 'collapsed'}${isHeaderHidden ? ' header-hidden' : ''}${isFloating ? ' floating' : ''}`}>
-      {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
+      {open && <div className="detail-panel-resize" onMouseDown={!playing ? handleHeightDrag : undefined} style={playing ? { cursor: 'default' } : undefined} />}
         <div className="detail-panel-toggle">
         {/* item 353: unified toggle arrow on the left — opens/closes the detail panel */}
         {/*onToggle && (
@@ -771,12 +865,46 @@ export default function DetailPanel({
                   </div>
                 ))}
 
-                {bitsFacts.map((stat) => (
-                  <div key={stat.label} className="detail-row">
-                    <span className="detail-row-label">{stat.label}</span>
-                    <span className="detail-row-value detail-row-value-num">{stat.value}</span>
-                  </div>
-                ))}
+                {bitsFacts.map((stat) => {
+                  const isGridViewRow = !!stat.gridViewMode;
+                  const isActive = isGridViewRow && !!bitsGridView?.[stat.gridViewMode];
+                  const GV_COLORS = { changed: '#f59e0b', targeted: '#3b82f6', alreadySet: '#4ade80', newlySet: '#fbbf24' };
+                  const handleClick = isGridViewRow && onBitsGridViewChange
+                    ? () => onBitsGridViewChange({ ...bitsGridView, [stat.gridViewMode]: !bitsGridView?.[stat.gridViewMode] })
+                    : null;
+                  // item 446: compact range + inspect button for the 4 bit-category rows
+                  const hasInspect = !!stat.inspectMode && !!stat.bitsRanges && !!onInspectBitCategory;
+                  return (
+                    <div
+                      key={stat.label}
+                      className={`detail-row${isGridViewRow ? ' detail-row-gridview' : ''}${isActive ? ' detail-row-gridview--active' : ''}`}
+                      onClick={handleClick || undefined}
+                      style={isGridViewRow
+                        ? { cursor: handleClick ? 'pointer' : undefined, '--gv-accent': GV_COLORS[stat.gridViewMode] }
+                        : handleClick ? { cursor: 'pointer' } : undefined}
+                      title={isGridViewRow ? (isActive ? 'Click to toggle off this grid view' : `Toggle ${stat.label.toLowerCase()} highlight in grid`) : undefined}
+                    >
+                      <span className="detail-row-label">{stat.label}</span>
+                      <span
+                        className={`detail-row-value${hasInspect ? '' : ' detail-row-value-num'}`}
+                        style={hasInspect ? { display: 'flex', flexDirection: 'row', alignItems: 'center', overflow: 'hidden', gap: '6px' } : undefined}
+                      >
+                        {hasInspect && (
+                          <button
+                            className="detail-inspect-btn detail-inspect-btn--inline"
+                            onClick={(e) => { e.stopPropagation(); onInspectBitCategory(stat.inspectMode); }}
+                            title={`Inspect ${stat.label.toLowerCase()} in a searchable list`}
+                            style={{ flex: 1, minWidth: 0, width: 'auto' }}
+                          >
+                            <span className="dt-mono">{stat.bitsRanges.text}</span>
+                            {stat.bitsRanges.more > 0 && <span className="detail-inspect-hint">+{stat.bitsRanges.more} more ↗</span>}
+                          </button>
+                        )}
+                        <span style={hasInspect ? { flexShrink: 0, marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' } : undefined}>{stat.value}</span>
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </section>
 

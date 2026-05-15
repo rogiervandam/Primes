@@ -37,7 +37,7 @@ export function applyWheel({
   const contentX = (cursorX - renderer.panX) / Math.max(0.0001, oldZoom);
   const contentY = (cursorY - renderer.panY) / Math.max(0.0001, oldZoom);
   const nextZoom = delta > 0
-    ? Math.max(0.1, renderer.zoom / factor)
+    ? Math.max(0.01, renderer.zoom / factor) // item 448: allow zoom out to 0.01
     : Math.min(64, renderer.zoom * factor);
   renderer.zoom = nextZoom;
   renderer.panX = cursorX - contentX * nextZoom;

@@ -13,7 +13,8 @@
  *
  * The host (`SieveRenderer`) must expose:
  *   .ctx, .bitCount, .panX, .panY,
- *   .viewportW, .viewportH, .minimapRightInset, .minimapEnabled,
+ *   .viewportW, .viewportH, .viewportLeft, .viewportTop,
+ *   .minimapRightInset, .minimapEnabled,
  *   .contentDimensions()   → { width, height }
  */
 export class MinimapRenderer {
@@ -31,7 +32,8 @@ export class MinimapRenderer {
 
   _hideAttachedCanvas() {
     if (!this._canvas) return;
-    this._canvas.style.display = 'none';
+    // item 467: use opacity so the CSS transition animates the hide.
+    this._canvas.style.opacity = '0';
   }
 
   /** Attach (or detach when canvas is null) the dedicated minimap overlay canvas. */
@@ -94,11 +96,6 @@ export class MinimapRenderer {
       this._hideAttachedCanvas();
       return;
     }
-    if (this.isContentFullyVisible(viewportW, viewportH)) {
-      this._rect = null;
-      this._hideAttachedCanvas();
-      return;
-    }
 
     if (!ctx) {
       this._rect = null;
@@ -115,6 +112,13 @@ export class MinimapRenderer {
     const targetX = Math.max(edgePad, viewportW - mapW - edgePad - rightInset);
     const panelClearance = Math.max(0, detailH) + edgePad;
     const targetY = Math.max(edgePad, viewportH - mapH - panelClearance);
+    // item 438: offset by the container's window-relative position so the
+    // position:fixed minimap canvas lands inside the canvas area, not the
+    // window origin (which causes it to appear behind side panels when open).
+    const containerLeft = h.viewportLeft || 0;
+    const containerTop = h.viewportTop || 0;
+    const fixedLeft = containerLeft + targetX;
+    const fixedTop = containerTop + targetY;
 
     let drawX = targetX;
     let drawY = targetY;
@@ -127,11 +131,12 @@ export class MinimapRenderer {
         this._canvas.width = nextW;
         this._canvas.height = nextH;
       }
-      this._canvas.style.display = 'block';
+      // item 467: reveal with opacity (CSS transition fades it in); keep display:block implicitly.
+      this._canvas.style.opacity = '1';
       this._canvas.style.width = `${mapW}px`;
       this._canvas.style.height = `${mapH}px`;
-      this._canvas.style.left = `${targetX}px`;
-      this._canvas.style.top = `${targetY}px`;
+      this._canvas.style.left = `${fixedLeft}px`;
+      this._canvas.style.top = `${fixedTop}px`;
       ctx = this._ctx;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, mapW, mapH);
@@ -139,8 +144,8 @@ export class MinimapRenderer {
       drawY = 0;
     }
 
-    // Store geometry for hit-testing.
-    this._rect = { mx: targetX, my: targetY, mapW, mapH, scale, pad, dims };
+    // Store geometry for hit-testing (window-relative coords for clientX/Y comparison).
+    this._rect = { mx: fixedLeft, my: fixedTop, mapW, mapH, scale, pad, dims };
 
     // Background panel.
     ctx.fillStyle = 'rgba(0,0,0,0.65)';

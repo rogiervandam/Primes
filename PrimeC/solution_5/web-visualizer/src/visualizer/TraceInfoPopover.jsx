@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { STORAGE_MODELS } from '../SieveRenderer';
+import { STORAGE_MODELS } from '../renderer/SieveRenderer.js';
 
 /**
  * Popover anchored to the trace title showing storage model + parsed

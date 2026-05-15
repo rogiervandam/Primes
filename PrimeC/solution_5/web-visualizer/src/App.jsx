@@ -4,10 +4,15 @@ import { useTraceParser } from './workers/useTraceParser';
 // Lazy-load the Visualizer (+ SieveRenderer and all renderer deps) so the
 // welcome screen ships without them.  The chunk starts downloading as soon as
 // the user opens a file (see preloadVisualizer below).
-const Visualizer = React.lazy(() => import('./Visualizer'));
+const Visualizer = React.lazy(() => import('./visualizer/Visualizer.jsx'));
 
 /** Fire-and-forget: start fetching the Visualizer chunk early. */
-function preloadVisualizer() { import('./Visualizer'); }
+function preloadVisualizer() { import('./visualizer/Visualizer.jsx'); }
+
+function hasInitialTraceUrl() {
+  if (typeof window === 'undefined') return false;
+  return Boolean(new URLSearchParams(window.location.search).get('file'));
+}
 
 export default function App() {
   // Streaming parse state (replaces the old atomic `trace` + `rawSource`).
@@ -33,6 +38,7 @@ export default function App() {
   const [loadingLog, setLoadingLog] = useState(false);
   const [autoRender, setAutoRender] = useState(false);
   const [pendingUpload, setPendingUpload] = useState(null);
+  const [isUrlTraceBootstrap, setIsUrlTraceBootstrap] = useState(() => hasInitialTraceUrl());
   const fileInputRef = useRef(null);
   const benchmarkInputRef = useRef(null);
   const dropRef = useRef(null);
@@ -121,6 +127,7 @@ export default function App() {
     setError('');
     setBenchmarkTimingData(null);
     setBenchmarkTimingFileName('');
+    setIsUrlTraceBootstrap(false);
     preloadVisualizer();
     setSourceRef({ type: 'file', file });
     setFileName(file.name);
@@ -132,8 +139,12 @@ export default function App() {
     reader.readAsText(file);
   }, [startParse]);
 
-  const loadFromApi = useCallback(async (name, autoRenderFlag = false) => {
+  const loadFromApi = useCallback(async (name, autoRenderFlag = false, options = {}) => {
+    const { suppressShellLoaders = false } = options;
     setError('');
+    if (!suppressShellLoaders) {
+      setIsUrlTraceBootstrap(false);
+    }
     setLoadingLog(true);
     preloadVisualizer();
     try {
@@ -146,6 +157,7 @@ export default function App() {
       await tryLoadBenchmarkTimingFromApi(name);
       if (autoRenderFlag) setAutoRender(true);
     } catch (err) {
+      setIsUrlTraceBootstrap(false);
       setError(err.message);
       setBenchmarkTimingData(null);
       setBenchmarkTimingFileName('');
@@ -176,7 +188,7 @@ export default function App() {
     const fileParam = params.get('file');
     const autoParam = params.get('autorender');
     if (fileParam) {
-      loadFromApi(fileParam, autoParam === 'true');
+      loadFromApi(fileParam, autoParam === 'true', { suppressShellLoaders: true });
     }
   }, [loadFromApi, refreshLogFiles]);
 
@@ -270,6 +282,10 @@ export default function App() {
     </div>
   );
 
+  if (!header && isUrlTraceBootstrap && !(error || parserError)) {
+    return <div>{pendingUploadPrompt}</div>;
+  }
+
   if (!header) {
     return (
       <div
@@ -331,7 +347,7 @@ export default function App() {
   }
 
   return (
-    <Suspense fallback={<div className="loading-msg">Loading visualizer…</div>}>
+    <Suspense fallback={isUrlTraceBootstrap ? null : <div className="loading-msg">Loading visualizer…</div>}>
       <input
         ref={benchmarkInputRef}
         type="file"
@@ -351,6 +367,7 @@ export default function App() {
         onImportBenchmarkTiming={() => benchmarkInputRef.current?.click()}
         onClose={() => {
           resetParse();
+          setIsUrlTraceBootstrap(false);
           setSourceRef(null);
           setFileName('');
           setAutoRender(false);

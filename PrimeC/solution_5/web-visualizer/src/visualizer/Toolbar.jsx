@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   ZoomIn, ZoomOut, Camera, Film, Sun, Moon, Search, Toolkit,
-} from '../Icons';
+} from '../components/Icons.jsx';
 import { GearIcon } from '../settings/buttons';
 import TraceInfoPopover from './TraceInfoPopover';
 import ToolbarPanelToggles from './ToolbarPanelToggles';

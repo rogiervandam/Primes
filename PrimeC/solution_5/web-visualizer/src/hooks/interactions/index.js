@@ -1,7 +1,7 @@
-export { usePointerGestures } from '../usePointerGestures';
-export { useKeyboardShortcuts } from '../useKeyboardShortcuts';
-export { useBalloonLayout } from '../useBalloonLayout';
-export { useStepSelectionHandlers } from '../useStepSelectionHandlers';
-export { useSelectionOrchestration } from '../useSelectionOrchestration';
-export { useDragResize } from '../useDragResize';
-export { useWASDNavigation } from '../useWASDNavigation';
+export { usePointerGestures } from './usePointerGestures';
+export { useKeyboardShortcuts } from './useKeyboardShortcuts';
+export { useBalloonLayout } from './useBalloonLayout';
+export { useStepSelectionHandlers } from './useStepSelectionHandlers';
+export { useSelectionOrchestration } from './useSelectionOrchestration';
+export { useDragResize } from './useDragResize';
+export { useWASDNavigation } from './useWASDNavigation';

@@ -6,6 +6,10 @@
   right: 0;
   bottom: 0;
   z-index: 270;  /* item 319: above balloons (max 260); below toolbar (310). Was 18. */
+  pointer-events: none;  /* item 422: don't intercept clicks in the empty gutter above the panel */
+}
+.detail-panel-main-wrapper > .detail-panel {
+  pointer-events: auto;  /* item 422: the actual panel is interactive */
 }
 
 /* item 200: completely hide the detail panel when it's not open (collapsed state shows nothing) */
@@ -354,6 +358,10 @@
   border: 1px solid var(--border-light);
   border-radius: 8px;
   background: color-mix(in srgb, var(--bg) 82%, transparent);
+  /* item 463: anchor the CSS scale transform to the top-left corner so the
+     scaled content aligns with the top of the scaler-wrapper div and is not
+     clipped at the bottom when the panel is narrow. */
+  transform-origin: top left;
 }
 .mask-preview-byte {
   position: absolute;
@@ -689,6 +697,43 @@
 .detail-row-value-num {
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+/* item 426: bits grid view rows — clickable rows in the Bits section */
+/* item 436: colored swatch indicator before the row label for visibility */
+.detail-row-gridview {
+  border-radius: 4px;
+  transition: background 0.12s ease;
+}
+.detail-row-gridview .detail-row-label::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  border-radius: 3px;
+  background: var(--gv-accent, var(--border-light, rgba(120,120,120,0.4)));
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  opacity: 0.55;
+  transition: opacity 0.12s, box-shadow 0.12s;
+}
+.detail-row-gridview--active .detail-row-label::before {
+  opacity: 1;
+  box-shadow: 0 0 5px 1px var(--gv-accent, transparent);
+}
+.detail-row-gridview:hover {
+  background: color-mix(in srgb, var(--accent, #60a5fa) 12%, transparent);
+}
+.detail-row-gridview--active {
+  background: color-mix(in srgb, var(--gv-accent, var(--accent, #60a5fa)) 20%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--gv-accent, var(--accent, #60a5fa)) 45%, transparent);
+  outline-offset: -1px;
+}
+.detail-row-gridview--active .detail-row-label {
+  color: var(--gv-accent, var(--fg));
+  font-weight: 500;
 }
 .trace-meta-row {
   display: flex;

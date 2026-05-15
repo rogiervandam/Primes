@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
 import React from 'react';
-import Visualizer from '../../Visualizer';
+import Visualizer from '../Visualizer.jsx';
 
 /**
  * Visualizer Runtime Error Test

@@ -47,6 +47,7 @@ export const DEFAULT_LAYOUT_SETTINGS = {
   showByteLabels: true,
   showVectorLabels: true,
   showVectorTouchOrder: false,
+  showCachelineLabels: false, // item 473: draw CL0, CL1, … index labels
   // 'off' | 'bit-clock' (click-only) | 'click-hover'
   balloonMode: 'click-hover',
   bitLabelMode: 'global',

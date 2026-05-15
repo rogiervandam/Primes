@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTrace } from '../../traceParser.js';
+import { parseTrace } from '../traceParser.js';
 import { inferMetaFromAnnotation } from '../maskMetadata.js';
 
 // ---------------------------------------------------------------------------

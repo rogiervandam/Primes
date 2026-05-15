@@ -114,7 +114,7 @@ src/
 │       ├── rotate.js             3D mouse-rotate handler (returns {startX,startY})
 │       └── wheel.js              Wheel / zoom handler
 ├── dev/                  Dev-only modules (not bundled in production)
-│   └── parityHarness.js          GL vs Canvas2D visual-diff harness (parity.html)
+│   └── parityHarness.js          GL vs Canvas2D visual-diff harness (/dev/parity.html)
 └── styles/               Per-concern stylesheets
     └── index.css             @imports the numbered section files
 ```
@@ -243,7 +243,7 @@ uploads them to the log API.
 known minefields, and a list of refactors already completed.**
 
 - **A new utility** → drop it in `src/lib/`. Keep it framework-free.
-- **A new shared hook** → place in `src/hooks/`.
+- **A new shared hook** → place in an appropriate domain under `src/hooks/`.
 - **A new trace format / parsing detail** → add a focused module under `src/parser/` and import it from `traceParser.js`.
 - **A new renderer helper** (constants, pure drawing math) → add it under `src/renderer/` and import it from `SieveRenderer.js`.
 - **A new settings section** → add a button to `src/settings/buttons.jsx` and a section in `SettingsPanel.jsx`; constants go in `src/settings/constants.js`.

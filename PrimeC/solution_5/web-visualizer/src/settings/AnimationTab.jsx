@@ -225,6 +225,7 @@ function AnimationTab({
   eventTimeTargets, onEventTimeTargetsChange,
   eventDurationMode, onEventDurationModeChange,
   bitAnimationMode, onBitAnimationModeChange,
+  currentStepHasMasks,   // item 471
   isAutoAnimateOnSelect, onAutoAnimateOnSelectChange,
   animateBitsMode, onAnimateBitsModeChange,  // item 244
 }) {
@@ -341,13 +342,29 @@ function AnimationTab({
       {onBitAnimationModeChange && (
         <div className="settings-section">
           <label>Timeline animation mode</label>
-          <div className="preview-btn-grid preview-btn-grid-3">
+          {/* item 471: independent Mask + Bits toggles instead of exclusive radio buttons */}
+          {/* item 471a: flex+start so the 2 buttons stay left-aligned and don't stretch to fill the panel */}
+          <div className="preview-btn-grid preview-btn-grid-2" style={{ display: 'flex', justifyContent: 'flex-start' }}>
             <PreviewOptionButton
               compact
               label="Mask"
-              hint="Stamp groups"
-              active={(bitAnimationMode || 'bit') === 'mask'}
-              onClick={() => onBitAnimationModeChange('mask')}
+              hint={
+                (bitAnimationMode === 'mask' || bitAnimationMode === 'both') && !currentStepHasMasks
+                  ? 'No masks in this event'
+                  : 'Stamp groups'
+              }
+              active={bitAnimationMode === 'mask' || bitAnimationMode === 'both'}
+              onClick={() => {
+                const mode = bitAnimationMode || 'bit';
+                const maskOn = mode === 'mask' || mode === 'both';
+                if (maskOn) {
+                  // turn mask off — always leave at least 'bit'
+                  onBitAnimationModeChange('bit');
+                } else {
+                  // turn mask on
+                  onBitAnimationModeChange(mode === 'bit' ? 'both' : 'mask');
+                }
+              }}
               preview={(
                 <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                   <rect x="4" y="5" width="12" height="12" rx="1" />
@@ -360,8 +377,18 @@ function AnimationTab({
               compact
               label="Bits"
               hint="Individual bits"
-              active={(bitAnimationMode || 'bit') === 'bit'}
-              onClick={() => onBitAnimationModeChange('bit')}
+              active={bitAnimationMode === 'bit' || bitAnimationMode === 'both'}
+              onClick={() => {
+                const mode = bitAnimationMode || 'bit';
+                const bitsOn = mode === 'bit' || mode === 'both';
+                if (bitsOn) {
+                  // turn bits off — always leave at least 'mask'
+                  onBitAnimationModeChange('mask');
+                } else {
+                  // turn bits on
+                  onBitAnimationModeChange(mode === 'mask' ? 'both' : 'bit');
+                }
+              }}
               preview={(
                 <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                   <circle cx="8" cy="11" r="5" fill="currentColor" stroke="none" opacity="1" />
@@ -370,22 +397,14 @@ function AnimationTab({
                 </svg>
               )}
             />
-            <PreviewOptionButton
-              compact
-              label="Both"
-              hint="Lockstep"
-              active={(bitAnimationMode || 'bit') === 'combined'}
-              onClick={() => onBitAnimationModeChange('combined')}
-              preview={(
-                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <rect x="3" y="5" width="13" height="12" rx="1" opacity="0.9" />
-                  <circle cx="29" cy="11" r="4" fill="currentColor" stroke="none" opacity="1" />
-                  <circle cx="41" cy="11" r="4" fill="currentColor" stroke="none" opacity="0.35" />
-                </svg>
-              )}
-            />
           </div>
-          <span className="settings-hint">Applies to events with mask write-order data. Mask = stamp groups; Bits = individual bits; Both = lockstep.</span>
+          <span className="settings-hint">
+            {bitAnimationMode === 'both'
+              ? 'Mask + Bits: stamp groups and individual bits simultaneously.'
+              : bitAnimationMode === 'mask'
+                ? 'Mask: animate stamp groups only. Toggle Bits to combine.'
+                : 'Bits: animate individual bit changes. Toggle Mask to combine.'}
+          </span>
         </div>
       )}
 

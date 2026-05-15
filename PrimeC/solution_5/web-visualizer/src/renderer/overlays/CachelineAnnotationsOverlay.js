@@ -33,13 +33,99 @@
 /** Neutral badge colour used when the heat overlay is disabled. */
 const NEUTRAL_BADGE = { r: 100, g: 116, b: 139 }; // slate-500
 
+/** Colour for the CL-index labels (item 473). */
+const CL_LABEL_BG = { r: 71, g: 85, b: 105 };   // slate-600
+
 export class CachelineAnnotationsOverlay {
   constructor(host) {
     this.host = host;
   }
 
+  /** item 473: draw "CL0", "CL1", … at the first row of each cacheline group. */
+  _renderCachelineIndexLabels(ctx, glCtx) {
+    const host = this.host;
+    if (!host.showCachelineLabels) return;
+
+    // Basic geometry — required accessors must exist
+    if (!host._vectorDims || !host._rowDims || !host._labelHeight) return;
+    const phyBitsPerCL   = (host.cachelineSize || 64) * 8;
+    const bitsPerCacheLine = host.bitsPerCacheLine;
+    if (!bitsPerCacheLine || bitsPerCacheLine <= 0) return;
+    const numVec     = host._numVectorsPerRow();
+    const vecPerVRow = host._vectorGroupsPerVisualRow();
+    if (!numVec || !vecPerVRow) return;
+
+    const vecD       = host._vectorDims();
+    const rowD       = host._rowDims();
+    const labelH     = host._labelHeight();
+    const vRowHeight = labelH + rowD.h + host._u64GapY();
+    const vecStep    = vecD.w + host._u64GapX();
+    if (vRowHeight <= 0 || vecStep <= 0) return;
+
+    const cw = host.canvasWidth || 0;
+    const ch = host.canvasHeight || 0;
+    const startVRow = Math.max(0, Math.floor(-host.panY / vRowHeight));
+    const endVRow   = Math.ceil((ch - host.panY) / vRowHeight) + 1;
+
+    // Estimate visible physical cachelines
+    const totalBits  = host.bitCount || 0;
+    const numPhyCL   = Math.ceil(totalBits / phyBitsPerCL);
+    const firstVisLogCL = startVRow * vecPerVRow / numVec;
+    const lastVisLogCL  = endVRow   * vecPerVRow / numVec;
+    const firstVisPhy = Math.max(0,          Math.floor(firstVisLogCL * bitsPerCacheLine / phyBitsPerCL));
+    const lastVisPhy  = Math.min(numPhyCL - 1, Math.ceil(lastVisLogCL  * bitsPerCacheLine / phyBitsPerCL));
+
+    const padBX = 4, padBY = 1;
+    const bc = CL_LABEL_BG;
+    // Limit font size to fit within the label row height
+    const maxFs = Math.max(7, Math.min(11, Math.round(labelH * 0.6)));
+
+    ctx.save();
+    ctx.textAlign    = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = `600 ${maxFs}px Helvetica, Arial, sans-serif`;
+
+    for (let phyClIdx = firstVisPhy; phyClIdx <= lastVisPhy; phyClIdx++) {
+      const phyBitStart = phyClIdx * phyBitsPerCL;
+      const firstLogCL  = Math.floor(phyBitStart / bitsPerCacheLine);
+      const globalVecIdx = firstLogCL * numVec;
+      const vRow         = Math.floor(globalVecIdx / vecPerVRow);
+      const vecInRow     = globalVecIdx % vecPerVRow;
+
+      if (vRow < startVRow || vRow > endVRow) continue;
+
+      const text = `CL${phyClIdx}`;
+      const tw = ctx.measureText(text).width;
+      const bw = tw + padBX * 2;
+      const bh = maxFs + padBY * 2;
+
+      // Left edge of this group's first vector in screen space
+      const lx = Math.round(host.panX + vecInRow * vecStep);
+      // Vertically centred in the label row
+      const ly = Math.round(host.panY + vRow * vRowHeight + (labelH - bh) / 2);
+
+      if (lx + bw < 0 || lx > cw || ly + bh < 0 || ly > ch) continue;
+
+      const bx = Math.max(0, lx);
+      const by = ly;
+
+      if (glCtx) {
+        const [lr, lg, lb, la] = host._labelTextColorGL([bc.r, bc.g, bc.b]);
+        glCtx.drawFilledRect(bx, by, bw, bh, bc.r / 255, bc.g / 255, bc.b / 255, 0.85);
+        glCtx.drawOutlineRect(bx, by, bw, bh, 15 / 255, 23 / 255, 42 / 255, 0.45, 1.0);
+        glCtx.drawText(text, Math.round(bx + padBX), Math.round(by + bh / 2), maxFs, lr, lg, lb, Math.min(1, la + 0.1), 'left', 'middle');
+      }
+    }
+
+    ctx.restore();
+  }
+
   render(ctx, glCtx = null) {
     const host = this.host;
+
+    // item 473: always attempt to render CL index labels (independent of heat data)
+    this._renderCachelineIndexLabels(ctx, glCtx);
+
     // clHitCount is populated by rebuildHeatMap (called unconditionally
     // when cachelineAnnotation !== 'none' by Visualizer.jsx).
     if (!host.clHitCount) return;
