@@ -1,3 +1,4 @@
+/*
 #ifndef max_masks
     #define max_masks 2
 #endif
@@ -86,3 +87,4 @@ function(setBitsTrue_largestep_repeat_mmask,suffix)(void* restrict bitstorage, c
 #endif
 
 #endif
+*/
