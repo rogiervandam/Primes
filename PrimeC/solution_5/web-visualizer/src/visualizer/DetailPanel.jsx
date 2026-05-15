@@ -722,7 +722,7 @@ export default function DetailPanel({
 
   return (
     <div className={`detail-panel ${open ? 'open' : 'collapsed'}${isHeaderHidden ? ' header-hidden' : ''}${isFloating ? ' floating' : ''}`}>
-      {open && !playing && <div className="detail-panel-resize" onMouseDown={handleHeightDrag} />}
+      {open && <div className="detail-panel-resize" onMouseDown={!playing ? handleHeightDrag : undefined} style={playing ? { cursor: 'default' } : undefined} />}
         <div className="detail-panel-toggle">
         {/* item 353: unified toggle arrow on the left — opens/closes the detail panel */}
         {/*onToggle && (

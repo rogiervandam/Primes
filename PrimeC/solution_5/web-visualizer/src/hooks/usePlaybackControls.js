@@ -53,7 +53,7 @@ export function usePlaybackControls({
     // immediately jump to the next event without the between-events delay.
     // (The third branch above already handles currentStep === last step.)
     if (!isRepeatModeRef?.current && stepScrubProgress >= 99) {
-      goToStep(currentStep + 1, { keepPlaying: true, delayMs: 0 });
+      goToStep(currentStep, { keepPlaying: true, delayMs: 0 });
       setPlaying(true);
       return;
     }
