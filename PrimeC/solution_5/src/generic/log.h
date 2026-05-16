@@ -196,14 +196,14 @@ log_mask(int level, const void* bitstorage, const char* label, uint64_t word_bit
         size_t mask_lane_bytes, uint32_t mask_lane_count, uint32_t mask_lane_bits)
 {
     if (!(primes_log_should_trace(level) || primes_log_should_explain(level))) return;
-    if (mask_slot_count == 0 || mask_slot_count > 4) return;
+    if (mask_slot_count == 0 || mask_slot_count > 8) return;
 
     // static const char* s_opnames[] = {"", "ApplyMask", "ApplyMaskPair", "ApplyMaskTriple", "ApplyMaskQuad"};
 
     char annotation[4096] = {0};
-    uint32_t all_mask_bits[4][1024];
-    uint32_t all_mask_counts[4] = {0};
-    char mask_bits_texts[4][1024];
+    uint32_t all_mask_bits[8][1024];
+    uint32_t all_mask_counts[8] = {0};
+    char mask_bits_texts[8][1024];
     uint64_t* mask_target_words = NULL;
     uint32_t* mask_target_slots = NULL;
     uint32_t mask_target_count = 0;
@@ -220,16 +220,16 @@ log_mask(int level, const void* bitstorage, const char* label, uint64_t word_bit
 
     /* Build mask-bits portion of the annotation */
     char mask_part[2048] = {0};
-    if (mask_slot_count == 1) {
-        snprintf(mask_part, sizeof(mask_part), "mask_bits=%s", mask_bits_texts[0]);
-    } else {
-        char* p = mask_part;
-        size_t rem = sizeof(mask_part);
-        for (uint32_t s = 0; s < mask_slot_count && rem > 1; s++) {
-            int n = snprintf(p, rem, "%smask%u_bits=%s", s > 0 ? " " : "", s + 1, mask_bits_texts[s]);
-            if (n > 0) { p += (size_t)n; rem -= (size_t)n; }
-        }
-    }
+    // if (mask_slot_count == 1) {
+    //     snprintf(mask_part, sizeof(mask_part), "mask_bits=%s", mask_bits_texts[0]);
+    // } else {
+    //     char* p = mask_part;
+    //     size_t rem = sizeof(mask_part);
+    //     for (uint32_t s = 0; s < mask_slot_count && rem > 1; s++) {
+    //         int n = snprintf(p, rem, "%smask%u_bits=%s", s > 0 ? " " : "", s + 1, mask_bits_texts[s]);
+    //         if (n > 0) { p += (size_t)n; rem -= (size_t)n; }
+    //     }
+    // }
 
     snprintf(annotation, sizeof(annotation),
              "%s: with mask of %ju bits, start bucket %ju stop bucket %ju step %ju %s focus_start %ju focus_stop %ju bitrange %ju-%ju",
@@ -270,8 +270,9 @@ log_mask(int level, const void* bitstorage, const char* label, uint64_t word_bit
                 mask_target_slots[mask_target_count] = s;
                 mask_target_count++;
             }
-            const uint32_t* slot_bits_ptrs[4] = {
-                all_mask_bits[0], all_mask_bits[1], all_mask_bits[2], all_mask_bits[3]
+            const uint32_t* slot_bits_ptrs[8] = {
+                all_mask_bits[0], all_mask_bits[1], all_mask_bits[2], all_mask_bits[3],
+                all_mask_bits[4], all_mask_bits[5], all_mask_bits[6], all_mask_bits[7]
             };
             trace_record_applymask_step_labeled(level, bitstorage, label, annotation,
                                                 word_bits, (uint64_t)range_start_index, (uint64_t)range_stop_index, (uint64_t)step,

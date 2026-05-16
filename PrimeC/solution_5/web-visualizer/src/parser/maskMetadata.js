@@ -223,13 +223,22 @@ export function deriveMaskMeta(source, bitCountHint = 0) {
   const mask2Bits = firstNonEmptyIntegerList(sourceObj.pattern_slot1_bits, sourceObj.patternSlot1Bits, sourceObj.mask2_bits, sourceObj.mask2Bits);
   const mask3Bits = firstNonEmptyIntegerList(sourceObj.pattern_slot2_bits, sourceObj.patternSlot2Bits, sourceObj.mask3_bits, sourceObj.mask3Bits);
   const mask4Bits = firstNonEmptyIntegerList(sourceObj.pattern_slot3_bits, sourceObj.patternSlot3Bits, sourceObj.mask4_bits, sourceObj.mask4Bits);
+  const mask5Bits = firstNonEmptyIntegerList(sourceObj.pattern_slot4_bits, sourceObj.patternSlot4Bits);
+  const mask6Bits = firstNonEmptyIntegerList(sourceObj.pattern_slot5_bits, sourceObj.patternSlot5Bits);
+  const mask7Bits = firstNonEmptyIntegerList(sourceObj.pattern_slot6_bits, sourceObj.patternSlot6Bits);
+  const mask8Bits = firstNonEmptyIntegerList(sourceObj.pattern_slot7_bits, sourceObj.patternSlot7Bits);
 
   const maskSlotBits = [];
-  if (mask1Bits.length > 0 || mask2Bits.length > 0 || mask3Bits.length > 0 || mask4Bits.length > 0) {
+  if (mask1Bits.length > 0 || mask2Bits.length > 0 || mask3Bits.length > 0 || mask4Bits.length > 0
+      || mask5Bits.length > 0 || mask6Bits.length > 0 || mask7Bits.length > 0 || mask8Bits.length > 0) {
     maskSlotBits[0] = mask1Bits;
     maskSlotBits[1] = mask2Bits;
     if (mask3Bits.length > 0) maskSlotBits[2] = mask3Bits;
     if (mask4Bits.length > 0) maskSlotBits[3] = mask4Bits;
+    if (mask5Bits.length > 0) maskSlotBits[4] = mask5Bits;
+    if (mask6Bits.length > 0) maskSlotBits[5] = mask6Bits;
+    if (mask7Bits.length > 0) maskSlotBits[6] = mask7Bits;
+    if (mask8Bits.length > 0) maskSlotBits[7] = mask8Bits;
   } else if (maskBits.length > 0) {
     maskSlotBits[0] = maskBits;
   }
