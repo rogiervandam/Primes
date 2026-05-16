@@ -3,15 +3,29 @@
  *
  * Owns:
  *  - theme ('light' | 'dark')
+ *  - isUseSystemTheme (bool) — item 478: follow OS light/dark preference
  *  - gridOpacity (0..1)
  *  - canvasColors ({ light: [r,g,b]|null, dark: [r,g,b]|null })
  *  - colorPreset (named preset key)
  *  - customColors (per-class color overrides)
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export function useThemeAndColors({ initialPrefs }) {
   const [theme, setTheme] = useState(initialPrefs.theme);
+  const [isUseSystemTheme, setIsUseSystemTheme] = useState(initialPrefs.isUseSystemTheme ?? false); // item 478
+
+  // item 478: when isUseSystemTheme is on, follow the OS light/dark preference in real-time.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (isUseSystemTheme) {
+      setTheme(mq.matches ? 'dark' : 'light');
+      const handler = (e) => setTheme(e.matches ? 'dark' : 'light');
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+  }, [isUseSystemTheme]);
   const [gridOpacity, setGridOpacity] = useState(initialPrefs.gridOpacity);
   const [canvasColors, setCanvasColors] = useState(initialPrefs.canvasColors);
   const [colorPreset, setColorPreset] = useState(initialPrefs.colorPreset);
@@ -23,6 +37,7 @@ export function useThemeAndColors({ initialPrefs }) {
 
   return {
     theme, setTheme,
+    isUseSystemTheme, setIsUseSystemTheme,
     gridOpacity, setGridOpacity,
     canvasColors, setCanvasColors,
     colorPreset, setColorPreset,

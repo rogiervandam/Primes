@@ -99,21 +99,13 @@ export function useTriggerAnimation({ ...flatArgs }) {
     const timingOptions = adaptivePlan ? { ...durationOptions, adaptivePlan } : durationOptions;
     const effectiveBitInterval = getAnimationBitInterval(animatedBitCount, timingOptions);
     const est = estimateAnimDuration(animatedBitCount, timingOptions);
-    // Include the fade-out duration in animBusyUntilRef so the scheduler does not
-    // fire prematurely while the fade-out of the previous step is still running.
-    // (estimateAnimDuration intentionally omits fade-out, so we add it here.)
-    const fadeOutBitsForBudget = !options.keepProgress && !resuming && !options.skipFadeOut
-      ? (options.fadeOutBits ?? r.changedBits ?? null)
-      : null;
-    const fadeOutBitCountForBudget = fadeOutBitsForBudget
-      ? (fadeOutBitsForBudget.size ?? fadeOutBitsForBudget.length ?? 0)
-      : 0;
-    const fadeOutBudget = fadeOutBitCountForBudget > 0
-      ? getFadeOutDurationPure(fadeOutBitCountForBudget, options)
-      : 0;
+    // item 484: do NOT add a fadeOutBudget here. The fade-out of N's highlights
+    // happens at the START of N+1's triggerAnimation, which immediately sets its own
+    // animBusyUntilRef covering N's fade-out inside est_N+1. Adding a budget here
+    // caused the scheduler to wait an extra 0-420 ms after delayMs expired.
     const totalCycleDuration = requestedCycleDuration != null
-      ? Math.max(requestedCycleDuration, est + delayMs + fadeOutBudget)
-      : est + delayMs + fadeOutBudget;
+      ? Math.max(requestedCycleDuration, est + delayMs)
+      : est + delayMs;
     animBusyUntilRef.current = performance.now() + totalCycleDuration;
 
     if (!options.keepProgress && !resuming) {
@@ -264,6 +256,12 @@ export function useTriggerAnimation({ ...flatArgs }) {
             r.renderPulse(0.28, focusBits, { intensity: isBounce ? 1.35 : 1.15, showHalo: true });
           } else if (animStyle === 'fade' && partial.size > 0) {
             r.renderFade(isBounce ? 0.22 : 0.35);
+          } else if (animStyle === 'spark' && partial.size > 0) {
+            r.renderSpark(0.18);
+          } else if (animStyle === 'sweep' && partial.size > 0) {
+            r.renderSweep(0.22);
+          } else if (animStyle === 'glow' && partial.size > 0) {
+            r.renderGlow(0.25);
           }
           if (isBounce && partial.size > 0) {
             r.renderFade(0.25);
@@ -332,6 +330,12 @@ export function useTriggerAnimation({ ...flatArgs }) {
                 r.renderPulse(0.28, r.animationFocusBits, { intensity: 1.15, showHalo: true });
               } else if (animStyle === 'fade' && r.changedBits && r.changedBits.size > 0) {
                 r.renderFade(0.35);
+              } else if (animStyle === 'spark' && r.changedBits && r.changedBits.size > 0) {
+                r.renderSpark(0.18);
+              } else if (animStyle === 'sweep' && r.changedBits && r.changedBits.size > 0) {
+                r.renderSweep(0.22);
+              } else if (animStyle === 'glow' && r.changedBits && r.changedBits.size > 0) {
+                r.renderGlow(0.25);
               }
             }
           }

@@ -47,6 +47,7 @@ export function useVisualizerPropBundles({
   // ── Panels: events ────────────────────────────────────────────────────────
   panelWidth, isAllEventsWidgetHidden,
   setIsEventsPanelCollapsed, setPanelWidth,
+  annotationMarginLeft, setAnnotationMarginLeft,  // item 479
 
   // ── Panels: detail ────────────────────────────────────────────────────────
   detailWidth,
@@ -273,6 +274,8 @@ export function useVisualizerPropBundles({
         isCollapsed: isEventsPanelCollapsed,
         width: panelWidth,
         isAllEventsWidgetHidden,
+        annotationMarginLeft,      // item 479
+        setAnnotationMarginLeft,   // item 479
         handlers: {
           toggle: toggleEventsPanel,
           setCollapsed: setIsEventsPanelCollapsed,

@@ -145,6 +145,8 @@ export default function SettingsPanel({
   const {
     theme,
     setTheme,
+    isUseSystemTheme,    // item 478
+    setIsUseSystemTheme, // item 478
     gridOpacity,
     setGridOpacity,
     canvasColors,
@@ -185,6 +187,10 @@ export default function SettingsPanel({
     handleBitAnimationModeChange,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
+    isRepeatOnSelect,        // item 480
+    setIsRepeatOnSelect,     // item 480
+    isSkipNoChangeEvents,    // item 476
+    setIsSkipNoChangeEvents, // item 476
     animateBitsMode,       // item 244
     setAnimateBitsMode,    // item 244
     currentStepHasMasks,   // item 471
@@ -347,6 +353,7 @@ export default function SettingsPanel({
             colorPreset={colorPreset} onColorPresetChange={setColorPreset}
             customColors={customColors} onCustomColorsChange={setCustomColors}
             theme={theme} onThemeChange={setTheme}
+            isUseSystemTheme={isUseSystemTheme} onUseSystemThemeChange={setIsUseSystemTheme}
             canvasColors={canvasColors} onCanvasColorsChange={setCanvasColors}
             timelineColors={timelineColors} onTimelineColorsChange={setTimelineColors}
             floaterBg={floaterBg} onFloaterBgChange={setFloaterBg}
@@ -379,6 +386,8 @@ export default function SettingsPanel({
             bitAnimationMode={bitAnimationMode} onBitAnimationModeChange={handleBitAnimationModeChange}
             currentStepHasMasks={currentStepHasMasks}
             isAutoAnimateOnSelect={isAutoAnimateOnSelect} onAutoAnimateOnSelectChange={setIsAutoAnimateOnSelect}
+            isRepeatOnSelect={isRepeatOnSelect} onRepeatOnSelectChange={setIsRepeatOnSelect}
+            isSkipNoChangeEvents={isSkipNoChangeEvents} onSkipNoChangeEventsChange={setIsSkipNoChangeEvents}
             animateBitsMode={animateBitsMode} onAnimateBitsModeChange={setAnimateBitsMode}
           />
         )}

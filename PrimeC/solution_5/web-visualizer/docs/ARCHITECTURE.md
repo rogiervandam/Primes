@@ -27,6 +27,9 @@ src/
 ├── traceParser.js        Multi-format trace loader (JSON v2/v3, text, dump)
 │                         (async chunk — dynamically imported on first file open)
 ├── log-api-utils.mjs     Node-side log API helpers (list/read/upload/pending uploads)
+├── sieve-runner/         Docker runner feature (isolated; does not affect main app)
+│   ├── SieveRunnerScreen.jsx   Toggle-able panel: pick variant/size, launch container, load result
+│   └── SieveRunnerScreen.css  Scoped styles (.sr-*) for the runner screen
 ├── bin/
 │   └── docker-import.mjs Generic Docker .sievetrace importer/uploader
 ├── Icons.jsx             Shared SVG icon components
@@ -208,6 +211,27 @@ producers. It inspects arbitrary containers, discovers likely log directories
 from explicit CLI paths, labels, env vars, working directory, and common paths,
 copies matching `.sievetrace` files with `docker exec/find` or `docker cp`, and
 uploads them to the log API.
+
+## Docker runner (sieve-runner feature)
+
+`server/sieve-docker-api.mjs` adds a second group of server-side endpoints
+(handled by the same Vite plugin through `server/server-plugin.mjs`):
+
+- `GET  /api/sieve/status` — Docker availability + pre-built image check + variant list.
+- `POST /api/sieve/run` — Validate params, start a `docker run` job, return job ID.
+- `GET  /api/sieve/jobs` — In-memory list of recent jobs (running + history).
+- `GET  /api/sieve/jobs/:id` — Single job status + log tail.
+- `POST /api/sieve/jobs/:id/cancel` — Kill the named container and mark job cancelled.
+
+All user input is validated against a whitelist of variant names and a bounded
+integer range before reaching `child_process.spawn`. No shell interpolation is
+used.
+
+`src/sieve-runner/SieveRunnerScreen.jsx` is the React UI for this feature. It
+is lazy-loaded and entirely scoped to the welcome screen (it has no imports from
+the main Visualizer bundle). A "Run Sieve in Docker" toggle button on the
+welcome screen shows/hides the panel; on trace load it calls the existing
+`loadFromApi` path and dismisses itself.
 
 ## State ownership
 

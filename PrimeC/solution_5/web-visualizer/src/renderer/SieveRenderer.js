@@ -70,6 +70,9 @@ import {
   renderPulse as _renderPulse,
   renderMaskStamp as _renderMaskStamp,
   renderMaskHover as _renderMaskHover,
+  renderSpark as _renderSpark,    // item 483
+  renderSweep as _renderSweep,    // item 483
+  renderGlow as _renderGlow,      // item 483
 } from './effects/RendererAnimations';
 import { computeGlLayoutParams } from './layout/glLayoutComputer';
 
@@ -867,6 +870,15 @@ export class SieveRenderer {
 
   /** item 408: delegates to RendererAnimations.renderMaskHover */
   renderMaskHover(progress, precomputedSlotGroups = null)         { return _renderMaskHover(this, progress, precomputedSlotGroups); }
+
+  /** item 483: delegates to RendererAnimations.renderSpark */
+  renderSpark(progress)                                           { return _renderSpark(this, progress); }
+
+  /** item 483: delegates to RendererAnimations.renderSweep */
+  renderSweep(progress)                                           { return _renderSweep(this, progress); }
+
+  /** item 483: delegates to RendererAnimations.renderGlow */
+  renderGlow(progress)                                            { return _renderGlow(this, progress); }
 
   /** Content dimensions at current zoom */
   contentDimensions() {

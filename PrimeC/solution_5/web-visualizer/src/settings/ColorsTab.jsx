@@ -23,6 +23,7 @@ export default function ColorsTab({
   colorPreset, onColorPresetChange,
   customColors, onCustomColorsChange,
   theme, onThemeChange,
+  isUseSystemTheme, onUseSystemThemeChange,  // item 478
   canvasColors, onCanvasColorsChange,
   timelineColors, onTimelineColorsChange,  // item 321
   floaterBg, onFloaterBgChange,            // item 322/323
@@ -49,8 +50,8 @@ export default function ColorsTab({
             compact
             label="Light"
             hint="Light theme"
-            active={theme === 'light'}
-            onClick={() => onThemeChange && onThemeChange('light')}
+            active={theme === 'light' && !isUseSystemTheme}
+            onClick={() => { onUseSystemThemeChange && onUseSystemThemeChange(false); onThemeChange && onThemeChange('light'); }}
             preview={(
               <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                 <circle cx="24" cy="11" r="5" fill="currentColor" stroke="none" />
@@ -69,15 +70,34 @@ export default function ColorsTab({
             compact
             label="Dark"
             hint="Dark theme"
-            active={theme === 'dark'}
-            onClick={() => onThemeChange && onThemeChange('dark')}
+            active={theme === 'dark' && !isUseSystemTheme}
+            onClick={() => { onUseSystemThemeChange && onUseSystemThemeChange(false); onThemeChange && onThemeChange('dark'); }}
             preview={(
               <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
                 <path d="M22 5 a9 9 0 1 0 0 12 a6.5 6.5 0 1 1 0-12z" fill="currentColor" stroke="none" />
               </svg>
             )}
           />
+          {/* item 478: system theme toggle */}
+          <PreviewOptionButton
+            compact
+            label="Auto"
+            hint="Follow OS light/dark preference automatically"
+            active={!!isUseSystemTheme}
+            onClick={() => onUseSystemThemeChange && onUseSystemThemeChange(!isUseSystemTheme)}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="2" y="4" width="20" height="14" rx="2" fill="currentColor" opacity="0.85" />
+                <rect x="26" y="4" width="20" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.85" />
+                <text x="12" y="14" textAnchor="middle" fontSize="7" fill="var(--bg-surface, #1a1a1a)" style={{ pointerEvents: 'none' }}>☀</text>
+                <text x="36" y="14" textAnchor="middle" fontSize="7" fill="currentColor" style={{ pointerEvents: 'none' }}>☾</text>
+              </svg>
+            )}
+          />
         </div>
+        {isUseSystemTheme && (
+          <span className="settings-hint">Currently following the OS theme. Click Light or Dark to set a fixed theme.</span>
+        )}
       </div>
 
       <div className="settings-section">

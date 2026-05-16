@@ -32,7 +32,9 @@ export function estimateAnimDuration(bitCount, {
   const fadeOutMs = currentHighlighted > 0 ? getFadeOutDuration(currentHighlighted, options) : 0;
 
   if (bitCount <= 0 || animStyle === 'none') {
-    return fadeOutMs + (plan ? Math.min(3200, plan.totalDuration) : 0);
+    // item 484: no bit animation runs in these cases; only the pre-fade duration matters.
+    // Including plan.totalDuration here inflated animBusyUntilRef by hundreds of ms.
+    return fadeOutMs;
   }
 
   if (animMode === 'all' || effectiveBitInterval <= 0) {

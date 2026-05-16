@@ -1,10 +1,14 @@
-import React, { useState, useRef, useCallback, useEffect, Suspense } from 'react';
+import React, { useState, useRef, useCallback, useEffect, Suspense, lazy } from 'react';
 import { useTraceParser } from './workers/useTraceParser';
 
 // Lazy-load the Visualizer (+ SieveRenderer and all renderer deps) so the
 // welcome screen ships without them.  The chunk starts downloading as soon as
 // the user opens a file (see preloadVisualizer below).
-const Visualizer = React.lazy(() => import('./visualizer/Visualizer.jsx'));
+const Visualizer = lazy(() => import('./visualizer/Visualizer.jsx'));
+
+// Lazy-load the Docker runner screen — it has no dependencies on the main
+// visualizer bundle and is only shown on demand.
+const SieveRunnerScreen = lazy(() => import('./sieve-runner/SieveRunnerScreen.jsx'));
 
 /** Fire-and-forget: start fetching the Visualizer chunk early. */
 function preloadVisualizer() { import('./visualizer/Visualizer.jsx'); }
@@ -39,6 +43,7 @@ export default function App() {
   const [autoRender, setAutoRender] = useState(false);
   const [pendingUpload, setPendingUpload] = useState(null);
   const [isUrlTraceBootstrap, setIsUrlTraceBootstrap] = useState(() => hasInitialTraceUrl());
+  const [isRunnerOpen, setIsRunnerOpen] = useState(false);
   const fileInputRef = useRef(null);
   const benchmarkInputRef = useRef(null);
   const dropRef = useRef(null);
@@ -312,7 +317,16 @@ export default function App() {
               hidden
             />
           </div>
-          {logFiles.length > 0 && (
+          <div className="welcome-actions">
+            <button
+              className={`welcome-action-btn${isRunnerOpen ? ' welcome-action-btn--active' : ''}`}
+              onClick={() => setIsRunnerOpen((v) => !v)}
+              title="Launch a sieve trace job in a local Docker container"
+            >
+              {isRunnerOpen ? '← Back to log picker' : '▶ Run Sieve in Docker'}
+            </button>
+          </div>
+          {logFiles.length > 0 && !isRunnerOpen && (
             <div className="log-picker">
               <h3>Recent Traces</h3>
               <ul className="log-file-list">
@@ -329,6 +343,17 @@ export default function App() {
                 ))}
               </ul>
             </div>
+          )}
+          {isRunnerOpen && (
+            <Suspense fallback={<div className="loading-msg">Loading…</div>}>
+              <SieveRunnerScreen
+                onLoadTrace={(name) => {
+                  setIsRunnerOpen(false);
+                  loadFromApi(name);
+                }}
+                onClose={() => setIsRunnerOpen(false)}
+              />
+            </Suspense>
           )}
           {loadingLog && <div className="loading-msg">Loading trace file…</div>}
           {(error || parserError) && <div className="error-msg">{error || parserError}</div>}

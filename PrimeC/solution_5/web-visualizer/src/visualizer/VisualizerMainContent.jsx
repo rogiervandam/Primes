@@ -73,7 +73,7 @@ export default function VisualizerMainContent(props) {
 
   // Panels
   const { events: panelsEvents = {}, detail: panelsDetail = {}, settings: panelsSettings = {}, timing: panelsTiming = {} } = panels;
-  const { isCollapsed: isEventsPanelCollapsed, width: panelWidth, isAllEventsWidgetHidden, handlers: eventsHandlers = {} } = panelsEvents;
+  const { isCollapsed: isEventsPanelCollapsed, width: panelWidth, isAllEventsWidgetHidden, annotationMarginLeft, setAnnotationMarginLeft, handlers: eventsHandlers = {} } = panelsEvents;
   const { toggle: toggleEventsPanel, setCollapsed: setIsEventsPanelCollapsed, setPanelWidth } = eventsHandlers;
   const { width: detailWidth, isHeaderHidden: isDetailHeaderHidden, isFloating: isDetailPanelFloating, handlers: detailHandlers = {} } = panelsDetail;
   const { toggle: toggleDetailPanel, setOpen: setIsDetailOpen, updateHeight: updateDetailHeight, setWidth: setDetailWidth, dock: dockDetailPanel } = detailHandlers;
@@ -186,8 +186,10 @@ export default function VisualizerMainContent(props) {
     externalOpFilter: timingFocusOp,
     revealStepRequest,
     eventTitleVisible: eventTitleSettings.visible,
+    annotationMarginLeft,  // item 479
+    setAnnotationMarginLeft,  // item 479
   }), [steps, selectedSteps, panelWidth, timingFocusOp, revealStepRequest,
-       eventTitleSettings.visible]);
+       eventTitleSettings.visible, annotationMarginLeft, setAnnotationMarginLeft]);
 
   const stableEventsHandlers = useMemo(() => ({
     onStepClick: handleStepSelection,

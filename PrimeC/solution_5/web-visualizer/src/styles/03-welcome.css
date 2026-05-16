@@ -195,3 +195,31 @@
 .upload-prompt-actions button:hover {
   border-color: var(--accent);
 }
+
+/* ---- Welcome actions row (Docker runner toggle etc.) ---- */
+.welcome-actions {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0 4px;
+}
+.welcome-action-btn {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-heavy);
+  border-radius: 8px;
+  color: var(--fg-muted);
+  padding: 7px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.welcome-action-btn:hover {
+  background: var(--bg-input);
+  color: var(--fg-bright);
+  border-color: var(--accent-dim);
+}
+.welcome-action-btn--active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}

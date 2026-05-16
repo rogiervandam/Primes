@@ -56,7 +56,7 @@
  * @param {function} opts.setPlaying
  * @param {function} opts.setCurrentStep
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export function usePlaybackLoop({ ...flatArgs }) {
   const loopRefs = flatArgs.loopRefs || flatArgs;
@@ -108,7 +108,13 @@ export function usePlaybackLoop({ ...flatArgs }) {
 
   const {
     isAutoAnimateOnSelect = true,
+    isSkipNoChangeEvents = false,  // item 476
   } = loopConfig;
+
+  // item 476: keep a stable ref so the scheduleNext closure always reads the
+  // current value even though the effect dep array only includes `playing`.
+  const isSkipNoChangeEventsRef = useRef(isSkipNoChangeEvents);
+  isSkipNoChangeEventsRef.current = isSkipNoChangeEvents;
 
   // ── Effect 1: Repeat selected-step animation until selection changes ─────
   useEffect(() => {
@@ -312,14 +318,19 @@ export function usePlaybackLoop({ ...flatArgs }) {
           !(curStep.maskWriteOrderWords?.length > 0)
         );
         if (hasNoAnimation) {
-          const emptyDelay = delayBetweenEventsRef?.current ?? 0;
-          // Block the scheduler for the duration of the delay using animBusyUntilRef.
-          animBusyUntilRef.current = performance.now() + Math.max(emptyDelay, 1);
           const next = prev + 1;
           if (next >= steps.length) {
             setPlaying(false);
             return prev;
           }
+          // item 476: if skip-no-change is enabled, advance immediately without delay
+          if (isSkipNoChangeEventsRef.current) {
+            setTimeout(() => { if (!globalPausedRef.current) goToStepRef.current?.(next, { keepPlaying: true }); }, 0);
+            return next;
+          }
+          const emptyDelay = delayBetweenEventsRef?.current ?? 0;
+          // Block the scheduler for the duration of the delay using animBusyUntilRef.
+          animBusyUntilRef.current = performance.now() + Math.max(emptyDelay, 1);
           setTimeout(() => {
             if (!globalPausedRef.current) goToStepRef.current?.(next, { keepPlaying: true });
           }, emptyDelay);
