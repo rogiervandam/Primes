@@ -113,7 +113,7 @@ function(applyMask_index2_mmask,suffix)(void* restrict bitstorage, const counter
     log_mask(8, bitstorage, timer_function_names[time_applyMask_mmask], (uint64_t)bitcount_type(bitbucket_t), range_start_index, range_stop_index, step,
              (const void* const[]){masks, masks+1}, 2, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
-    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index2%s finished applying masks\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index2%s finished applying masks", STR(suffix));
 }
 
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
@@ -162,7 +162,7 @@ function(applyMask_index3_mmask,suffix)(void* restrict bitstorage, const counter
     log_mask(8, bitstorage, timer_function_names[time_applyMask_mmask], (uint64_t)bitcount_type(bitbucket_t), range_start_index, range_stop_index, step,
              (const void* const[]){masks, masks+1, masks+2}, 3, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
-    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index3%s finished applying masks\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index3%s finished applying masks", STR(suffix));
 }
 
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
@@ -212,7 +212,7 @@ function(applyMask_index4_mmask,suffix)(void* restrict bitstorage, const counter
     log_mask(8, bitstorage, timer_function_names[time_applyMask_mmask], (uint64_t)bitcount_type(bitbucket_t), range_start_index, range_stop_index, step,
              (const void* const[]){masks, masks+1, masks+2, masks+3}, 4, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
-    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index4%s finished applying masks\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index4%s finished applying masks", STR(suffix));
 }
 
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
@@ -262,7 +262,7 @@ function(applyMask_index5_mmask,suffix)(void* restrict bitstorage, const counter
     log_mask(8, bitstorage, timer_function_names[time_applyMask_mmask], (uint64_t)bitcount_type(bitbucket_t), range_start_index, range_stop_index, step,
              (const void* const[]){masks, masks+1, masks+2, masks+3, masks+4}, 5, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
-    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index5%s finished applying masks\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index5%s finished applying masks", STR(suffix));
 }
 
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
@@ -313,7 +313,7 @@ function(applyMask_index6_mmask,suffix)(void* restrict bitstorage, const counter
     log_mask(8, bitstorage, timer_function_names[time_applyMask_mmask], (uint64_t)bitcount_type(bitbucket_t), range_start_index, range_stop_index, step,
              (const void* const[]){masks, masks+1, masks+2, masks+3, masks+4, masks+5}, 6, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
-    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index6%s finished applying masks\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index6%s finished applying masks", STR(suffix));
 }
 
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
@@ -365,7 +365,7 @@ function(applyMask_index7_mmask,suffix)(void* restrict bitstorage, const counter
     log_mask(8, bitstorage, timer_function_names[time_applyMask_mmask], (uint64_t)bitcount_type(bitbucket_t), range_start_index, range_stop_index, step,
              (const void* const[]){masks, masks+1, masks+2, masks+3, masks+4, masks+5, masks+6}, 7, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
-    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index7%s finished applying masks\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index7%s finished applying masks", STR(suffix));
 }
 
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
@@ -418,7 +418,7 @@ function(applyMask_index8_mmask,suffix)(void* restrict bitstorage, const counter
     log_mask(8, bitstorage, timer_function_names[time_applyMask_mmask], (uint64_t)bitcount_type(bitbucket_t), range_start_index, range_stop_index, step,
              (const void* const[]){masks, masks+1, masks+2, masks+3, masks+4, masks+5, masks+6, masks+7}, 8, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
-    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index8%s finished applying masks\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index8%s finished applying masks", STR(suffix));
 }
 
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
@@ -475,7 +475,7 @@ function(applyMask_index_mmask,suffix)(void* restrict bitstorage, const counter_
     }
     #endif
 
-    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index%s finished applying masks\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index%s finished applying masks", STR(suffix));
 }
 
 // args variants for n=1 and n=2: masks passed as individual arguments so the compiler can keep them in registers
@@ -563,7 +563,7 @@ function(applyMask_index2_mmask_args,suffix)(void* restrict bitstorage, const co
     }
     // Note: log_mask omitted here — vector types with alignment > size cannot form a stack array.
     // Timing is still captured by logStart8/logStop8.
-    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index2_args%s finished applying masks\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index2_args%s finished applying masks", STR(suffix));
 }
 
 #endif

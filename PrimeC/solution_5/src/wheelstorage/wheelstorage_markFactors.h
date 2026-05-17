@@ -15,9 +15,9 @@ markFactors_wheelstorage(sieve_t *sieve, counter_t start, counter_t stop, counte
     // else
     if (prime < global_largestep_faster) {
     // if (step < 32) {
-        // markFactors_wheelstorage_small_repeat_mmask_uint64_unroll8(sieve->bitstorage, start, stop, step);
+        markFactors_wheelstorage_small_repeat_mmask_uint64_unroll8(sieve->bitstorage, start, stop, step, 4);
         // markFactors_wheelstorage_small_repeat_uint64_unroll8(sieve->bitstorage, start, stop, step);
-        markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve->bitstorage, start, stop, step);
+        // markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(sieve->bitstorage, start, stop, step);
     }
     else 
     function(markFactors_wheelstorage_repeat, wheelvariant_unroll_suffix)(sieve, start, stop, step);
