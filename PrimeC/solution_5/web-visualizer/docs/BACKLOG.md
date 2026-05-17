@@ -155,6 +155,9 @@ All three styles are available in both the seek/scrub timeline and the trigger (
 Sometimes there is a delay before the fade-out starts. Sometimes there is no fade-out at all. 
 
 
+485 DONE: When "skip no change" is selected and the users goes to next or previous event with the double timeline dragger < or > buttons, it should go to the previous or next event that has changes. This way users can quickly skip through events that don't have any impact on the state and focus on the ones that do when they are manually navigating through the events.
+
+486 OPEN: When mask and bit animation are on, it means that while the mask is going to be applied to the bits, it not only colors it, but does - for each mask group - a little animation where the bits in that group light up (as selection in animation mode, e.g.  sequential or bounce or all) and with the animation set with the animation style, e.g. ripple, fade, etc. With bit animation off and mask animation on, just leave it as it is now. 
 
 
 ## New Ideas

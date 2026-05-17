@@ -117,6 +117,8 @@ export default function DoubleTimeline({
   onRepeatEndPctChange,
   // item 458: delay between events (ms) — used to scale the ticker animation speed
   delayBetweenEvents = 2000,
+  // item 485: skip empty events when navigating with < > buttons
+  isSkipNoChangeEvents = false,
 }) {
   const {
     goToStep,
@@ -960,6 +962,23 @@ export default function DoubleTimeline({
   const stepCount = steps.length;
   const canNavigate = stepCount > 0 && !exporting;
   const isInDelayPhase = delayPhaseMs > 0;
+
+  // item 485: find the nearest step with animation content when skipping
+  const findPrevStepWithChanges = useCallback((fromIndex) => {
+    for (let i = fromIndex - 1; i >= 0; i--) {
+      const s = steps[i];
+      if (s && (s.changedBits?.length > 0 || s.maskWriteOrderWords?.length > 0)) return i;
+    }
+    return -1;
+  }, [steps]);
+  const findNextStepWithChanges = useCallback((fromIndex) => {
+    for (let i = fromIndex + 1; i < steps.length; i++) {
+      const s = steps[i];
+      if (s && (s.changedBits?.length > 0 || s.maskWriteOrderWords?.length > 0)) return i;
+    }
+    return -1;
+  }, [steps]);
+
   const annotationText = currentStepData?.annotation || '';
   const inspectableAnnotationUnit = useMemo(() => parseInspectableUnitFromAnnotation(annotationText), [annotationText]);
 
@@ -1351,8 +1370,16 @@ export default function DoubleTimeline({
             </button>
             <button className="dtl-btn" onClick={() => {
               if (focusMode === 'animation') { const p = Math.max(0, stepScrubProgress - 10); setStepScrubProgress(p); seekStepAnimation?.(p / 100); }
-              else canNavigate && goToStep(currentStep - 1);
-            }} disabled={!canNavigate} title={focusMode === 'animation' ? 'Animation back 10%' : 'Previous event'}>
+              else if (canNavigate) {
+                // item 485: skip to prev event with changes when skip-no-change is enabled
+                if (isSkipNoChangeEvents) {
+                  const target = findPrevStepWithChanges(currentStep);
+                  if (target >= 0) goToStep(target);
+                } else {
+                  goToStep(currentStep - 1);
+                }
+              }
+            }} disabled={!canNavigate} title={focusMode === 'animation' ? 'Animation back 10%' : (isSkipNoChangeEvents ? 'Previous event with changes' : 'Previous event')}>
               <StepBack size={10} />
             </button>
             <button className="dtl-btn dtl-speed" onClick={() => setPlaySpeedPercent?.((v) => Math.max(1, Math.round(v / 1.25)))} disabled={exporting} title="Slower">
@@ -1384,8 +1411,16 @@ export default function DoubleTimeline({
             </button>
             <button className="dtl-btn" onClick={() => {
               if (focusMode === 'animation') { const p = Math.min(100, stepScrubProgress + 10); setStepScrubProgress(p); seekStepAnimation?.(p / 100); }
-              else canNavigate && goToStep(currentStep + 1);
-            }} disabled={!canNavigate} title={focusMode === 'animation' ? 'Animation forward 10%' : 'Next event'}>
+              else if (canNavigate) {
+                // item 485: skip to next event with changes when skip-no-change is enabled
+                if (isSkipNoChangeEvents) {
+                  const target = findNextStepWithChanges(currentStep);
+                  if (target >= 0) goToStep(target);
+                } else {
+                  goToStep(currentStep + 1);
+                }
+              }
+            }} disabled={!canNavigate} title={focusMode === 'animation' ? 'Animation forward 10%' : (isSkipNoChangeEvents ? 'Next event with changes' : 'Next event')}>
               <StepForward size={10} />
             </button>
             <button className="dtl-btn" onClick={() => {

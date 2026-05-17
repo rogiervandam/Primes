@@ -99,6 +99,8 @@ export function useVisualizerPropBundles({
   isRepeatMode, setIsRepeatMode, repeatStartPct, setRepeatStartPct,
   // item 433: split repeat handle
   isRepeatSplit, setIsRepeatSplit, repeatEndPct, setRepeatEndPct,
+  // item 476/485: skip events with no changes
+  isSkipNoChangeEvents,
 
   // ── Overlays: minimap ─────────────────────────────────────────────────────
   isMinimapVisible, setIsMinimapVisible,
@@ -265,6 +267,8 @@ export function useVisualizerPropBundles({
         onRepeatSplitChange: setIsRepeatSplit,
         repeatEndPct,
         onRepeatEndPctChange: setRepeatEndPct,
+        // item 485: skip empty events when navigating with < > buttons
+        isSkipNoChangeEvents,
       },
     },
 

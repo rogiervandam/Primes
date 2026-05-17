@@ -1675,6 +1675,8 @@ export default function Visualizer({
     isRepeatMode, setIsRepeatMode, repeatStartPct, setRepeatStartPct,
     // item 433: split repeat handle
     isRepeatSplit, setIsRepeatSplit, repeatEndPct, setRepeatEndPct,
+    // item 476/485: skip events with no changes
+    isSkipNoChangeEvents,
     // Overlays: minimap
     isMinimapVisible, setIsMinimapVisible,
     // Detail inspector
