@@ -166,6 +166,8 @@ export function useTriggerAnimation({ ...flatArgs }) {
         endProgress: effectiveEndProgress < 1 ? effectiveEndProgress : undefined,
         combinedBits: combinedBitsConfig,
         durationMs: maskTotalDurationMs,
+        // item 486: pass animStyle so per-group bit effects fire during mask stamp animation
+        animStyle: combinedMode ? animStyle : undefined,
       };
       const effectiveMaskBitInterval = Math.max(5, maskTimingOptions.preferredIntervalMs || 20);
       r.setMaskGhostBits(new Set(changedSet.size > 0 ? changedSet : (r.targetBits || [])));

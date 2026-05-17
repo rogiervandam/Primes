@@ -101,6 +101,9 @@ export function useVisualizerPropBundles({
   isRepeatSplit, setIsRepeatSplit, repeatEndPct, setRepeatEndPct,
   // item 476/485: skip events with no changes
   isSkipNoChangeEvents,
+  // item 488: fast-play timeline simplification
+  isFastTimelineSimplifyEnabled,
+  fastTimelineCutoffMs,
 
   // ── Overlays: minimap ─────────────────────────────────────────────────────
   isMinimapVisible, setIsMinimapVisible,
@@ -269,6 +272,9 @@ export function useVisualizerPropBundles({
         onRepeatEndPctChange: setRepeatEndPct,
         // item 485: skip empty events when navigating with < > buttons
         isSkipNoChangeEvents,
+        // item 488: fast-play timeline simplification
+        isFastTimelineSimplifyEnabled,
+        fastTimelineCutoffMs,
       },
     },
 

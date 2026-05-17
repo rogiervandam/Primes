@@ -34,6 +34,8 @@ export function useViewPrefsSync({
   isAutoAnimateOnSelect,
   isRepeatOnSelect,         // item 480
   isSkipNoChangeEvents,     // item 476
+  isFastTimelineSimplifyEnabled,  // item 488
+  fastTimelineCutoffMs,           // item 488
   annotationMarginLeft,     // item 479
   isEventsPanelCollapsed,
   isSettingsCollapsed,
@@ -71,10 +73,12 @@ export function useViewPrefsSync({
       isAutoAnimateOnSelect,
       isRepeatOnSelect,         // item 480
       isSkipNoChangeEvents,     // item 476
+      isFastTimelineSimplifyEnabled,  // item 488
+      fastTimelineCutoffMs,           // item 488
       annotationMarginLeft,     // item 479
       isEventsPanelCollapsed,
       isSettingsCollapsed,
       isDetailOpen,
     });
-  }, [theme, isUseSystemTheme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, renderMode, debugGlModeOverride, debugWorkerGlyphMode, debugRenderTuning, colorPreset, customColors, timelineColors, floaterBg, draggerColor, zoneBgOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, isAllEventsWidgetHidden, isAllEventsInDetailPanel, isAutoAnimateOnSelect, isRepeatOnSelect, isSkipNoChangeEvents, annotationMarginLeft, isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpen]);
+  }, [theme, isUseSystemTheme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, renderMode, debugGlModeOverride, debugWorkerGlyphMode, debugRenderTuning, colorPreset, customColors, timelineColors, floaterBg, draggerColor, zoneBgOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, isAllEventsWidgetHidden, isAllEventsInDetailPanel, isAutoAnimateOnSelect, isRepeatOnSelect, isSkipNoChangeEvents, isFastTimelineSimplifyEnabled, fastTimelineCutoffMs, annotationMarginLeft, isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpen]);
 }

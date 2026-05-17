@@ -399,6 +399,9 @@ export function getInitialViewState() {
     isRepeatOnSelect: prefs?.isRepeatOnSelect === true,  // default: false
     // item 476: skip events with no changed bits when playing all events
     isSkipNoChangeEvents: prefs?.isSkipNoChangeEvents === true,  // default: false
+    // item 488: fast-play timeline simplification
+    isFastTimelineSimplifyEnabled: prefs?.isFastTimelineSimplifyEnabled !== false,  // default: true
+    fastTimelineCutoffMs: (typeof prefs?.fastTimelineCutoffMs === 'number' && prefs.fastTimelineCutoffMs >= 100 && prefs.fastTimelineCutoffMs <= 10000) ? prefs.fastTimelineCutoffMs : 500,
     // item 479: annotation left margin in the events panel (px, can be negative)
     annotationMarginLeft: (typeof prefs?.annotationMarginLeft === 'number') ? prefs.annotationMarginLeft : 5,
     ...initialPanelVisibility(prefs),

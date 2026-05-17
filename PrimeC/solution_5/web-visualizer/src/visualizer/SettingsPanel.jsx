@@ -191,6 +191,10 @@ export default function SettingsPanel({
     setIsRepeatOnSelect,     // item 480
     isSkipNoChangeEvents,    // item 476
     setIsSkipNoChangeEvents, // item 476
+    isFastTimelineSimplifyEnabled,     // item 488
+    setIsFastTimelineSimplifyEnabled,  // item 488
+    fastTimelineCutoffMs,              // item 488
+    setFastTimelineCutoffMs,           // item 488
     animateBitsMode,       // item 244
     setAnimateBitsMode,    // item 244
     currentStepHasMasks,   // item 471
@@ -388,6 +392,8 @@ export default function SettingsPanel({
             isAutoAnimateOnSelect={isAutoAnimateOnSelect} onAutoAnimateOnSelectChange={setIsAutoAnimateOnSelect}
             isRepeatOnSelect={isRepeatOnSelect} onRepeatOnSelectChange={setIsRepeatOnSelect}
             isSkipNoChangeEvents={isSkipNoChangeEvents} onSkipNoChangeEventsChange={setIsSkipNoChangeEvents}
+            isFastTimelineSimplifyEnabled={isFastTimelineSimplifyEnabled} onFastTimelineSimplifyEnabledChange={setIsFastTimelineSimplifyEnabled}
+            fastTimelineCutoffMs={fastTimelineCutoffMs} onFastTimelineCutoffMsChange={setFastTimelineCutoffMs}
             animateBitsMode={animateBitsMode} onAnimateBitsModeChange={setAnimateBitsMode}
           />
         )}

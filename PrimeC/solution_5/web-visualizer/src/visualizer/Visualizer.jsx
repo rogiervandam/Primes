@@ -300,6 +300,9 @@ export default function Visualizer({
   isRepeatOnSelectRef.current = isRepeatOnSelect;
   // item 476: skip events with no changes during all-events playback
   const [isSkipNoChangeEvents, setIsSkipNoChangeEvents] = useState(initialPrefs.isSkipNoChangeEvents ?? false);
+  // item 488: fast-play timeline simplification
+  const [isFastTimelineSimplifyEnabled, setIsFastTimelineSimplifyEnabled] = useState(initialPrefs.isFastTimelineSimplifyEnabled ?? true);
+  const [fastTimelineCutoffMs, setFastTimelineCutoffMs] = useState(initialPrefs.fastTimelineCutoffMs ?? 500);
   // item 479: annotation left margin in events panel (px, can be negative)
   const [annotationMarginLeft, setAnnotationMarginLeft] = useState(initialPrefs.annotationMarginLeft ?? 5);
   // item 433: split repeat handle into start + end range
@@ -737,6 +740,8 @@ export default function Visualizer({
     isAutoAnimateOnSelect,
     isRepeatOnSelect,     // item 480
     isSkipNoChangeEvents, // item 476
+    isFastTimelineSimplifyEnabled, // item 488
+    fastTimelineCutoffMs,          // item 488
     annotationMarginLeft, // item 479
     isEventsPanelCollapsed,
     isSettingsCollapsed,
@@ -1360,6 +1365,10 @@ export default function Visualizer({
     setIsRepeatOnSelect,        // item 480
     isSkipNoChangeEvents,       // item 476
     setIsSkipNoChangeEvents,    // item 476
+    isFastTimelineSimplifyEnabled,      // item 488
+    setIsFastTimelineSimplifyEnabled,   // item 488
+    fastTimelineCutoffMs,               // item 488
+    setFastTimelineCutoffMs,            // item 488
     animateBitsMode,          // item 244
     setAnimateBitsMode,       // item 244
     currentStepHasMasks,      // item 471
@@ -1386,6 +1395,10 @@ export default function Visualizer({
     setIsRepeatOnSelect,
     isSkipNoChangeEvents,
     setIsSkipNoChangeEvents,
+    isFastTimelineSimplifyEnabled,
+    setIsFastTimelineSimplifyEnabled,
+    fastTimelineCutoffMs,
+    setFastTimelineCutoffMs,
     animateBitsMode,          // item 244
     setAnimateBitsMode,       // item 244
     currentStepHasMasks,      // item 471
@@ -1677,6 +1690,9 @@ export default function Visualizer({
     isRepeatSplit, setIsRepeatSplit, repeatEndPct, setRepeatEndPct,
     // item 476/485: skip events with no changes
     isSkipNoChangeEvents,
+    // item 488: fast-play timeline simplification
+    isFastTimelineSimplifyEnabled,
+    fastTimelineCutoffMs,
     // Overlays: minimap
     isMinimapVisible, setIsMinimapVisible,
     // Detail inspector

@@ -151,12 +151,37 @@ export function useMaskStampAnimation({
         r.render();
         if (orderedWrites > 0) r.renderMaskHover(t, null);
         else r.renderMaskStamp(t);
+        // item 486: when animStyle is set (combined bit+mask mode), apply per-group style effect
+        // on the bits in the currently-active slot entry so bits light up as each group is stamped
+        if (options.animStyle && options.animStyle !== 'none' && combinedBits && slotGroups.length > 0) {
+          const activeBits = new Set();
+          for (let groupIndex = 0; groupIndex < slotGroups.length; groupIndex++) {
+            const entries = slotGroups[groupIndex];
+            const segmentCount = Math.max(1, entries.length);
+            const unit = t * segmentCount;
+            const index = Math.min(entries.length - 1, Math.floor(unit));
+            const bitsForCurrentEntry = entryBitsCache.get(entries[index]) || [];
+            for (let bi = 0; bi < bitsForCurrentEntry.length; bi++) activeBits.add(bitsForCurrentEntry[bi]);
+          }
+          if (activeBits.size > 0) {
+            r.animationFocusBits = activeBits;
+            const style = options.animStyle;
+            if (style === 'ripple') r.renderRipple(0.18, activeBits, { intensity: 1.05 });
+            else if (style === 'pulse') r.renderPulse(0.28, activeBits, { intensity: 1.15 });
+            else if (style === 'fade') r.renderFade(0.35);
+            else if (style === 'spark') r.renderSpark(0.18);
+            else if (style === 'sweep') r.renderSweep(0.22);
+            else if (style === 'glow') r.renderGlow(0.25);
+          }
+        }
         if (t < effectiveEndProgress) {
           rippleRef.current = requestAnimationFrame(tick);
           return;
         }
         r.setMaskGhostBits(new Set());
         r.showMaskWriteOverlay = previousShowMaskOverlay;
+        // item 486: clear animationFocusBits set during combined per-group effects
+        if (options.animStyle && r.animationFocusBits) r.animationFocusBits = new Set();
         r.render();
         r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         if (stepScrubProgressRef.current) stepScrubProgressRef.current(Math.round(effectiveEndProgress * 100));

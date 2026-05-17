@@ -119,6 +119,9 @@ export default function DoubleTimeline({
   delayBetweenEvents = 2000,
   // item 485: skip empty events when navigating with < > buttons
   isSkipNoChangeEvents = false,
+  // item 488: fast-play timeline simplification
+  isFastTimelineSimplifyEnabled = true,
+  fastTimelineCutoffMs = 500,
 }) {
   const {
     goToStep,
@@ -190,6 +193,8 @@ export default function DoubleTimeline({
   // item 310: track whether a drag happened during the last center-zone pointer-down
   // so the click handler can tell a drag apart from a plain click.
   const centerWasDraggedRef = useRef(false);
+  // item 487: track whether the user has the pointer down on the anim zone (scrubbing)
+  const [isAnimScrubbing, setIsAnimScrubbing] = useState(false);
 
   // item 181: smooth undock/dock animation
   const preUndockRectRef = useRef(null);  // rect captured just before undocking
@@ -809,6 +814,7 @@ export default function DoubleTimeline({
     if (isDividerDraggingRef.current) return;  // item 218: ignore if center is being dragged
     if (isRepeatDraggingRef.current) return;   // ignore if repeat handle is being dragged
     if (isScrubbingTopRef) isScrubbingTopRef.current = true;
+    setIsAnimScrubbing(true);  // item 487: suppress fill transition while scrubbing
     e.currentTarget.setPointerCapture(e.pointerId);
     setFocusMode('animation');  // item 219: click/drag in anim zone → animation focus
     animSeek(e);
@@ -835,6 +841,7 @@ export default function DoubleTimeline({
   const handleAnimPointerUp = useCallback((e) => {
     if (isRepeatDraggingRef.current) return;   // ignore: repeat handle drag will release its own capture
     if (isScrubbingTopRef) isScrubbingTopRef.current = false;
+    setIsAnimScrubbing(false);  // item 487: restore fill transition on release
     animSeek(e);
     // item 439: if released beyond the repeat end boundary, snap back to the limit
     if (isRepeatMode) {
@@ -962,6 +969,8 @@ export default function DoubleTimeline({
   const stepCount = steps.length;
   const canNavigate = stepCount > 0 && !exporting;
   const isInDelayPhase = delayPhaseMs > 0;
+  // item 488: fast-play mode — simplified timeline when events cycle too fast to usefully track
+  const isFastPlayMode = playing && !isAnimScrubbing && isFastTimelineSimplifyEnabled && delayBetweenEvents < fastTimelineCutoffMs;
 
   // item 485: find the nearest step with animation content when skipping
   const findPrevStepWithChanges = useCallback((fromIndex) => {
@@ -1439,12 +1448,12 @@ export default function DoubleTimeline({
         {/* item 138: pointer handlers on zone so click/drag works over full height; playhead is absolute on zone */}
         <div
           ref={animZoneRef}
-          className={`dtl-zone dtl-anim-zone${animIsZoomed ? ' dtl-anim-zoomed' : ''}`}
-          style={{ flex: `${1 - splitFraction} 1 0`, minWidth: 40 }}
+          className={`dtl-zone dtl-anim-zone${animIsZoomed ? ' dtl-anim-zoomed' : ''}${isAnimScrubbing ? ' dtl-anim-scrubbing' : ''}${isAnimPlaying && !isAnimScrubbing ? ' dtl-anim-playing' : ''}`}
+          style={{ flex: `${1 - splitFraction} 1 0`, minWidth: 40, '--fast-play-cutoff-ms': `${fastTimelineCutoffMs}ms` }}
           onPointerDown={handleAnimPointerDown}
           onPointerMove={handleAnimPointerMove}
           onPointerUp={handleAnimPointerUp}
-          onPointerCancel={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; }}
+          onPointerCancel={() => { if (isScrubbingTopRef) isScrubbingTopRef.current = false; setIsAnimScrubbing(false); }}
           title="Click or drag to see animation progress"
         >
           {/* item 291: active area — inset past the settings toggle on the right */}
@@ -1471,15 +1480,17 @@ export default function DoubleTimeline({
             />
             {/* item 444: active fill — from range start to playhead, bright color; wipes during delay */}
             <div
-              key={isEmptyEvent && playing ? `empty-${currentStep}` : (isInDelayPhase ? `delay-${currentStep}` : 'active')}
+              key={isFastPlayMode ? `fast-play-${currentStep}` : (isEmptyEvent && playing ? `empty-${currentStep}` : (isInDelayPhase ? `delay-${currentStep}` : 'active'))}
               className={`dtl-anim-fill-active${
-                isEmptyEvent && playing
+                isFastPlayMode
+                  ? ' dtl-anim-fill-active--fast-play'
+                  : isEmptyEvent && playing
                   ? ' dtl-anim-fill--empty'
                   : isInDelayPhase ? ' dtl-anim-fill-active--fading' : ''
               }`}
               style={{
                 left: `${animRangeStartDisplayPct}%`,
-                width: `${animActiveFillWidthPct}%`,
+                width: `${isFastPlayMode ? animRangeWidthDisplayPct : animActiveFillWidthPct}%`,
                 backgroundColor: `rgba(${animRgb[0]},${animRgb[1]},${animRgb[2]},0.80)`,  // item 459: bright fill for visibility
                 '--delay-ms': `${delayPhaseMs}ms`,
               }}

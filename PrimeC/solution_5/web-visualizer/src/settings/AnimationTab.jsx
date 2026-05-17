@@ -229,6 +229,8 @@ function AnimationTab({
   isAutoAnimateOnSelect, onAutoAnimateOnSelectChange,
   isRepeatOnSelect, onRepeatOnSelectChange,           // item 480
   isSkipNoChangeEvents, onSkipNoChangeEventsChange,   // item 476
+  isFastTimelineSimplifyEnabled, onFastTimelineSimplifyEnabledChange,  // item 488
+  fastTimelineCutoffMs, onFastTimelineCutoffMsChange,                  // item 488
   animateBitsMode, onAnimateBitsModeChange,  // item 244
 }) {
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
@@ -719,6 +721,52 @@ function AnimationTab({
             <strong>Auto-animate</strong>: play animation immediately on event click.{' '}
             <strong>Repeat on select</strong>: turn on repeat mode when selecting an event.{' '}
             <strong>Skip no-change</strong>: skip events with no bit changes during all-events play.
+          </span>
+        </div>
+      )}
+
+      {onFastTimelineSimplifyEnabledChange != null && (
+        <div className="settings-section">
+          <label>Fast-play timeline</label>
+          <div className="preview-btn-grid preview-btn-grid-2" style={{ justifyContent: 'flex-start' }}>
+            <PreviewOptionButton
+              compact
+              label="Simplify at speed"
+              hint="When events are very fast, replace the progress bar with a smooth looping sweep instead of jumpy real-time tracking"
+              active={!!isFastTimelineSimplifyEnabled}
+              onClick={() => onFastTimelineSimplifyEnabledChange && onFastTimelineSimplifyEnabledChange(!isFastTimelineSimplifyEnabled)}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="4" y="8" width="40" height="6" opacity="0.2" rx="1" />
+                  <rect x="4" y="8" width="26" height="6" opacity="0.8" rx="1" />
+                  <line x1="30" y1="4" x2="30" y2="18" strokeWidth="1.5" />
+                </svg>
+              )}
+            />
+          </div>
+          {isFastTimelineSimplifyEnabled && onFastTimelineCutoffMsChange != null && (
+            <>
+              <div style={{ marginTop: 8 }}>
+                <input
+                  className="timing-slider"
+                  type="range"
+                  min={100}
+                  max={3000}
+                  step={100}
+                  value={fastTimelineCutoffMs || 500}
+                  onChange={(e) => startTransition(() => onFastTimelineCutoffMsChange(clamp(parseInt(e.target.value || '500', 10) || 500, 100, 10000)))}
+                  title="When the delay between events is shorter than this, use the simplified sweep animation"
+                />
+                <div className="timing-scale" aria-hidden="true">
+                  <span>100ms</span>
+                  <span className="timing-value">Cutoff: {fmtMs(fastTimelineCutoffMs || 500)}</span>
+                  <span>3s</span>
+                </div>
+              </div>
+            </>
+          )}
+          <span className="settings-hint">
+            When playing and the delay between events is below the cutoff, hides the jumping playhead and shows a smooth looping sweep instead. The playhead is always visible when paused or scrubbing.
           </span>
         </div>
       )}
