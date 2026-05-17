@@ -159,6 +159,11 @@ Sometimes there is a delay before the fade-out starts. Sometimes there is no fad
 
 486 OPEN: When mask and bit animation are on, it means that while the mask is going to be applied to the bits, it not only colors it, but does - for each mask group - a little animation where the bits in that group light up (as selection in animation mode, e.g.  sequential or bounce or all) and with the animation set with the animation style, e.g. ripple, fade, etc. With bit animation off and mask animation on, just leave it as it is now. 
 
+487 OPEN: The animation timeline progress bar has some delay when catching up the the playhead. When the playhead is used, the progress bar should immediately jump to the playhead position, so there is no delay. This way users can have a more responsive and accurate feedback when they are scrubbing through the timeline or jumping to a specific event.
+
+488 OPEN: The animation timeline is distracting when playing at high speeds. Let's fix that. First, lets not move the playhead when animating. The user can see the playhead jumping around and it is distracting. Instead, we only show the playhead when paused/scrubbing. When playing, we hide the playhead and only show the progress bar. Second, there is a cutoff point. While we go over (multiple) events that have (animation time + delay time) is < (cut off) seconds per event, don't show real progress or fade-out during delay in the animation timeline, but have the timeline do fade in left-right and then fade-out left right in a loop with a total duration of (cut off) seconds. In the animation settings, let the user set the cutoff point and also toggle this feature on and off. This way users can still have a visual indication that events are being played, without the distraction of the playhead jumping around and the progress bar not keeping up with the playhead.
+
+
 
 ## New Ideas
 
