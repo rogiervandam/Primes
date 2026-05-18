@@ -8,6 +8,20 @@
 
 #elif defined(BUILD_VECTORS_STAGE) || defined(BUILD_WORDS_STAGE)
 
+#if defined(__clang__)
+    #define LOOP_UNROLL_32 _Pragma("clang loop unroll_count(32)")
+    #define LOOP_UNROLL_8 _Pragma("clang loop unroll_count(8)")
+    #define LOOP_IVDEP
+#elif defined(__GNUC__)
+    #define LOOP_UNROLL_32 _Pragma("GCC unroll 32")
+    #define LOOP_UNROLL_8 _Pragma("GCC unroll 8")
+    #define LOOP_IVDEP _Pragma("GCC ivdep")
+#else
+    #define LOOP_UNROLL_32
+    #define LOOP_UNROLL_8
+    #define LOOP_IVDEP
+#endif
+
 static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step, const bitbucket_t mask1, const bitbucket_t mask2) 
 {
@@ -21,9 +35,9 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
     register       bitbucket_t* restrict index_ptr        = __builtin_assume_aligned(&bitstorage_sized[range_start],sizeof(bitbucket_t));
     
     #if unrolls == 4
-        #pragma GCC ivdep
-        #pragma GCC unroll 32
-        for(;likely(index_ptr < fast_loop_ptr);) {
+        LOOP_IVDEP
+        LOOP_UNROLL_32
+        for(;likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *index_ptr                |= mask1; 
             *(index_ptr + 1         ) |= mask2; 
             *(index_ptr + step      ) |= mask1; 
@@ -32,13 +46,12 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
             *(index_ptr + step_2 + 1) |= mask2; 
             *(index_ptr + step_3)     |= mask1; 
             *(index_ptr + step_3 + 1) |= mask2; 
-            index_ptr += step_max;
         }
     #endif
 
     #if unrolls == 8
-        #pragma GCC ivdep
-        #pragma GCC unroll 32
+        LOOP_IVDEP
+        LOOP_UNROLL_32
         for(; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *index_ptr                  |= mask1;
             *(index_ptr + 1           ) |= mask2;  
@@ -58,8 +71,8 @@ function(applyMask_index_pair,suffix)(void* restrict bitstorage, const counter_t
             *(index_ptr + step * 7 + 1) |= mask2;
         }
     #endif 
-        
-    for (counter_t i=(unrolls+1); i-- && likely(index_ptr < range_stop_ptr); index_ptr += step) { // signal compiler that only <unrolls iterations are left
+
+    for (; index_ptr < range_stop_ptr; index_ptr += step) { 
         *index_ptr     |= mask1; 
         *(index_ptr+1) |= mask2; 
     }

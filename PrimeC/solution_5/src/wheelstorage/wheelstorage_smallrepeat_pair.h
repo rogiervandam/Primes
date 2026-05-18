@@ -28,11 +28,12 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
         if (new_bucket != current_bucket) {
             if (pending_mask) {
                 if (current_mask && ((pending_bucket + 1) == current_bucket )) { 
-                    // function(applyMask_index_pair,suffix)(sieve->bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
-                    function(applyMask_index2_mmask_args,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
+                    function(applyMask_index_pair,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
+                    // function(applyMask_index2_mmask_args,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
                     current_mask = (bitbucket_t)0U; // will be copied to pending_mask
                 }
                 else {
+                    // function(applyMask_index1_mmask_args,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
                     function(applyMask_index,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
                 }
             }
@@ -49,9 +50,11 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
 
     if (pending_mask) {
         function(applyMask_index,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
+        // function(applyMask_index1_mmask_args,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
     }
     if (current_mask) {
         function(applyMask_index,suffix)(bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
+        // function(applyMask_index1_mmask_args,suffix)(bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
     }
 
     logStop7(bitstorage, time_markFactors_wheelstorage_small_repeat_pair, "finished marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number, (uintmax_t)((safe_diff(stop_number,start_number))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(stop_number,start_number))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));

@@ -119,8 +119,8 @@ typedef struct {
 
 // Global array with all setBitsTrue functions
 static SetBitsTrueMethod setBitsTrueMethods[] = {
-    { "setBitsTrue                                 ", setBitsTrue                                 , 0, INT32_MAX, 1, FUNCTION_TYPE_BITS },
-    { "setBitsTrue_range                           ", setBitsTrue_range_uint8                    , 0, INT32_MAX, 1, FUNCTION_TYPE_BITS },
+    // { "setBitsTrue                                 ", setBitsTrue                                 , 0, INT32_MAX, 1, FUNCTION_TYPE_BITS },
+    // { "setBitsTrue_range                           ", setBitsTrue_range_uint8                    , 0, INT32_MAX, 1, FUNCTION_TYPE_BITS },
     // { "setBitsTrue_smallstep_rotate_pair_uint64v8  ", setBitsTrue_smallstep_rotate_pair_uint64v8  , 0, 63, 1, FUNCTION_TYPE_BITS },
     // { "setBitsTrue_smallstep_rotate_pair_uint64v4  ", setBitsTrue_smallstep_rotate_pair_uint64v4  , 0, 63, 1, FUNCTION_TYPE_BITS },
     // { "setBitsTrue_smallstep_rotate_pair_uint32v16 ", setBitsTrue_smallstep_rotate_pair_uint32v16 , 0, 31, 1, FUNCTION_TYPE_BITS },
@@ -150,11 +150,28 @@ static SetBitsTrueMethod setBitsTrueMethods[] = {
     // { "setBitsTrue_largestep_repeat_uint8_unroll8  ", setBitsTrue_largestep_repeat_uint8_unroll8  , 0, INT32_MAX, 1, FUNCTION_TYPE_BITS },
     // { "setBitsTrue_largestep_repeat_old_uint64_unroll8  ", setBitsTrue_largestep_repeat_old_uint64_unroll8  , 0, INT32_MAX, 1, FUNCTION_TYPE_BITS },
     // { "setBitsTrue_largestep_repeat_uint64_unroll8  ", setBitsTrue_largestep_repeat_uint64_unroll8  , 0, INT32_MAX, 1, FUNCTION_TYPE_BITS },
-    { "markFactors_wheelstorage_small_repeat_mmask_uint64_unroll8", markFactors_wheelstorage_small_repeat_mmask_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_uint64_unroll8", markFactors_wheelstorage_small_repeat_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_uint64_unroll4", markFactors_wheelstorage_small_repeat_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_pair_uint64_unroll8", markFactors_wheelstorage_small_repeat_pair_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_pair_uint64_unroll4", markFactors_wheelstorage_small_repeat_pair_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_mmask1_uint64_unroll8", markFactors_wheelstorage_small_repeat_mmask1_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_mmask2_uint64_unroll8", markFactors_wheelstorage_small_repeat_mmask2_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_mmask3_uint64_unroll8", markFactors_wheelstorage_small_repeat_mmask3_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_mmask4_uint64_unroll8", markFactors_wheelstorage_small_repeat_mmask4_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    // { "markFactors_wheelstorage_small_repeat_mmask5_uint64_unroll8", markFactors_wheelstorage_small_repeat_mmask5_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    // { "markFactors_wheelstorage_small_repeat_mmask6_uint64_unroll8", markFactors_wheelstorage_small_repeat_mmask6_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    // { "markFactors_wheelstorage_small_repeat_mmask7_uint64_unroll8", markFactors_wheelstorage_small_repeat_mmask7_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    // { "markFactors_wheelstorage_small_repeat_mmask8_uint64_unroll8", markFactors_wheelstorage_small_repeat_mmask8_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_mmask1_uint64_unroll4", markFactors_wheelstorage_small_repeat_mmask1_uint64_unroll4, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_mmask2_uint64_unroll4", markFactors_wheelstorage_small_repeat_mmask2_uint64_unroll4, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_mmask3_uint64_unroll4", markFactors_wheelstorage_small_repeat_mmask3_uint64_unroll4, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    { "markFactors_wheelstorage_small_repeat_mmask4_uint64_unroll4", markFactors_wheelstorage_small_repeat_mmask4_uint64_unroll4, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    // { "markFactors_wheelstorage_small_repeat_mmask5_uint64_unroll4", markFactors_wheelstorage_small_repeat_mmask5_uint64_unroll4, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    // { "markFactors_wheelstorage_small_repeat_mmask6_uint64_unroll4", markFactors_wheelstorage_small_repeat_mmask6_uint64_unroll4, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    // { "markFactors_wheelstorage_small_repeat_mmask7_uint64_unroll4", markFactors_wheelstorage_small_repeat_mmask7_uint64_unroll4, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
+    // { "markFactors_wheelstorage_small_repeat_mmask8_uint64_unroll4", markFactors_wheelstorage_small_repeat_mmask8_uint64_unroll4, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
     // { "markFactors_wheelstorage_small_repeat_mmask_uint32_unroll8", markFactors_wheelstorage_small_repeat_mmask_uint32_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
     // { "markFactors_wheelstorage_small_repeat_mmask_uint8_unroll8 ", markFactors_wheelstorage_small_repeat_mmask_uint8_unroll8 , 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
-    { "markFactors_wheelstorage_small_repeat_uint64_unroll8", markFactors_wheelstorage_small_repeat_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
-    { "markFactors_wheelstorage_small_repeat_pair_uint64_unroll8", markFactors_wheelstorage_small_repeat_pair_uint64_unroll8, 0, INT32_MAX, 1, FUNCTION_TYPE_NUMBERS },
     // { }
 };
 
