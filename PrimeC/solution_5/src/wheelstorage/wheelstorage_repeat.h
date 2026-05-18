@@ -4,12 +4,13 @@ function(markFactors_wheelstorage_repeat,suffix)(void* restrict bitstorage, cons
     logStart7(bitstorage, time_markFactors_wheelstorage_repeat, "mark factors [%jd-%jd] with step %jd prime %jd", 
         (intmax_t)start_number, (intmax_t)stop_number, (intmax_t)step, (intmax_t)step/2);
 
+    // const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(stop_number); 
     const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(stop_number); 
-    const counter_t wheel_step = reduce2power(step * max(bitcount_type(bitbucket_t), wheelmask_stripe_bits) / min(bitcount_type(bitbucket_t), wheelmask_stripe_bits)); // step in terms of the number of bitbuckets
+    const counter_t wheel_step = reduce2power(step); // step in terms of the number of bitbuckets
     log9("Calculated wheel step: %ju (reduced from %ju) for prime %ju with bitbucket size %ju and wheel stripe bits %ju and reduce2power %ju", 
         (uintmax_t)wheel_step, (uintmax_t)step, (uintmax_t)step/2, (uintmax_t)bitcount_type(bitbucket_t), (uintmax_t)wheelmask_stripe_bits, (uintmax_t)reduce2power(step));
 
-    const counter_t last_number_unique = min(getFactor( (wheel_bit_estimate_last(start_number)) - 1 + wheel_step * wheelmask_stripe_bits * ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits)), stop_number);
+    const counter_t last_number_unique = min(getFactor( wheel_bit_estimate_last(start_number) - 1 + wheel_step * bitcount_type(bitbucket_t)), stop_number);
 
     for (register counter_t index_number = start_number; index_number <= last_number_unique; index_number += step) { 
         const counter_t wheel_bit = wheel_bit_calc(index_number);

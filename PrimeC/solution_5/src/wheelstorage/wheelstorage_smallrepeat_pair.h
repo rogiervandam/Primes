@@ -5,7 +5,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
         (uintmax_t)step/2, (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number);   
 
     const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(stop_number);
-    const counter_t wheel_step = reduce2power((step * wheelmask_stripe_bits)); // step in words, accounting for stripe alignment
+    const counter_t wheel_step = reduce2power((step)); // step in words, accounting for stripe alignment
 
     // align to first full bucket
     const counter_t next_aligned = min(getFactor( bitbucket_end_type(wheel_bit_estimate_last(start_number)+1, bitbucket_t)), stop_number); // the next factor that is aligned to the wheel, this is the first index we can start marking from
@@ -14,7 +14,8 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
     for (; start_number <= next_aligned; start_number += step) function(markFactor_wheelstorage,suffix)(bitstorage, start_number);
     logStop8(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "Finished aligning to first full bitbucket at number %ju", (uintmax_t)start_number);
 
-    const counter_t stop_number_unique = min(getFactor( bitbucket_start_type(wheel_bit_estimate_last(start_number), bitbucket_t) - 1 + wheel_step * wheelmask_stripe_bits * ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits)), stop_number);
+    // const counter_t stop_number_unique = min(getFactor( bitbucket_start_type(wheel_bit_estimate_last(start_number), bitbucket_t) - 1 + wheel_step * wheelmask_stripe_bits * ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits)), stop_number);
+    const counter_t stop_number_unique = min(getFactor( bitbucket_start_type(wheel_bit_estimate_last(start_number), bitbucket_t) - 1 + wheel_step * bitcount_type(bitbucket_t)), stop_number);
     bitbucket_t current_mask = (bitbucket_t)0U, pending_mask = (bitbucket_t)0U;
     counter_t pending_bucket = 0, current_bucket = 0; // initialize current_bucket to 0 always triggers pending mask, but maybe cheaper than calculating the first bucket beforehand
 

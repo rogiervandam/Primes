@@ -13,11 +13,15 @@
         #define WHEEL_STRIPES 8                 // the number of places for potential primes in each repetition of the wheel, this determines how many bits we need
 
     #endif
-    #define WHEEL_SIZE             (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
-    #define WHEEL_STRIPE_BITS      (((WHEEL_STRIPES * WHEEL_REPEATS - 1) / bitcount_type(wheelmask_t) + 1) * bitcount_type(wheelmask_t)) 
+    #define WHEEL_SIZE                  (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
+    #define WHEEL_STRIPE_BITS           (((WHEEL_STRIPES * WHEEL_REPEATS - 1) / bitcount_type(wheelmask_t) + 1) * bitcount_type(wheelmask_t)) 
 
-    #define wheelmask_stripes      (WHEEL_STRIPES * WHEEL_REPEATS) // the number of stripes in the wheel
-    #define wheelmask_stripe_bits  (WHEEL_STRIPE_BITS) // the number of bits reserved for each repetition of the wheel
+    #define wheel_multiplier(type)      (max(bitcount_type(type), wheelmask_stripe_bits) / min(bitcount_type(type), wheelmask_stripe_bits))
+    #define wheelmask_stripes_single    (WHEEL_STRIPES)                 // the number of stripes in the wheel
+    #define wheelmask_stripes           (WHEEL_STRIPES * WHEEL_REPEATS) // the number of stripes in the wheel
+    #define wheelmask_stripe_bits       (WHEEL_STRIPE_BITS)             // the number of bits reserved for each repetition of the wheel
+
+    #define wheel_aligned_type(type)    (bitcount_type(type) % wheelmask_stripes == 0 || wheelmask_stripes % bitcount_type(type) == 0) // whether the wheel stripes align with the bitbuckets, which allows for more efficient marking
 
     #include "../sieve/sieve_calc.h"
 
