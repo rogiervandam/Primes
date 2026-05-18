@@ -1,7 +1,7 @@
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
-function(markFactors_wheelstorage_repeat,suffix)(sieve_t* sieve, const counter_t range_start, counter_t range_stop, const counter_t step)
+function(markFactors_wheelstorage_repeat,suffix)(void* restrict bitstorage, const counter_t range_start, counter_t range_stop, const counter_t step)
 {
-    logStart7(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "mark factors [%jd-%jd] with step %jd prime %jd", 
+    logStart7(bitstorage, time_markFactors_wheelstorage_repeat, "mark factors [%jd-%jd] with step %jd prime %jd", 
         (intmax_t)range_start, (intmax_t)range_stop, (intmax_t)step, (intmax_t)step/2);
 
     const counter_t bucket_stop = function(wheel_bucket_calc,variant_suffix)(range_stop + 1); // + because: don't stop too soon
@@ -19,8 +19,8 @@ function(markFactors_wheelstorage_repeat,suffix)(sieve_t* sieve, const counter_t
                     ? index_type(( index / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
                     : index_type(((index / WHEEL_SIZE) * wheelmask_stripe_bits) + wheel_bit, bitbucket_t);
             log8("Marking pos %ju with markmask %ju at bucket start %ju bucket stop %ju for index %ju", (uintmax_t)wheel_bit, (uintmax_t)markmask, (uintmax_t)bucket_start, (uintmax_t)bucket_stop, (uintmax_t)index);
-            function(applyMask_index, suffix)(sieve->bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
+            function(applyMask_index, suffix)(bitstorage, bucket_start, bucket_stop, wheel_step, markmask);
         }
     } 
-    logStop7(sieve->bitstorage, time_markFactors_wheelstorage_repeat, "MarkingEnd: finished setting factors");
+    logStop7(bitstorage, time_markFactors_wheelstorage_repeat, "MarkingEnd: finished setting factors");
 }

@@ -12,7 +12,7 @@ static char algorithm_type[] = "wheel";
 #include "wheelstorage/wheelstorage.h"
 
 // implement the 3 functions to integrate with sieve_check and the storage level
-static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_wheelstorage(sieve, start, stop, step); }
+static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_wheelstorage(sieve->bitstorage, start, stop, step); }
 static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_wheelstorage_uint8(sieve, factor); }
 static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_wheelstorage(sieve, factor); }
 
