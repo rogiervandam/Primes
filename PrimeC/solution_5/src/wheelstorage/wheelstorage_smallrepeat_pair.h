@@ -22,9 +22,9 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
         (uintmax_t)step/2, (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number, (uintmax_t)((safe_diff(stop_number,start_number))/(uintmax_t)step), 
         (uintmax_t)(((uintmax_t)safe_diff(stop_number,start_number))/(uintmax_t)(bitcount_type(bitbucket_t)*step)) );
 
-    for (counter_t index = start_number; index <= stop_number_unique; index += step) {
+    for (counter_t index_number = start_number; index_number <= stop_number_unique; index_number += step) {
 
-        const counter_t new_bucket = function(wheel_bucket_calc,variant_suffix)(index);
+        const counter_t new_bucket = function(wheel_bucket_calc,variant_suffix)(index_number);
         if (new_bucket != current_bucket) {
             if (pending_mask) {
                 if (current_mask && ((pending_bucket + 1) == current_bucket )) { 
@@ -33,8 +33,8 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
                     current_mask = (bitbucket_t)0U; // will be copied to pending_mask
                 }
                 else {
-                    function(applyMask_index1_mmask,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, &pending_mask);
-                    // function(applyMask_index,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
+                    // function(applyMask_index1_mmask,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, &pending_mask);
+                    function(applyMask_index,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
                 }
             }
 
@@ -44,7 +44,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
             current_mask = (bitbucket_t)0U;
         }
 
-        const counter_t wheel_bit = wheel_bit_calc(index);
+        const counter_t wheel_bit = wheel_bit_calc(index_number);
         if (wheel_bit >= 0) current_mask |= markmask_type(wheel_bit, bitbucket_t);
     }
 

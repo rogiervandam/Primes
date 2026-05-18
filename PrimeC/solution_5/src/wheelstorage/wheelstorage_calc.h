@@ -4,7 +4,7 @@
     static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
     wheel_bit_calc(counter_t number_index) {
         const counter_t wheel_index = number_index % WHEEL_SIZE;
-        if (wheelmask_bitpoint[wheel_index] < 0) return -1; 
+        if (wheelmask_bitpoint[wheel_index] < 0) return -1;
         return (wheelmask_stripe_bits * (number_index / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index];
     }
 

@@ -10,7 +10,7 @@
     // MMASK_PASS_ARGS: pass masks as individual arguments for n=1 and n=2
     // so the compiler can keep them in registers rather than loading from a pointer.
     // For n>2 the pointer variant is used regardless.
-    #define MMASK_PASS_ARGS 1
+    // #define MMASK_PASS_ARGS 1
 
     #ifdef MMASK_PASS_ARGS
         #if max_masks == 1
@@ -72,7 +72,6 @@
 
             if (current_bucket > target_bucket) {
                 APPLYMASK_CALL(bitstorage, start_bucket, stop_bucket, wheel_step, masks);
-                #pragma unroll max_masks
                 for (counter_t i = 0; i < max_masks; i++) masks[i] = (bitbucket_t)0U;
                 start_bucket = current_bucket;
                 target_bucket = start_bucket + max_masks - 1;
