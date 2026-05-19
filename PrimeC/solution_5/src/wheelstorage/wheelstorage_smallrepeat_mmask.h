@@ -14,33 +14,33 @@
 
     #ifdef MMASK_PASS_ARGS
         #if max_masks == 1
-            #define APPLYMASK_CALL(bitstorage, start_number_index, stop_number_index, step, masks) \
-                function(applyMask_index1_mmask_args,suffix)(bitstorage, start_number_index, stop_number_index, step, (masks)[0])
+            #define APPLYMASK_CALL(bitstorage, start_number, stop_number, step, masks) \
+                function(applyMask_index1_mmask_args,suffix)(bitstorage, start_number, stop_number, step, (masks)[0])
         #elif max_masks == 2
-            #define APPLYMASK_CALL(bitstorage, start_number_index, stop_number_index, step, masks) \
-                function(applyMask_index2_mmask_args,suffix)(bitstorage, start_number_index, stop_number_index, step, (masks)[0], (masks)[1])
+            #define APPLYMASK_CALL(bitstorage, start_number, stop_number, step, masks) \
+                function(applyMask_index2_mmask_args,suffix)(bitstorage, start_number, stop_number, step, (masks)[0], (masks)[1])
         #elif (max_masks >= 3) && (max_masks <= 8)
-            #define APPLYMASK_DISPATCH_N(n, bitstorage, start_number_index, stop_number_index, step, masks) \
-                function(applyMask_index##n##_mmask,suffix)(bitstorage, start_number_index, stop_number_index, step, masks)
-            #define APPLYMASK_DISPATCH(bitstorage, start_number_index, stop_number_index, step, masks, n) \
-                APPLYMASK_DISPATCH_N(n, bitstorage, start_number_index, stop_number_index, step, masks)
-            #define APPLYMASK_CALL(bitstorage, start_number_index, stop_number_index, step, masks) \
-                APPLYMASK_DISPATCH(bitstorage, start_number_index, stop_number_index, step, masks, max_masks)
+            #define APPLYMASK_DISPATCH_N(n, bitstorage, start_number, stop_number, step, masks) \
+                function(applyMask_index##n##_mmask,suffix)(bitstorage, start_number, stop_number, step, masks)
+            #define APPLYMASK_DISPATCH(bitstorage, start_number, stop_number, step, masks, n) \
+                APPLYMASK_DISPATCH_N(n, bitstorage, start_number, stop_number, step, masks)
+            #define APPLYMASK_CALL(bitstorage, start_number, stop_number, step, masks) \
+                APPLYMASK_DISPATCH(bitstorage, start_number, stop_number, step, masks, max_masks)
         #else
-            #define APPLYMASK_CALL(bitstorage, start_number_index, stop_number_index, step, masks) \
-                function(applyMask_index_mmask,suffix)(bitstorage, start_number_index, stop_number_index, step, masks, max_masks)
+            #define APPLYMASK_CALL(bitstorage, start_number, stop_number, step, masks) \
+                function(applyMask_index_mmask,suffix)(bitstorage, start_number, stop_number, step, masks, max_masks)
         #endif
     #else
         #if (max_masks >= 1) && (max_masks <= 8)
-            #define APPLYMASK_DISPATCH_N(n, bitstorage, start_number_index, stop_number_index, step, masks) \
-                function(applyMask_index##n##_mmask,suffix)(bitstorage, start_number_index, stop_number_index, step, masks)
-            #define APPLYMASK_DISPATCH(bitstorage, start_number_index, stop_number_index, step, masks, n) \
-                APPLYMASK_DISPATCH_N(n, bitstorage, start_number_index, stop_number_index, step, masks)
-            #define APPLYMASK_CALL(bitstorage, start_number_index, stop_number_index, step, masks) \
-                APPLYMASK_DISPATCH(bitstorage, start_number_index, stop_number_index, step, masks, max_masks)
+            #define APPLYMASK_DISPATCH_N(n, bitstorage, start_number, stop_number, step, masks) \
+                function(applyMask_index##n##_mmask,suffix)(bitstorage, start_number, stop_number, step, masks)
+            #define APPLYMASK_DISPATCH(bitstorage, start_number, stop_number, step, masks, n) \
+                APPLYMASK_DISPATCH_N(n, bitstorage, start_number, stop_number, step, masks)
+            #define APPLYMASK_CALL(bitstorage, start_number, stop_number, step, masks) \
+                APPLYMASK_DISPATCH(bitstorage, start_number, stop_number, step, masks, max_masks)
         #else
-            #define APPLYMASK_CALL(bitstorage, start_number_index, stop_number_index, step, masks) \
-                function(applyMask_index_mmask,suffix)(bitstorage, start_number_index, stop_number_index, step, masks, max_masks)
+            #define APPLYMASK_CALL(bitstorage, start_number, stop_number, step, masks) \
+                function(applyMask_index_mmask,suffix)(bitstorage, start_number, stop_number, step, masks, max_masks)
         #endif
     #endif
 
@@ -50,7 +50,7 @@
         logStart6(bitstorage, time_markFactors_wheelstorage_small_repeat_mmask, "Setting factors step %3ju using mmasks(%ju) %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)max_masks, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number, (uintmax_t)((safe_diff(stop_number,start_number))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(stop_number,start_number))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
         const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(stop_number) + 1;
-        const counter_t wheel_step = reduce2power(step * wheelmask_stripe_bits); // step in words, accounting for stripe alignment
+        const counter_t wheel_step = reduce2power(step); // step in words, accounting for stripe alignment
 
         // align to first full bucket
         const counter_t next_aligned = min(getFactor( bitbucket_end_type(wheel_bit_estimate_last(start_number)+1, bitbucket_t)), stop_number); // the next factor that is aligned to the wheel, this is the first index we can start marking from
@@ -66,17 +66,19 @@
         counter_t start_bucket = function(wheel_bucket_calc,variant_suffix)(start_number);
         counter_t target_bucket = start_bucket + max_masks - 1;
 
-        for (counter_t number_index = start_number; number_index <= stop_number_unique; number_index += step) {
-            const counter_t wheel_bit = wheel_bit_calc_estimate(number_index);
-            const counter_t current_bucket = index_type(wheel_bit, bitbucket_t);
+        for (counter_t index_number = start_number; index_number <= stop_number_unique; index_number += step) {
+            // const counter_t wheel_bit = wheel_bit_calc_estimate(index_number);
+            // const counter_t current_bucket = index_type(wheel_bit, bitbucket_t);
+            const counter_t current_bucket = function(wheel_bucket_calc,variant_suffix)(index_number);
 
             if (current_bucket > target_bucket) {
                 APPLYMASK_CALL(bitstorage, start_bucket, stop_bucket, wheel_step, masks);
                 for (counter_t i = 0; i < max_masks; i++) masks[i] = (bitbucket_t)0U;
                 start_bucket = current_bucket;
-                target_bucket = start_bucket + max_masks - 1;
+                target_bucket = current_bucket + max_masks - 1;
             }
 
+            const counter_t wheel_bit = wheel_bit_calc(index_number);
             if (wheel_bit >= 0) masks[current_bucket - start_bucket] |= markmask_type(wheel_bit, bitbucket_t);
         }
 

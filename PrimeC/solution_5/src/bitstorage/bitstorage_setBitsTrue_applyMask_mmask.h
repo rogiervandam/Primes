@@ -12,17 +12,17 @@
 #elif defined(BUILD_VECTORS_STAGE) || defined(BUILD_WORDS_STAGE)
 
 #if defined(__clang__)
-    #define LOOP_UNROLL_32 _Pragma("clang loop unroll_count(32)")
-    #define LOOP_UNROLL_8 _Pragma("clang loop unroll_count(8)")
-    #define LOOP_IVDEP
+    #define PRAGMA_LOOP_UNROLL_32 _Pragma("clang loop unroll_count(32)")
+    #define PRAGMA_LOOP_UNROLL_8 _Pragma("clang loop unroll_count(8)")
+    #define PRAGMA_LOOP_IVDEP
 #elif defined(__GNUC__)
-    #define LOOP_UNROLL_32 _Pragma("GCC unroll 32")
-    #define LOOP_UNROLL_8 _Pragma("GCC unroll 8")
-    #define LOOP_IVDEP _Pragma("GCC ivdep")
+    #define PRAGMA_LOOP_UNROLL_32 _Pragma("GCC unroll 32")
+    #define PRAGMA_LOOP_UNROLL_8 _Pragma("GCC unroll 8")
+    #define PRAGMA_LOOP_IVDEP _Pragma("GCC ivdep")
 #else
-    #define LOOP_UNROLL_32
-    #define LOOP_UNROLL_8
-    #define LOOP_IVDEP
+    #define PRAGMA_LOOP_UNROLL_32
+    #define PRAGMA_LOOP_UNROLL_8
+    #define PRAGMA_LOOP_IVDEP
 #endif
 
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
@@ -36,8 +36,8 @@ function(applyMask_index1_mmask,suffix)(void* restrict bitstorage, const counter
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index], sizeof(bitbucket_t));
     register const bitbucket_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index, step_max)], sizeof(bitbucket_t));
     #if unrolls == 4
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr)            |= mask1;
             *(index_ptr + step)     |= mask1;
@@ -46,8 +46,8 @@ function(applyMask_index1_mmask,suffix)(void* restrict bitstorage, const counter
         }
     #endif
     #if unrolls == 8
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr + step * 0) |= mask1;
             *(index_ptr + step * 1) |= mask1;
@@ -80,8 +80,8 @@ function(applyMask_index2_mmask,suffix)(void* restrict bitstorage, const counter
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index], sizeof(bitbucket_t));
     register const bitbucket_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index, step_max + 1)], sizeof(bitbucket_t));
     #if unrolls == 4
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr)            |= mask1; *(index_ptr + 1)            |= mask2;
             *(index_ptr + step)     |= mask1; *(index_ptr + step + 1)     |= mask2;
@@ -90,8 +90,8 @@ function(applyMask_index2_mmask,suffix)(void* restrict bitstorage, const counter
         }
     #endif
     #if unrolls == 8
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr + step * 0) |= mask1; *(index_ptr + step * 0 + 1) |= mask2;
             *(index_ptr + step * 1) |= mask1; *(index_ptr + step * 1 + 1) |= mask2;
@@ -132,8 +132,8 @@ function(applyMask_index3_mmask,suffix)(void* restrict bitstorage, const counter
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index], sizeof(bitbucket_t));
     register const bitbucket_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index, step_max + 2)], sizeof(bitbucket_t));
     #if unrolls == 4
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr)            |= mask1; *(index_ptr + 1)            |= mask2; *(index_ptr + 2)            |= mask3;
             *(index_ptr + step)     |= mask1; *(index_ptr + step + 1)     |= mask2; *(index_ptr + step + 2)     |= mask3;
@@ -142,8 +142,8 @@ function(applyMask_index3_mmask,suffix)(void* restrict bitstorage, const counter
         }
     #endif
     #if unrolls == 8
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr + step * 0) |= mask1; *(index_ptr + step * 0 + 1) |= mask2; *(index_ptr + step * 0 + 2) |= mask3;
             *(index_ptr + step * 1) |= mask1; *(index_ptr + step * 1 + 1) |= mask2; *(index_ptr + step * 1 + 2) |= mask3;
@@ -181,8 +181,8 @@ function(applyMask_index4_mmask,suffix)(void* restrict bitstorage, const counter
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index], sizeof(bitbucket_t));
     register const bitbucket_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index, step_max + 3)], sizeof(bitbucket_t));
     #if unrolls == 4
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr)            |= mask1; *(index_ptr + 1)            |= mask2; *(index_ptr + 2)            |= mask3; *(index_ptr + 3)            |= mask4;
             *(index_ptr + step)     |= mask1; *(index_ptr + step + 1)     |= mask2; *(index_ptr + step + 2)     |= mask3; *(index_ptr + step + 3)     |= mask4;
@@ -191,8 +191,8 @@ function(applyMask_index4_mmask,suffix)(void* restrict bitstorage, const counter
         }
     #endif
     #if unrolls == 8
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr + step * 0) |= mask1; *(index_ptr + step * 0 + 1) |= mask2; *(index_ptr + step * 0 + 2) |= mask3; *(index_ptr + step * 0 + 3) |= mask4;
             *(index_ptr + step * 1) |= mask1; *(index_ptr + step * 1 + 1) |= mask2; *(index_ptr + step * 1 + 2) |= mask3; *(index_ptr + step * 1 + 3) |= mask4;
@@ -230,8 +230,8 @@ function(applyMask_index5_mmask,suffix)(void* restrict bitstorage, const counter
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index], sizeof(bitbucket_t));
     register const bitbucket_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index, step_max + 4)], sizeof(bitbucket_t));
     #if unrolls == 4
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr        )|=mask1; *(index_ptr        +1)|=mask2; *(index_ptr        +2)|=mask3; *(index_ptr        +3)|=mask4; *(index_ptr        +4)|=mask5;
             *(index_ptr+  step )|=mask1; *(index_ptr+  step +1)|=mask2; *(index_ptr+  step +2)|=mask3; *(index_ptr+  step +3)|=mask4; *(index_ptr+  step +4)|=mask5;
@@ -240,8 +240,8 @@ function(applyMask_index5_mmask,suffix)(void* restrict bitstorage, const counter
         }
     #endif
     #if unrolls == 8
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr+step*0)|=mask1; *(index_ptr+step*0+1)|=mask2; *(index_ptr+step*0+2)|=mask3; *(index_ptr+step*0+3)|=mask4; *(index_ptr+step*0+4)|=mask5;
             *(index_ptr+step*1)|=mask1; *(index_ptr+step*1+1)|=mask2; *(index_ptr+step*1+2)|=mask3; *(index_ptr+step*1+3)|=mask4; *(index_ptr+step*1+4)|=mask5;
@@ -280,8 +280,8 @@ function(applyMask_index6_mmask,suffix)(void* restrict bitstorage, const counter
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index], sizeof(bitbucket_t));
     register const bitbucket_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index, step_max + 5)], sizeof(bitbucket_t));
     #if unrolls == 4
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr        )|=mask1; *(index_ptr        +1)|=mask2; *(index_ptr        +2)|=mask3; *(index_ptr        +3)|=mask4; *(index_ptr        +4)|=mask5; *(index_ptr        +5)|=mask6;
             *(index_ptr+  step )|=mask1; *(index_ptr+  step +1)|=mask2; *(index_ptr+  step +2)|=mask3; *(index_ptr+  step +3)|=mask4; *(index_ptr+  step +4)|=mask5; *(index_ptr+  step +5)|=mask6;
@@ -290,8 +290,8 @@ function(applyMask_index6_mmask,suffix)(void* restrict bitstorage, const counter
         }
     #endif
     #if unrolls == 8
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr+step*0)|=mask1; *(index_ptr+step*0+1)|=mask2; *(index_ptr+step*0+2)|=mask3; *(index_ptr+step*0+3)|=mask4; *(index_ptr+step*0+4)|=mask5; *(index_ptr+step*0+5)|=mask6;
             *(index_ptr+step*1)|=mask1; *(index_ptr+step*1+1)|=mask2; *(index_ptr+step*1+2)|=mask3; *(index_ptr+step*1+3)|=mask4; *(index_ptr+step*1+4)|=mask5; *(index_ptr+step*1+5)|=mask6;
@@ -331,8 +331,8 @@ function(applyMask_index7_mmask,suffix)(void* restrict bitstorage, const counter
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index], sizeof(bitbucket_t));
     register const bitbucket_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index, step_max + 6)], sizeof(bitbucket_t));
     #if unrolls == 4
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr        )|=mask1; *(index_ptr        +1)|=mask2; *(index_ptr        +2)|=mask3; *(index_ptr        +3)|=mask4; *(index_ptr        +4)|=mask5; *(index_ptr        +5)|=mask6; *(index_ptr        +6)|=mask7;
             *(index_ptr+  step )|=mask1; *(index_ptr+  step +1)|=mask2; *(index_ptr+  step +2)|=mask3; *(index_ptr+  step +3)|=mask4; *(index_ptr+  step +4)|=mask5; *(index_ptr+  step +5)|=mask6; *(index_ptr+  step +6)|=mask7;
@@ -341,8 +341,8 @@ function(applyMask_index7_mmask,suffix)(void* restrict bitstorage, const counter
         }
     #endif
     #if unrolls == 8
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr+step*0)|=mask1; *(index_ptr+step*0+1)|=mask2; *(index_ptr+step*0+2)|=mask3; *(index_ptr+step*0+3)|=mask4; *(index_ptr+step*0+4)|=mask5; *(index_ptr+step*0+5)|=mask6; *(index_ptr+step*0+6)|=mask7;
             *(index_ptr+step*1)|=mask1; *(index_ptr+step*1+1)|=mask2; *(index_ptr+step*1+2)|=mask3; *(index_ptr+step*1+3)|=mask4; *(index_ptr+step*1+4)|=mask5; *(index_ptr+step*1+5)|=mask6; *(index_ptr+step*1+6)|=mask7;
@@ -383,8 +383,8 @@ function(applyMask_index8_mmask,suffix)(void* restrict bitstorage, const counter
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index], sizeof(bitbucket_t));
     register const bitbucket_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index, step_max + 7)], sizeof(bitbucket_t));
     #if unrolls == 4
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr        )|=mask1; *(index_ptr        +1)|=mask2; *(index_ptr        +2)|=mask3; *(index_ptr        +3)|=mask4; *(index_ptr        +4)|=mask5; *(index_ptr        +5)|=mask6; *(index_ptr        +6)|=mask7; *(index_ptr        +7)|=mask8;
             *(index_ptr+  step )|=mask1; *(index_ptr+  step +1)|=mask2; *(index_ptr+  step +2)|=mask3; *(index_ptr+  step +3)|=mask4; *(index_ptr+  step +4)|=mask5; *(index_ptr+  step +5)|=mask6; *(index_ptr+  step +6)|=mask7; *(index_ptr+  step +7)|=mask8;
@@ -393,8 +393,8 @@ function(applyMask_index8_mmask,suffix)(void* restrict bitstorage, const counter
         }
     #endif
     #if unrolls == 8
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr+step*0)|=mask1; *(index_ptr+step*0+1)|=mask2; *(index_ptr+step*0+2)|=mask3; *(index_ptr+step*0+3)|=mask4; *(index_ptr+step*0+4)|=mask5; *(index_ptr+step*0+5)|=mask6; *(index_ptr+step*0+6)|=mask7; *(index_ptr+step*0+7)|=mask8;
             *(index_ptr+step*1)|=mask1; *(index_ptr+step*1+1)|=mask2; *(index_ptr+step*1+2)|=mask3; *(index_ptr+step*1+3)|=mask4; *(index_ptr+step*1+4)|=mask5; *(index_ptr+step*1+5)|=mask6; *(index_ptr+step*1+6)|=mask7; *(index_ptr+step*1+7)|=mask8;
@@ -451,10 +451,10 @@ function(applyMask_index_mmask,suffix)(void* restrict bitstorage, const counter_
         register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index], sizeof(bitbucket_t));
         register const bitbucket_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index, step + mask_count - 1)], sizeof(bitbucket_t));
 
-        LOOP_IVDEP
-        LOOP_UNROLL_8
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_8
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step) {
-            LOOP_IVDEP
+            PRAGMA_LOOP_IVDEP
             for (counter_t k = 0; k < mask_count; k++) {
                 index_ptr[k] |= masks[k];
             }
@@ -493,8 +493,8 @@ function(applyMask_index1_mmask_args,suffix)(void* restrict bitstorage, const co
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index], sizeof(bitbucket_t));
     register const bitbucket_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index, step_max)], sizeof(bitbucket_t));
     #if unrolls == 4
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr)            |= mask1;
             *(index_ptr + step)     |= mask1;
@@ -503,8 +503,8 @@ function(applyMask_index1_mmask_args,suffix)(void* restrict bitstorage, const co
         }
     #endif
     #if unrolls == 8
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr + step * 0) |= mask1;
             *(index_ptr + step * 1) |= mask1;
@@ -536,8 +536,8 @@ function(applyMask_index2_mmask_args,suffix)(void* restrict bitstorage, const co
     register const bitbucket_t* restrict range_stop_ptr = __builtin_assume_aligned(&bitstorage_sized[range_stop_index], sizeof(bitbucket_t));
     register const bitbucket_t* restrict fast_loop_ptr = __builtin_assume_aligned(&bitstorage_sized[safe_diff(range_stop_index, step_max + 1)], sizeof(bitbucket_t));
     #if unrolls == 4
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr)            |= mask1; *(index_ptr + 1)            |= mask2;
             *(index_ptr + step)     |= mask1; *(index_ptr + step + 1)     |= mask2;
@@ -546,8 +546,8 @@ function(applyMask_index2_mmask_args,suffix)(void* restrict bitstorage, const co
         }
     #endif
     #if unrolls == 8
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
             *(index_ptr + step * 0) |= mask1; *(index_ptr + step * 0 + 1) |= mask2;
             *(index_ptr + step * 1) |= mask1; *(index_ptr + step * 1 + 1) |= mask2;

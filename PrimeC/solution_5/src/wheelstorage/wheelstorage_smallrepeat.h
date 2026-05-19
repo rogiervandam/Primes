@@ -8,7 +8,7 @@ function(markFactors_wheelstorage_small_repeat,suffix)(void* restrict bitstorage
     // +2 ensures we iterate past the last unique bucket, so all masks get flushed by a bucket transition
 
     // align to first full bucket
-    const counter_t next_aligned = min(getFactor( bitbucket_end_type(wheel_bit_estimate_last(start_number)+1, bitbucket_t)), stop_number); // the next factor that is aligned to the wheel, this is the first index we can start marking from
+    const counter_t next_aligned = min(getFactor( bitbucket_end_type(wheel_bit_estimate_last(start_number)+1, bitbucket_t)), stop_number); // the next factor that is aligned to the wheel, this is the first index_number we can start marking from
     logStart8(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "Aligning to first full bitbucket starting at number %ju by marking in number range %ju-%ju (bits %ju-%ju)", 
         (uintmax_t)start_number, (uintmax_t)start_number, (uintmax_t)next_aligned, (uintmax_t)wheel_bit_estimate_last(start_number), (uintmax_t)wheel_bit_estimate_last(next_aligned));
     for (; start_number <= next_aligned; start_number += step) function(markFactor_wheelstorage,suffix)(bitstorage, start_number);
@@ -21,8 +21,10 @@ function(markFactors_wheelstorage_small_repeat,suffix)(void* restrict bitstorage
     counter_t current_bucket = 0;
 
     // go to first aligned block 
-    for (register counter_t index = start_number; index <= stop_number_unique; index += step) { 
-        const counter_t new_bucket = function(wheel_bucket_calc,variant_suffix)(index);
+    for (register counter_t index_number = start_number; index_number <= stop_number_unique; index_number += step) { 
+        const counter_t wheel_bit = wheel_bit_calc(index_number);
+        const counter_t new_bucket = index_type(wheel_bit, bitbucket_t);
+        // const counter_t new_bucket = function(wheel_bucket_calc,variant_suffix)(index_number);
 
         if (current_bucket < new_bucket) { // when going to the next block
             if (current_mask) { // apply previous mask if it exists
@@ -32,7 +34,7 @@ function(markFactors_wheelstorage_small_repeat,suffix)(void* restrict bitstorage
             current_mask = (bitbucket_t)0U;
         }
 
-        const counter_t wheel_bit = wheel_bit_calc(index);
+        // const counter_t wheel_bit = wheel_bit_calc(index_number);
         if (wheel_bit >= 0) current_mask |= markmask_type(wheel_bit, bitbucket_t);
     } 
 

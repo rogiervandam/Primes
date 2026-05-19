@@ -16,6 +16,7 @@ function(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const c
     const counter_t range_start_new = function(setBitsTrue_range_return,variant_suffix)(bitstorage, range_start, bitbucket_next_type(range_start, bitbucket_t), step); 
     const counter_t stop_unique = bitbucket_start_type(range_start_new + bitcount_type(bitbucket_t) * step, bitbucket_t) ; 
 
+    PRAGMA_LOOP_UNROLL_32
     for (counter_t index = range_start_new; index < stop_unique; index += step) { 
         function(applyMask_index,suffix)(bitstorage, index_type(index, bitbucket_t), stop_bucket, step, markmask_type(index, bitbucket_t));
     } 

@@ -29,6 +29,7 @@
     static counter_t   wheel_number      [wheelmask_stripe_bits]; // contains the mapping from bit to number: the nth bit corresponds to the wheel_number[n] number in the wheel
     static counter_t   wheelmask_bitpoint[WHEEL_SIZE];            // the number of shifts needed to get the bitmask for this index to the right position in the bitbucket. 
                                                                 // Might be greater than the number of bits in wheelmask_t, in which case we need to forward to the next bitbucket(s) as well
+    static wheelmask_t wheel_mask        [WHEEL_SIZE];            // the bitmask for this index in the wheel, used for marking bits in the bitstorage   
 
     // Runtime path: compute wheel data from scratch.
     void buildWheel() {
@@ -53,6 +54,7 @@
             if (wheelmask_bitpoint[i] >= 0) { // when no factors found
                 wheelmask_bitpoint[i] = stripe_count;
                 wheel_number[stripe_count] = i;
+                wheel_mask[i] = markmask_type(stripe_count, wheelmask_t);
                 stripe_count++;
             }
         }

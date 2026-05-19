@@ -16,8 +16,9 @@ function(markFactors_wheelstorage_repeat,suffix)(void* restrict bitstorage, cons
         const counter_t wheel_bit = wheel_bit_calc(index_number);
         if (wheel_bit >= 0) {
             const bitbucket_t markmask = markmask_type(wheel_bit, bitbucket_t);
+            // const counter_t start_bucket = index_type(wheel_bit, bitbucket_t);
             const counter_t start_bucket = (wheelmask_stripe_bits <= bitcount_type(bitbucket_t)) 
-                    ? index_type(( index_number / WHEEL_SIZE) * wheelmask_stripe_bits, bitbucket_t)
+                    ? index_type(wheelmask_stripe_bits * (index_number / WHEEL_SIZE), bitbucket_t)
                     : index_type(wheel_bit, bitbucket_t);
 
             function(applyMask_index, suffix)(bitstorage, start_bucket, stop_bucket, wheel_step, markmask);

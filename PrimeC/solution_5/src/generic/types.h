@@ -47,3 +47,17 @@ static counter_t debug_hits                 = 0;
 static counter_t debug_final_benchmarking   = 0;
 static counter_t debug_final_plan           = 0;
 static counter_t debug_waitforkeys          = 0;
+
+#if defined(__clang__)
+    #define PRAGMA_LOOP_UNROLL_32 _Pragma("clang loop unroll_count(32)")
+    #define PRAGMA_LOOP_UNROLL_8 _Pragma("clang loop unroll_count(8)")
+    #define PRAGMA_LOOP_IVDEP
+#elif defined(__GNUC__)
+    #define PRAGMA_LOOP_UNROLL_32 _Pragma("GCC unroll 32")
+    #define PRAGMA_LOOP_UNROLL_8 _Pragma("GCC unroll 8")
+    #define PRAGMA_LOOP_IVDEP _Pragma("GCC ivdep")
+#else
+    #define PRAGMA_LOOP_UNROLL_32
+    #define PRAGMA_LOOP_UNROLL_8
+    #define PRAGMA_LOOP_IVDEP
+#endif

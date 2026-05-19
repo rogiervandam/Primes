@@ -1,4 +1,4 @@
-static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
+static inline void //__attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitstorage, counter_t start_number, const counter_t stop_number, const counter_t step)
 {
     logStart7(bitstorage, time_markFactors_wheelstorage_small_repeat_pair, "Setting factors for prime %ju with step %ju using 'repeating pairs' of %s in %ju number range (%ju-%ju)", 
@@ -45,8 +45,13 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
             current_mask = (bitbucket_t)0U;
         }
 
-        const counter_t wheel_bit = wheel_bit_calc(index_number);
-        if (wheel_bit >= 0) current_mask |= markmask_type(wheel_bit, bitbucket_t);
+        // const counter_t wheel_bit = wheel_bit_calc(index_number);
+        // if (wheel_bit >= 0) current_mask |= markmask_type(wheel_bit, bitbucket_t);
+        const counter_t wheel_index = index_number % WHEEL_SIZE;
+        if (wheelmask_bitpoint[wheel_index] >= 0) {
+            // current_mask |= wheel_mask[wheel_index];
+            current_mask |= markmask_type((wheelmask_stripe_bits * (index_number / WHEEL_SIZE)) + wheelmask_bitpoint[wheel_index], bitbucket_t);
+        }
     }
 
     if (pending_mask) {

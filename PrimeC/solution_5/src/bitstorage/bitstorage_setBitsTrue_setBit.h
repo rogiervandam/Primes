@@ -37,8 +37,7 @@ setBitsTrue_range_suffix(void* restrict bitstorage, const counter_t range_start,
     logStart8(bitstorage, time_setBitsTrue_range, "setting bits step %3ju using largestep%s in %ju bit range (%ju-%ju) (%ju repeating occurrences)", 
         (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
-    #pragma GCC ivdep
-    #pragma GCC unroll 32
+    PRAGMA_LOOP_UNROLL_32
     for(register counter_t index = range_start; index < range_stop; index += step) setBitTrue(bitstorage, index);
 
     logStop8(bitstorage, time_setBitsTrue_range,"completed range_start %ju range_stop %ju step %ju", (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step);
@@ -52,8 +51,7 @@ setBitsTrue_range_return_suffix(void* restrict bitstorage, const counter_t range
         (uintmax_t)step, STR(suffix), (uintmax_t)range_stop-(uintmax_t)range_start, (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)(((uintmax_t)range_stop-(uintmax_t)range_start)/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
     register counter_t index = range_start; // outside the loop te be able to return it
-    #pragma GCC ivdep
-    #pragma GCC unroll 32
+    PRAGMA_LOOP_UNROLL_32
     for(; index < range_stop; index += step) setBitTrue(bitstorage, index);
 
     logStop8(bitstorage, time_setBitsTrue_range_return,"range_start %ju range_stop %ju step %ju", (uintmax_t)range_start, (uintmax_t)range_stop, (uintmax_t)step);
