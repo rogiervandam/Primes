@@ -16,12 +16,11 @@
     #define WHEEL_SIZE                  (WHEEL_BASIC_SIZE * WHEEL_REPEATS)
     #define WHEEL_STRIPE_BITS           (((WHEEL_STRIPES * WHEEL_REPEATS - 1) / bitcount_type(wheelmask_t) + 1) * bitcount_type(wheelmask_t)) 
 
-    #define wheel_multiplier(type)      (max(bitcount_type(type), wheelmask_stripe_bits) / min(bitcount_type(type), wheelmask_stripe_bits))
-    #define wheelmask_stripes_single    (WHEEL_STRIPES)                 // the number of stripes in the wheel
+    // #define wheelmask_stripes_single    (WHEEL_STRIPES)                 // the number of stripes in the wheel
     #define wheelmask_stripes           (WHEEL_STRIPES * WHEEL_REPEATS) // the number of stripes in the wheel
     #define wheelmask_stripe_bits       (WHEEL_STRIPE_BITS)             // the number of bits reserved for each repetition of the wheel
-
     #define wheel_aligned_type(type)    (bitcount_type(type) % wheelmask_stripes == 0 || wheelmask_stripes % bitcount_type(type) == 0) // whether the wheel stripes align with the bitbuckets, which allows for more efficient marking
+    #define wheel_multiplier(type)      (wheelmask_stripes >= bitcount_type(type) ? (wheelmask_stripes / bitcount_type(type)) : reduce2power(wheelmask_stripes)) // how many bitbuckets we need to combine to get a full wheel stripe, this is used for marking when the wheel stripes do not align with the bitbuckets
 
     #include "../sieve/sieve_calc.h"
 
@@ -29,7 +28,7 @@
     static counter_t   wheel_number      [wheelmask_stripe_bits]; // contains the mapping from bit to number: the nth bit corresponds to the wheel_number[n] number in the wheel
     static counter_t   wheelmask_bitpoint[WHEEL_SIZE];            // the number of shifts needed to get the bitmask for this index to the right position in the bitbucket. 
                                                                 // Might be greater than the number of bits in wheelmask_t, in which case we need to forward to the next bitbucket(s) as well
-    static wheelmask_t wheel_mask        [WHEEL_SIZE];            // the bitmask for this index in the wheel, used for marking bits in the bitstorage   
+    // static wheelmask_t wheel_mask        [WHEEL_SIZE];            // the bitmask for this index in the wheel, used for marking bits in the bitstorage   
 
     // Runtime path: compute wheel data from scratch.
     void buildWheel() {
@@ -54,7 +53,7 @@
             if (wheelmask_bitpoint[i] >= 0) { // when no factors found
                 wheelmask_bitpoint[i] = stripe_count;
                 wheel_number[stripe_count] = i;
-                wheel_mask[i] = markmask_type(stripe_count, wheelmask_t);
+                // wheel_mask[i] = markmask_type(stripe_count, wheelmask_t);
                 stripe_count++;
             }
         }

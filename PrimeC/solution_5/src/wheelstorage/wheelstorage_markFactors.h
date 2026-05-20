@@ -19,7 +19,9 @@ markFactors_wheelstorage(void* restrict bitstorage, counter_t start, counter_t s
         // markFactors_wheelstorage_small_repeat_uint64_unroll8(bitstorage, start, stop, step);
         // markFactors_wheelstorage_repeat_uint8_unroll8(bitstorage, start, stop, step);
         // markFactors_wheelstorage_repeat_uint64_unroll8(bitstorage, start, stop, step);
+        // markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(bitstorage, start, stop, step);
         markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(bitstorage, start, stop, step);
+        // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(bitstorage, start, stop, step);
     }
     else 
     function(markFactors_wheelstorage_repeat, wheelvariant_unroll_suffix)(bitstorage, start, stop, step);

@@ -6,7 +6,7 @@ function(markFactors_wheelstorage_repeat,suffix)(void* restrict bitstorage, cons
 
     // const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(stop_number); 
     const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(stop_number); 
-    const counter_t wheel_step = reduce2power(step); // step in terms of the number of bitbuckets
+    const counter_t wheel_step = reduce2power(step) * wheel_multiplier(bitbucket_t); // step in terms of the number of bitbuckets
     log9("Calculated wheel step: %ju (reduced from %ju) for prime %ju with bitbucket size %ju and wheel stripe bits %ju and reduce2power %ju", 
         (uintmax_t)wheel_step, (uintmax_t)step, (uintmax_t)step/2, (uintmax_t)bitcount_type(bitbucket_t), (uintmax_t)wheelmask_stripe_bits, (uintmax_t)reduce2power(step));
 

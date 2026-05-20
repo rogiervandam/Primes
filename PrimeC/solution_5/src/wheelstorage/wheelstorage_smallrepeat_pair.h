@@ -5,7 +5,7 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
         (uintmax_t)step/2, (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number);   
 
     const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(stop_number);
-    const counter_t wheel_step = reduce2power((step)); // step in words, accounting for stripe alignment
+    const counter_t wheel_step = reduce2power(step) * wheel_multiplier(bitbucket_t); // step in words, accounting for stripe alignment
 
     // align to first full bucket
     const counter_t next_aligned = min(getFactor( bitbucket_end_type(wheel_bit_estimate_last(start_number)+1, bitbucket_t)), stop_number); // the next factor that is aligned to the wheel, this is the first index we can start marking from
