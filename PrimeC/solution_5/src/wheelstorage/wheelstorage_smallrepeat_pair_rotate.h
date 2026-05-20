@@ -8,13 +8,13 @@ function(markFactors_wheelstorage_small_repeat_pair_rotate,suffix)(sieve_t* siev
     const counter_t wheel_step = reduce2power(step) * wheel_multiplier(bitbucket_t); // step in words, accounting for stripe alignment
 
     // align to first full bucket
-    const counter_t next_aligned = min(getFactor( bitbucket_end_type(wheel_bit_estimate_last(start_number)+1, bitbucket_t)), stop_number); // the next factor that is aligned to the wheel, this is the first index we can start marking from
+    const counter_t next_aligned = min(getFactor( bitbucket_end_type(wheelstorage_bit_estimate_last(start_number)+1, bitbucket_t)), stop_number); // the next factor that is aligned to the wheel, this is the first index we can start marking from
     logStart8(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "Aligning to first full bitbucket starting at number %ju by marking in number range %ju-%ju (bits %ju-%ju)", 
-        (uintmax_t)start_number, (uintmax_t)start_number, (uintmax_t)next_aligned, (uintmax_t)wheel_bit_estimate_last(start_number), (uintmax_t)wheel_bit_estimate_last(next_aligned));
+        (uintmax_t)start_number, (uintmax_t)start_number, (uintmax_t)next_aligned, (uintmax_t)wheelstorage_bit_estimate_last(start_number), (uintmax_t)wheelstorage_bit_estimate_last(next_aligned));
     for (; start_number <= next_aligned; start_number += step) function(markFactor_wheelstorage,suffix)(sieve, start_number);
     logStop8(sieve->bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "Finished aligning to first full bitbucket at number %ju", (uintmax_t)start_number);
 
-    const counter_t stop_number_unique = min(getFactor( bitbucket_start_type(wheel_bit_estimate_last(start_number), bitbucket_t) - 1 + wheel_step * wheelmask_stripe_bits * ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits)), stop_number);
+    const counter_t stop_number_unique = min(getFactor( bitbucket_start_type(wheelstorage_bit_estimate_last(start_number), bitbucket_t) - 1 + wheel_step * wheel_bitalloc * ((bitcount_type(bitbucket_t) + wheel_bitalloc - 1) / wheel_bitalloc)), stop_number);
     bitbucket_t current_mask = (bitbucket_t)0U, pending_mask = (bitbucket_t)0U;
     counter_t current_bucket = function(wheel_bucket_calc,variant_suffix)(start_number);
     counter_t new_bucket = current_bucket;
@@ -23,22 +23,22 @@ function(markFactors_wheelstorage_small_repeat_pair_rotate,suffix)(sieve_t* siev
         (uintmax_t)step/2, (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number, (uintmax_t)((safe_diff(stop_number,start_number))/(uintmax_t)step), 
         (uintmax_t)(((uintmax_t)safe_diff(stop_number,start_number))/(uintmax_t)(bitcount_type(bitbucket_t)*step)) );
 
-    bitshift_t bitshift = bitcount_type(bitbucket_t) - (wheelmask_stripe_bits * wheel_step);
+    bitshift_t bitshift = bitcount_type(bitbucket_t) - (wheel_bitalloc * wheel_step);
 
     for (counter_t index = start_number; index <= stop_number_unique; index += step) {
         new_bucket = function(wheel_bucket_calc,variant_suffix)(index);
         if (new_bucket != current_bucket) break;
 
-        const counter_t wheel_bit = wheel_bit_calc(index);
-        if (wheel_bit < 0) continue; // if the number is divisible by any of the wheel primes, skip it
+        const counter_t wheelstorage_bit = wheelstorage_bit_calc(index);
+        if (wheelstorage_bit < 0) continue; // if the number is divisible by any of the wheel primes, skip it
 
-        current_mask |= markmask_type(wheel_bit, bitbucket_t);
+        current_mask |= markmask_type(wheelstorage_bit, bitbucket_t);
     }
 
     const counter_t last_unique_bucket = function(wheel_bucket_calc,variant_suffix)(stop_number_unique);
 
     for (;current_bucket <= last_unique_bucket; current_bucket++) {
-        log9("Current bucket: %ju, new bucket: %ju, last unique bucket: %ju, stop bucket: %ju, bitshift: %ju step %ju stripe %ju", (uintmax_t)current_bucket, (uintmax_t)new_bucket, (uintmax_t)last_unique_bucket, (uintmax_t)stop_bucket, (uintmax_t)bitshift, (uintmax_t)step, (uintmax_t)wheelmask_stripe_bits);
+        log9("Current bucket: %ju, new bucket: %ju, last unique bucket: %ju, stop bucket: %ju, bitshift: %ju step %ju stripe %ju", (uintmax_t)current_bucket, (uintmax_t)new_bucket, (uintmax_t)last_unique_bucket, (uintmax_t)stop_bucket, (uintmax_t)bitshift, (uintmax_t)step, (uintmax_t)wheel_bitalloc);
         function(applyMask_index,suffix)(sieve->bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
         current_mask = current_mask >> bitshift | current_mask << (bitcount_type(bitbucket_t) - 2*bitshift); // rotate the mask for the new bucket
     }

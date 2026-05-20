@@ -53,13 +53,13 @@
         const counter_t wheel_step = reduce2power(step); // step in words, accounting for stripe alignment
 
         // align to first full bucket
-        const counter_t next_aligned = min(getFactor( bitbucket_end_type(wheel_bit_estimate_last(start_number)+1, bitbucket_t)), stop_number); // the next factor that is aligned to the wheel, this is the first index we can start marking from
+        const counter_t next_aligned = min(getFactor( bitbucket_end_type(wheelstorage_bit_estimate_last(start_number)+1, bitbucket_t)), stop_number); // the next factor that is aligned to the wheel, this is the first index we can start marking from
         logStart8(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "Aligning to first full bitbucket starting at number %ju by marking in number range %ju-%ju (bits %ju-%ju)", 
-            (uintmax_t)start_number, (uintmax_t)start_number, (uintmax_t)next_aligned, (uintmax_t)wheel_bit_estimate_last(start_number), (uintmax_t)wheel_bit_estimate_last(next_aligned));
+            (uintmax_t)start_number, (uintmax_t)start_number, (uintmax_t)next_aligned, (uintmax_t)wheelstorage_bit_estimate_last(start_number), (uintmax_t)wheelstorage_bit_estimate_last(next_aligned));
         for (; start_number <= next_aligned; start_number += step) function(markFactor_wheelstorage,suffix)(bitstorage, start_number);
         logStop8(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "Finished aligning to first full bitbucket at number %ju", (uintmax_t)start_number);
 
-        const counter_t stop_number_unique = min(getFactor( bitbucket_start_type(wheel_bit_estimate_last(start_number), bitbucket_t) - 1 + wheel_step * wheelmask_stripe_bits * ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits)), stop_number);
+        const counter_t stop_number_unique = min(getFactor( bitbucket_start_type(wheelstorage_bit_estimate_last(start_number), bitbucket_t) - 1 + wheel_step * wheel_bitalloc * ((bitcount_type(bitbucket_t) + wheel_bitalloc - 1) / wheel_bitalloc)), stop_number);
 
         bitbucket_t masks[max_masks];
         for (counter_t i = 0; i < max_masks; i++) masks[i] = (bitbucket_t)0U;
@@ -67,8 +67,8 @@
         counter_t target_bucket = start_bucket + max_masks - 1;
 
         for (counter_t index_number = start_number; index_number <= stop_number_unique; index_number += step) {
-            // const counter_t wheel_bit = wheel_bit_calc_estimate(index_number);
-            // const counter_t current_bucket = index_type(wheel_bit, bitbucket_t);
+            // const counter_t wheelstorage_bit = wheelstorage_bit_calc_estimate(index_number);
+            // const counter_t current_bucket = index_type(wheelstorage_bit, bitbucket_t);
             const counter_t current_bucket = function(wheel_bucket_calc,variant_suffix)(index_number);
 
             if (current_bucket > target_bucket) {
@@ -78,8 +78,8 @@
                 target_bucket = current_bucket + max_masks - 1;
             }
 
-            const counter_t wheel_bit = wheel_bit_calc(index_number);
-            if (wheel_bit >= 0) masks[current_bucket - start_bucket] |= markmask_type(wheel_bit, bitbucket_t);
+            const counter_t wheelstorage_bit = wheelstorage_bit_calc(index_number);
+            if (wheelstorage_bit >= 0) masks[current_bucket - start_bucket] |= markmask_type(wheelstorage_bit, bitbucket_t);
         }
 
         const counter_t masks_remaining = min(stop_bucket - min(stop_bucket, start_bucket), (counter_t)max_masks);

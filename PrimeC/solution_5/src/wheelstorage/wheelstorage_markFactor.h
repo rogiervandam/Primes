@@ -5,13 +5,13 @@ function(markFactor_wheelstorage,suffix)(void* restrict bitstorage, const regist
     logStart9(bitstorage, time_markFactor_wheelstorage, "marking factor %ju", (uintmax_t)index);
 
     register bitbucket_t* restrict bitstorage_sized = __builtin_assume_aligned(bitstorage,cache_line_bytes);
-    register const counter_t wheel_bit = wheel_bit_calc(index);
+    register const counter_t wheelstorage_bit = wheelstorage_bit_calc(index);
 
     #ifdef COMPILE_TRACE
-        if (g_trace.enabled && wheel_bit >= 0) primes_trace_add_pending_target((uint32_t)wheel_bit);
+        if (g_trace.enabled && wheelstorage_bit >= 0) primes_trace_add_pending_target((uint32_t)wheelstorage_bit);
     #endif
     
-    if (wheel_bit >= 0) bitstorage_sized[ index_type(wheel_bit, bitbucket_t)] |= markmask_type(wheel_bit, bitbucket_t);
+    if (wheelstorage_bit >= 0) bitstorage_sized[ index_type(wheelstorage_bit, bitbucket_t)] |= markmask_type(wheelstorage_bit, bitbucket_t);
 
     logStop9(bitstorage, time_markFactor_wheelstorage, "finished marking factor %ju", (uintmax_t)index);
 }

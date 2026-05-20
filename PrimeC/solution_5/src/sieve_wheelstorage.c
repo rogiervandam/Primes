@@ -22,7 +22,7 @@ void prepareBenchmark() {
 
     // append the wheel size to the algorithm name
     size_t prefix_len = 0; while (algorithm_name[prefix_len] != '\0') prefix_len++;
-    sprintf(algorithm_name + prefix_len, "_%juof%ju", (uintmax_t)wheelmask_stripe_bits, (uintmax_t)WHEEL_SIZE);
+    sprintf(algorithm_name + prefix_len, "_%juof%ju", (uintmax_t)wheel_bitalloc, (uintmax_t)WHEEL_SIZE);
 
     option.fixed_benchmark_settings.storage                 = STORAGE_WHEEL;
     option.fixed_benchmark_settings.stripe_faster           = 1;

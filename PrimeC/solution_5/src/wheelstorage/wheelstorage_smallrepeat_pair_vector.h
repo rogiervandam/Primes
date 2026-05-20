@@ -8,7 +8,7 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(void* restric
     const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(range_stop);
     const counter_t wheel_step = reduce2power(step) * wheel_multiplier(bitbucket_t); // step in words, accounting for stripe alignment
     // +2 ensures all unique masks are flushed by bucket transitions
-    const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheelmask_stripe_bits - 1) / wheelmask_stripe_bits) * WHEEL_SIZE * (wheel_step + 2), range_stop);
+    const counter_t range_stop_unique = min(range_start + ((bitcount_type(bitbucket_t) + wheel_bitalloc - 1) / wheel_bitalloc) * WHEEL_SIZE * (wheel_step + 2), range_stop);
 
     // go to first aligned block 
     counter_t current_bucket = 0;
@@ -40,10 +40,10 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(void* restric
             current_mask = BITBUCKET0;
         }
 
-        const counter_t wheel_bit = wheel_bit_calc(index);
-        if (wheel_bit >= 0) {
-            const counter_t element = index_type(wheel_bit, variant_base_type_t) & bitbucket_element_mask(bitbucket_t, variant_base_type_t);
-            current_mask[element] |= markmask_type(wheel_bit, variant_base_type_t);
+        const counter_t wheelstorage_bit = wheelstorage_bit_calc(index);
+        if (wheelstorage_bit >= 0) {
+            const counter_t element = index_type(wheelstorage_bit, variant_base_type_t) & bitbucket_element_mask(bitbucket_t, variant_base_type_t);
+            current_mask[element] |= markmask_type(wheelstorage_bit, variant_base_type_t);
             current_mask_changes++;
         }
     }

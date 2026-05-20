@@ -1,5 +1,5 @@
 // static unsigned int wheel[WHEEL_SIZE/2];
-static unsigned int wheelprimes[WHEEL_MAX + 1]; // can't be more than highest prime in the wheel
+static unsigned int wheel_primes[WHEEL_MAX + 1]; // can't be more than highest prime in the wheel
 
 #define wheeltype_t uint8_t
 
@@ -7,10 +7,10 @@ static wheeltype_t wheelmask[(index_type(WHEEL_SIZE, wheeltype_t)+1)/2];
 void build_wheel() {
     // find all the primes in the wheel up to WHEEL_MAX and store them
     for (counter_t i = 0; i <= WHEEL_MAX; i++) {
-        wheelprimes[i] = i < 2;
+        wheel_primes[i] = i < 2;
         for (counter_t f = 2; f < i; f++) {
             if ((i % f) == 0) {
-                wheelprimes[i] = 1; // mark as non-prime
+                wheel_primes[i] = 1; // mark as non-prime
                 break;
             }
         }
@@ -61,7 +61,7 @@ markFactors_wheel(sieve_t *sieve, const counter_t start, const counter_t stop, c
 
 uint8_t checkFactor_wheel(sieve_t* sieve, register counter_t factor) {
     if (factor > 2 && factor % 2 == 0) return 1;
-    if (factor <= WHEEL_MAX) return wheelprimes[factor];
+    if (factor <= WHEEL_MAX) return wheel_primes[factor];
     return checkBitTrue_wheel(sieve->bitstorage, factor);
 }
 
