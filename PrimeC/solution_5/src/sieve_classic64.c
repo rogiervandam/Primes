@@ -21,12 +21,12 @@ static inline counter_t findUnmarked(sieve_t *sieve, counter_t start) {
     return start * 2 + 1;
 }
 
-#define PREPARE_FUNCTION 1 // signals sieve_main to call prepareBenchmark() before the benchmark starts
 void prepareBenchmark() {
     option.fixed_benchmark_settings.stripe_faster           = 1;
     option.fixed_benchmark_settings.largestep_faster        = 1;
     option.fixed_benchmark_settings.vectorsize              = 128;
     option.algorithm_max                                    = 1;
+    option.fixed_benchmark_settings.storage                 = STORAGE_HALF;
 }
 
 #define bitbucket_t uint64_t

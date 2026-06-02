@@ -38,6 +38,11 @@
         return factor;
     }
 
+    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+    calcFactorsize(counter_t bitsize, storage_type storage_id) 
+    {
+        return (bitsize * storage_table[storage_id].factorsize) / storage_table[storage_id].bitsize + ((bitsize * storage_table[storage_id].factorsize) % storage_table[storage_id].bitsize != 0);
+    }
 #endif
 
 #if (defined(BUILD_WORDS_STAGE) || defined(BUILD_VECTORS_STAGE)) && defined variant_suffix && (!defined unrolls || unrolls == 1)

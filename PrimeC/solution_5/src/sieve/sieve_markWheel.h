@@ -74,4 +74,7 @@ findUnmarked_wheel(sieve_t *sieve, register counter_t factor)
     return factor;
 }
 
+static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_wheel(sieve, start, stop, step); }
+static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_wheel(sieve, factor); }
+static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_wheel(sieve, factor); }
 

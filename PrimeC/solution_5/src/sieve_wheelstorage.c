@@ -11,12 +11,6 @@ static char algorithm_type[] = "wheel";
 #include "sieve/sieve_manager.h"
 #include "wheelstorage/wheelstorage.h"
 
-// implement the 3 functions to integrate with sieve_check and the storage level
-static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_wheelstorage(sieve->bitstorage, start, stop, step); }
-static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_wheelstorage_uint8(sieve, factor); }
-static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_wheelstorage(sieve, factor); }
-
-#define PREPARE_FUNCTION 1 // signals sieve_main to call prepareBenchmark() before the benchmark starts, this is used to build the wheel
 void prepareBenchmark() {
     buildWheel();
 
@@ -42,12 +36,10 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
 
     log5("Shaking sieve to find all primes up to %ju with blocks %ju using the wheel with primes up to %ju using blocksize %ju factorsize %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock,(uintmax_t)WHEEL_MAX,(uintmax_t)global_blocksize_bits,(uintmax_t)calcFactorsize(global_blocksize_bits, global_storage));
 
-    // #pragma GCC unroll 2
     for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
         const counter_t block_stop = min(sieve_size, block_start + factorBlock);
         logStart5(sieve->bitstorage, time_wheelstorage_blockprocessing, "Blockprocessing: Processing block with range %ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); 
 
-        // #pragma GCC unroll 32
         for (counter_t prime = findUnmarked(sieve, WHEEL_MAX+1); prime < prime_max;  prime = findUnmarked(sieve, ++prime)) {
             markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
         }

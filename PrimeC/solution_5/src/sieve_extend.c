@@ -14,15 +14,16 @@ static char algorithm_type[] = "other";
 #include "bitstorage/bitstorage_continuePattern.h"
 
 // implement the 3 functions to integrate with sieve_check and the storage level
-static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_half(sieve, start, stop, step); }
-static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_half(sieve, factor); }
-static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_half(sieve, factor); }
+// static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_half(sieve, start, stop, step); }
+// static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_half(sieve, factor); }
+// static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_half(sieve, factor); }
 
 #include "sieve/sieve_markStripe.h"
 #include "sieve/sieve_markExtend.h"
 
 void prepareBenchmark() {
-    option.algorithm_max = 2;
+    option.algorithm_max                                    = 2;
+    option.fixed_benchmark_settings.storage                 = STORAGE_HALF;
 }
 
 /* This is the main module that directs all the work

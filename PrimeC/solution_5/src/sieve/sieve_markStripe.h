@@ -1,3 +1,7 @@
+static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_half(sieve, start, stop, step); }
+static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_half(sieve, factor); }
+static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_half(sieve, factor); }
+
 static inline counter_t __attribute__((always_inline, nonnull, aligned(cache_line_bytes))) 
 markSieveBlock(sieve_t* sieve, const counter_t block_start, const counter_t block_stop, counter_t prime, const counter_t prime_max) {
     logStart5(sieve->bitstorage, time_sieveStripeBlock, "block stripe for block %ju - %ju with prime %ju",

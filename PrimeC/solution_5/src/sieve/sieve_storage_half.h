@@ -75,4 +75,10 @@ static inline uint8_t checkFactor_half(sieve_t *sieve, counter_t factor) {
     return checkBitTrue_uint8(sieve->bitstorage, factor >> 1);
 }
 
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcFactorsize(counter_t bitsize) 
+{
+    return calcFactorsize_half(bitsize);
+}
+
 #include "../sieve/sieve_calc.h"
