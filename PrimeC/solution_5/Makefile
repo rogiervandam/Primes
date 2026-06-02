@@ -4,6 +4,7 @@
 all: 
 	@echo "Building all variants..."
 	$(MAKE) sieve_extend
+	$(MAKE) sieve_wheelstorage
 	$(MAKE) sieve_classic
 	$(MAKE) sieve_base
 	$(MAKE) sieve_wheel
@@ -12,7 +13,13 @@ all:
 # Rule to build each variant
 sieve_extend:
 	@echo "Building variant: sieve_extend"
-	./sieve sieve_extend compile
+	./sieve sieve_extend compile --threads 1
+
+sieve_wheelstorage:
+	@echo "Building variant: sieve_wheelstorage"
+	./sieve sieve_wheelstorage compile --threads 1
+	./sieve sieve_wheelstorage_2of6 compile
+	./sieve sieve_wheelstorage_48of210 compile
 
 sieve_classic:
 	@echo "Building variant: sieve_classic"
@@ -83,4 +90,4 @@ help:
 	@echo "Available variants: $(VARIANTS:%=bin/sieve_%)"
 
 # Force rebuilding variants even if files with those names exist
-.PHONY: all clean help sieve_extend sieve_classic sieve_base sieve_wheel generate_wheel_cache
+.PHONY: all clean help sieve_extend sieve_wheelstorage sieve_classic sieve_base sieve_wheel generate_wheel_cache

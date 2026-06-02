@@ -28,6 +28,7 @@ CHAIN_TIMING_MODE="" # "timing" variant: COMPILE_TIMERS + EMBED_SETTINGS
 CHAIN_EXPLAIN_MODE="" # "explain" flag: add COMPILE_EXPLAIN to trace binary
 CHAIN_TITLE=""
 SIEVEVARIANTS="sieve_classic8 sieve_classic64 sieve_base sieve_wheel sieve_wheel_8of30 sieve_wheelstorage sieve_extend"
+PARSIEVEVARIANTS="sieve_extend sieve_wheelstorage"
 
 # Process arguments to check for compiler override
 ARGS_TO_KEEP=()
@@ -511,6 +512,9 @@ if [ "$COMPILE" = "compileall" ]; then
     # for base in sieve_base sieve_extend sieve_classic64 sieve_classic8 sieve_wheel sieve_wheel_8of30; do
         $0 $base "compile" "$@" || exit $?
     done
+    for base in $PARSIEVEVARIANTS; do
+        $0 $base "compile" --threads 1 "$@" || exit $?
+    done
     exit 0
 fi
 
@@ -524,7 +528,7 @@ fi
 
 # running the full benchmark set
 if [ "$RUNALL" = "runall" ]; then
-    for base in sieve_extend; do
+    for base in sieve_extend sieve_wheelstorage; do
         bin/${base}_epar --threads all "$@"
     done
     for base in $SIEVEVARIANTS; do
