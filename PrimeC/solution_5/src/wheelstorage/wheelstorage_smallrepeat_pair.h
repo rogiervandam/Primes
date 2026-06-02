@@ -29,8 +29,8 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
         if (new_bucket != current_bucket) {
             if (pending_mask) {
                 if (current_mask && ((pending_bucket + 1) == current_bucket )) { 
-                    // function(applyMask_index_pair,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
-                    function(applyMask_index2_mmask_args,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
+                    function(applyMask_index_pair,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
+                    // function(applyMask_index2_mmask_args,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
                     current_mask = (bitbucket_t)0U; // will be copied to pending_mask
                 }
                 else {

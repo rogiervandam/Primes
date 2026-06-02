@@ -2,13 +2,15 @@
 
 ![Algorithm](https://img.shields.io/badge/Algorithm-other-yellowgreen)
 ![Algorithm](https://img.shields.io/badge/Algorithm-base-yellowgreen)
-![Faithfulness](https://img.shields.io/badge/Faithful-yes-green)
+![Algorithm](https://img.shields.io/badge/Algorithm-wheel-yellowgreen)
 ![Parallelism](https://img.shields.io/badge/Parallel-no-green)
 ![Parallelism](https://img.shields.io/badge/Parallel-yes-green)
 ![Bit count](https://img.shields.io/badge/Bits-1-green)
 
 This is an implementation in C.  
 The algorithm was developed in parallel using NodeJS and C.
+
+For the development, i needed a visualizer, which is in /web-visualizer
 
 ## The Extend Algorithm
 
@@ -75,12 +77,14 @@ For comparison, the framework includes classic and base implementations:
 During development, a framework was created for benchmarking sieve functions. This framework spans the following directories:
 
 ```none
-src             Contains the basic high-level algorithm files. Each file should include all necessary dependencies 
-                and contain a function named "shakeSieve(counter_t sieve_size)"
-src/benchmark   Contains all functions for benchmarking algorithms.
-src/bitstorage  Contains functions that operate on a bitmap level without knowledge of "primes."
-src/generic     Contains types, helper functions, and utilities for creating different function versions.
-src/sieve       Contains functions for creating, calculating, striping, and extending the sieve.
+src              Contains the basic high-level algorithm files. Each file should include all necessary dependencies 
+                 and contain a function named "shakeSieve(counter_t sieve_size)"
+src/benchmark    Contains all functions for benchmarking algorithms.
+src/bitstorage   Contains functions that operate on a bitmap level without knowledge of "primes."
+src/generic      Contains types, helper functions, and utilities for creating different function versions.
+src/sieve        Contains functions for creating, calculating, striping, and extending the sieve.
+src/trace        Contains functions to store a tracefile that can be read by the web-visualizer
+src/wheelstorage Contains functions to enable store of only "wheel multiples" instead of just unevens (which is actually wheel1of2)
 ```
 
 On initialization, a small benchmark determines the optimal settings for the hardware and OS environment. By default, this benchmark is quick and lightweight, but it can be intensified using command-line options.

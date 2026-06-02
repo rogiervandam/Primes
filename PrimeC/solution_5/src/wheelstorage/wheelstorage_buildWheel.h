@@ -17,17 +17,17 @@
     #define WHEEL_STRIPE_BITS           (((WHEEL_STRIPES * WHEEL_REPEATS - 1) / bitcount_type(wheelmask_t) + 1) * bitcount_type(wheelmask_t)) 
 
     // #define wheel_bitcount_single    (WHEEL_STRIPES)                 // the number of stripes in the wheel
-    #define wheel_bitcount              (WHEEL_STRIPES * WHEEL_REPEATS) // the number of stripes in the wheel
+    #define wheel_bitcount              (WHEEL_STRIPES * WHEEL_REPEATS) // the number of bits mapped to numbers in the wheel (there can be unmapped ones too)
     #define wheel_bitalloc              (WHEEL_STRIPE_BITS)             // the number of bits reserved for each repetition of the wheel
     #define wheel_aligned_type(type)    (bitcount_type(type) % wheel_bitcount == 0 || wheel_bitcount % bitcount_type(type) == 0) // whether the wheel stripes align with the bitbuckets, which allows for more efficient marking
     #define wheel_multiplier(type)      (wheel_bitcount >= bitcount_type(type) ? (wheel_bitcount / bitcount_type(type)) : reduce2power(wheel_bitcount)) // how many bitbuckets we need to combine to get a full wheel stripe, this is used for marking when the wheel stripes do not align with the bitbuckets
 
     #include "../sieve/sieve_calc.h"
 
-    static uint8_t     wheel_primes    [WHEEL_MAX+1];           // which primes are in the wheel
-    static counter_t   wheel_number   [wheel_bitalloc]; // contains the mapping from bit to number: the nth bit corresponds to the wheel_number[n] number in the wheel
-    static counter_t   wheel_bit      [WHEEL_SIZE];            // the number of shifts needed to get the bitmask for this index to the right position in the bitbucket. 
-                                                                // Might be greater than the number of bits in wheelmask_t, in which case we need to forward to the next bitbucket(s) as well
+    static uint8_t     wheel_primes     [WHEEL_MAX+1];    // which primes are in the wheel
+    static counter_t   wheel_number     [wheel_bitalloc]; // contains the mapping from bit to number: the nth bit corresponds to the wheel_number[n] number in the wheel
+    static counter_t   wheel_bit        [WHEEL_SIZE];     // the number of shifts needed to get the bitmask for this index to the right position in the bitbucket. 
+                                                          // Might be greater than the number of bits in wheelmask_t, in which case we need to forward to the next bitbucket(s) as well
     // static wheelmask_t wheel_mask        [WHEEL_SIZE];            // the bitmask for this index in the wheel, used for marking bits in the bitstorage   
 
     // Runtime path: compute wheel data from scratch.

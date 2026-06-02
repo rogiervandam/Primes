@@ -45,8 +45,6 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings, const char* algorith
             }
         }
     }
-    // #else
-    // (void)benchmark_settings;
     #endif
 }
 

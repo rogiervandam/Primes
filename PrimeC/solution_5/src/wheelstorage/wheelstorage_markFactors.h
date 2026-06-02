@@ -5,7 +5,7 @@ markFactors_wheelstorage(void* restrict bitstorage, counter_t start, counter_t s
     const counter_t prime = step / 2;
 
     // if (prime <= 7) {
-    //     markFactors_wheelstorage_small_repeat_pair_rotate_uint64_unroll8(sieve, start, stop, step);
+    //     markFactors_wheelstorage_small_repeat_pair_rotate_uint64_unroll8(bitstorage, start, stop, step);
     // }
     // else
     // if (prime <= 32) {

@@ -17,7 +17,6 @@ typedef struct  {
     counter_t show_primes_on_error;
     counter_t show_nonprimes_on_error;
     counter_t verbose_level;
-    counter_t explain;
     counter_t explain_level;
     counter_t trace_level;
     counter_t timers;
@@ -143,7 +142,6 @@ setDefaultOptions()
     option.show_primes_on_error       = 100;
     option.show_nonprimes_on_error    = 100;
     option.verbose_level              = 0; // to what max level must output generation be (pre)compiled, must be >= explain_level and trace_level to get output
-    option.explain                    = 0; //deprecated, use --explain-level instead
     option.explain_level              = 0; // to what level must explain output be generated
     option.trace_level                = 0; // to what level must trace output be generated
     option.timers                     = 0;
