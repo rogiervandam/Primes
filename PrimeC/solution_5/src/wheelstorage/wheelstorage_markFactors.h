@@ -15,12 +15,12 @@ markFactors_wheelstorage(void* restrict bitstorage, counter_t start, counter_t s
     // else
     if (step < global_largestep_faster) {
     // if (step < 256) {
-        // markFactors_wheelstorage_small_repeat_mmask2_uint64_unroll8(bitstorage, start, stop, step);
+        markFactors_wheelstorage_small_repeat_mmask2_uint64_unroll8(bitstorage, start, stop, step);
         // markFactors_wheelstorage_small_repeat_uint64_unroll8(bitstorage, start, stop, step);
         // markFactors_wheelstorage_repeat_uint8_unroll8(bitstorage, start, stop, step);
         // markFactors_wheelstorage_repeat_uint64_unroll8(bitstorage, start, stop, step);
         // markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(bitstorage, start, stop, step);
-        markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(bitstorage, start, stop, step);
+        // markFactors_wheelstorage_small_repeat_pair_uint64_unroll8(bitstorage, start, stop, step);
         // markFactors_wheelstorage_small_repeat_pair_vector_uint64v4_unroll8(bitstorage, start, stop, step);
     }
     else 
