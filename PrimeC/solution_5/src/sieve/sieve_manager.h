@@ -16,6 +16,7 @@ typedef struct  {
     counter_t storage_id;
     counter_t bitsize;
     counter_t factorsize;
+    counter_t highest_prime_in_storage;
 } storage_t;
 
 // create a sieve with a given size including the bitstorage

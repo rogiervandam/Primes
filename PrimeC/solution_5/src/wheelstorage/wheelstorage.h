@@ -41,5 +41,10 @@
     static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_wheelstorage(sieve->bitstorage, start, stop, step); }
     static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_wheelstorage_uint8(sieve, factor); }
     static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_wheelstorage(sieve, factor); }
+    static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+    calcBitsize(counter_t factorsize, storage_type storage_id) 
+    {
+        return (factorsize * storage_table[storage_id].bitsize) / storage_table[storage_id].factorsize + ((factorsize * storage_table[storage_id].bitsize) % storage_table[storage_id].factorsize != 0);
+    }
 
 #endif

@@ -25,8 +25,8 @@ static inline benchmark_settings_t checkBenchmarkSettings(benchmark_settings_t b
     // benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, benchmark_settings.vectorsize);
     benchmark_settings.largestep_faster  = min(benchmark_settings.largestep_faster, prime_max);
     benchmark_settings.largestep_faster  = max(benchmark_settings.largestep_faster, 2); // allow for conversion from step to prime
-    benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, calcBitsize(benchmark_settings.factor_max, benchmark_settings.storage)); 
-    if (benchmark_settings.blocksize_bits == 0) benchmark_settings.blocksize_bits = calcBitsize(benchmark_settings.factor_max, benchmark_settings.storage);
+    benchmark_settings.blocksize_bits    = min(benchmark_settings.blocksize_bits, calcBitsize_storage(benchmark_settings.factor_max, benchmark_settings.storage)); 
+    if (benchmark_settings.blocksize_bits == 0) benchmark_settings.blocksize_bits = calcBitsize_storage(benchmark_settings.factor_max, benchmark_settings.storage);
     if (benchmark_settings.algorithm < 1 || benchmark_settings.algorithm >option.algorithm_max) benchmark_settings.algorithm = 1; // default to sieve algorithm 1
     if (benchmark_settings.vectorsize != 128 && benchmark_settings.vectorsize != 256 && benchmark_settings.vectorsize != 512) {
         benchmark_settings.vectorsize = 256; // default to 256 bit vectors
@@ -55,7 +55,7 @@ static inline void updateBenchmarkResult(benchmark_result_t *result, const count
 
 // do a benchmark of the given function with the given settings (including time target), and return the result
 static benchmark_result_t 
-benchmark(benchmark_settings_t benchmark_settings, sieve_t* (*benchmarkableFunction)(const counter_t))
+benchmark(benchmark_settings_t benchmark_settings, sieve_t* (*benchmarkableFunction)(const counter_t, const storage_type))
 {
     benchmark_result_t benchmark_result = { .settings = checkBenchmarkSettings(benchmark_settings), .passes = 0, .elapsed_time = 0, .avg = 0 };
 
@@ -87,7 +87,7 @@ benchmark(benchmark_settings_t benchmark_settings, sieve_t* (*benchmarkableFunct
         requestBenchmarkStability(option.fixed_benchmark_settings.threads);
         const double time_start = benchmarkTime(), time_target = time_start + time_sample; // use target time to avoid substraction in the while loop
         while (time_elapsed <= time_target) {
-            sieve_t* sieve = benchmarkableFunction(sieve_size);
+            sieve_t* sieve = benchmarkableFunction(sieve_size, benchmark_result.settings.storage);
             sieve_delete(sieve);
             time_elapsed = benchmarkTime();         
             passes++;

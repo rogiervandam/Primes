@@ -26,24 +26,24 @@ calcFactor_max(counter_t range_stop)
 }
 
 static const storage_t storage_table[STORAGE_WHEEL + 1] = {
-    [STORAGE_FULL] = { STORAGE_FULL, 1, 1 }
-    ,[STORAGE_HALF] = { STORAGE_HALF, 1, 2 }
+    [STORAGE_FULL] = { STORAGE_FULL, 1, 1, 2 }
+    ,[STORAGE_HALF] = { STORAGE_HALF, 1, 2, 2 }
 #if defined WHEEL_SIZE && defined WHEEL_STRIPE_BITS
-    ,[STORAGE_WHEEL] = { STORAGE_WHEEL, WHEEL_STRIPE_BITS, WHEEL_SIZE } // this is used for testing the wheel storage with a small wheel, it is not a real storage type
+    ,[STORAGE_WHEEL] = { STORAGE_WHEEL, WHEEL_STRIPE_BITS, WHEEL_SIZE, WHEEL_MAX } // this is used for testing the wheel storage with a small wheel, it is not a real storage type
 #endif
 };
 // these are necessary for a generic calculation in the benchmark settings
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-calcBitsize(counter_t factorsize, storage_type storage_id) 
+calcBitsize_storage(counter_t factorsize, storage_type storage_id) 
 {
     return (factorsize * storage_table[storage_id].bitsize) / storage_table[storage_id].factorsize + ((factorsize * storage_table[storage_id].bitsize) % storage_table[storage_id].factorsize != 0);
 }
 
-// static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-// calcFactorsize(counter_t bitsize, storage_type storage_id) 
-// {
-//     return (bitsize * storage_table[storage_id].factorsize) / storage_table[storage_id].bitsize + ((bitsize * storage_table[storage_id].factorsize) % storage_table[storage_id].bitsize != 0);
-// }
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcFactorsize_storage(counter_t bitsize, storage_type storage_id) 
+{
+    return (bitsize * storage_table[storage_id].factorsize) / storage_table[storage_id].bitsize + ((bitsize * storage_table[storage_id].factorsize) % storage_table[storage_id].bitsize != 0);
+}
 
 static inline const char*
 getStorageModelName(storage_type storage_id)

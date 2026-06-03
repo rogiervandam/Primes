@@ -81,10 +81,10 @@ calcFactorsize(counter_t bitsize)
     return calcFactorsize_half(bitsize);
 }
 
-// static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-// calcBitsize(counter_t factorsize) 
-// {
-//     return calcBitsize_half(factorsize);
-// }
+static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+calcBitsize(counter_t factorsize) 
+{
+    return calcBitsize_half(factorsize);
+}
 
 #include "../sieve/sieve_calc.h"

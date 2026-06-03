@@ -22,32 +22,5 @@ void prepareBenchmark() {
     option.fixed_benchmark_settings.stripe_faster           = 1;
 }
 
-/* This is the main module that directs all the work
-   sieve_size in a real number that is the maximum in the sieve (not in bits)
-   block_size is in bits and determines how large the blocks are which are processed 
-*/
-static sieve_t* shakeSieve(const counter_t sieve_size)
-{
-    sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, STORAGE_WHEEL) ); 
-    sieve_clear(sieve);
-
-    const counter_t prime_max = calcFactor_max(sieve_size);
-    const counter_t factorBlock = calcFactorsize(global_blocksize_bits, global_storage);
-
-    log5("Shaking sieve to find all primes up to %ju with blocks %ju using the wheel with primes up to %ju using blocksize %ju factorsize %ju\n",(uintmax_t)sieve_size,(uintmax_t)factorBlock,(uintmax_t)WHEEL_MAX,(uintmax_t)global_blocksize_bits,(uintmax_t)calcFactorsize(global_blocksize_bits, global_storage));
-
-    for (counter_t block_start = 0; block_start < sieve_size; block_start += factorBlock) {
-        const counter_t block_stop = min(sieve_size, block_start + factorBlock);
-        logStart5(sieve->bitstorage, time_wheelstorage_blockprocessing, "Blockprocessing: Processing block with range %ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); 
-
-        for (counter_t prime = findUnmarked(sieve, WHEEL_MAX+1); prime < prime_max;  prime = findUnmarked(sieve, ++prime)) {
-            markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
-        }
-
-        logStop5(sieve->bitstorage, time_wheelstorage_blockprocessing, "Blockprocessing: Finished processing block with range %ju - %ju\n",(uintmax_t)block_start, (uintmax_t)block_stop); 
-    }
-
-    return sieve;
-}
-
+#include "sieve/sieve_shakeSieve.h"
 #include "benchmark/sieve_main.h"

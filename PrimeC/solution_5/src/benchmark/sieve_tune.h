@@ -183,7 +183,7 @@ static counter_t joinTuningResults(benchmark_result_t* tuning_result, const coun
     return tuning_results_selected;
 }
 
-static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t start_tuning_settings, sieve_t* (*benchmarkableFunction)(const counter_t))
+static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t start_tuning_settings, sieve_t* (*benchmarkableFunction)(const counter_t, const storage_type))
 {
     verbose2( printf("Tuning...building options..."); )
 
@@ -195,7 +195,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
         .stripe_faster_steps = 64,
         .largestep_faster_steps = 32,
         .sample_duration = option.initial_sample_duration,
-        .sieve_bits = calcBitsize(start_tuning_settings.factor_max, start_tuning_settings.storage),
+        .sieve_bits = calcBitsize_storage(start_tuning_settings.factor_max, start_tuning_settings.storage),
         .time_target = 0, // This field wasn't initialized in your original code
         .step = 0,
         .tuning_results_max = 0,
@@ -351,7 +351,7 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
 }
 
 static int 
-continuousBenchmarkTopOptions(sieve_t* (*sieveFunction)(const counter_t)) 
+continuousBenchmarkTopOptions(sieve_t* (*sieveFunction)(const counter_t, const storage_type)) 
 {
     verbose3({
         counter_t top_count = tuning_top_results_count;

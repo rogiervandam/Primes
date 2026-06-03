@@ -7,11 +7,11 @@ markSieveBlock(sieve_t* sieve, const counter_t block_start, const counter_t bloc
     logStart5(sieve->bitstorage, time_sieveStripeBlock, "block stripe for block %ju - %ju with prime %ju",
         (uintmax_t)block_start/2,(uintmax_t)block_stop/2,(uintmax_t)prime );
 
-    const counter_t prime_endloop_shortstepsearch = min(prime_max, 128);
+    // const counter_t prime_endloop_shortstepsearch = min(prime_max, 128);
 
-    for (; prime < prime_endloop_shortstepsearch; prime = findUnmarked(sieve, prime)) {
-        markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
-    }
+    // for (; prime < prime_endloop_shortstepsearch; prime = findUnmarked(sieve, prime)) {
+    //     markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
+    // }
 
     for (; prime < prime_max; prime = findUnmarked(sieve, prime)) {
         markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));

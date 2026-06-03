@@ -63,7 +63,7 @@ finalizeSingleRunTrace(sieve_t* sieve)
 }
 
 static int __attribute__((cold))
-runSingleSievePass(benchmark_settings_t benchmark_settings, sieve_t* (*sieveFunction)(const counter_t), const char* algorithm_name, const char* algorithm_type)
+runSingleSievePass(benchmark_settings_t benchmark_settings, sieve_t* (*sieveFunction)(const counter_t, const storage_type), const char* algorithm_name, const char* algorithm_type)
 {
     benchmark_settings = checkBenchmarkSettings(benchmark_settings);
     prepareBenchmarkGlobals(benchmark_settings);
@@ -78,7 +78,7 @@ runSingleSievePass(benchmark_settings_t benchmark_settings, sieve_t* (*sieveFunc
     initSingleRunTrace(benchmark_settings, algorithm_name, algorithm_type);
 
     debug_final_plan = 1;
-    sieve_t* sieve = sieveFunction(benchmark_settings.factor_max);
+    sieve_t* sieve = sieveFunction(benchmark_settings.factor_max, benchmark_settings.storage);
     debug_final_plan = 0;
 
     finalizeSingleRunTrace(sieve);

@@ -34,7 +34,7 @@ void prepareBenchmark() {
 
 #define bitbucket_t uint8_t
 
-static sieve_t* shakeSieve(const counter_t sieve_size)
+static sieve_t* shakeSieve(const counter_t sieve_size, const storage_type storage)
 {
     const counter_t sieve_bits = sieve_size>>1;
     sieve_t* sieve = sieve_create(sieve_size, sieve_bits);

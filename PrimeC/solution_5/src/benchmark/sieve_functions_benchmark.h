@@ -121,7 +121,7 @@ static inline void benchmarkSetBitsTrue(void* restrict bitstorage, const counter
 }
 
 static inline int 
-benchmarkSieveSetBitsTrue(options_t option, sieve_t* (*sieveFunction)(const counter_t))
+benchmarkSieveSetBitsTrue(options_t option, sieve_t* (*sieveFunction)(const counter_t, const storage_type))
 {
     const counter_t max_factor = option.fixed_benchmark_settings.factor_max;
     storage_type storage = option.fixed_benchmark_settings.storage;

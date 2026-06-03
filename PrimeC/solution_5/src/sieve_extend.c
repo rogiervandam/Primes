@@ -12,12 +12,6 @@ static char algorithm_type[] = "other";
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_storage_half.h"
 #include "bitstorage/bitstorage_continuePattern.h"
-
-// implement the 3 functions to integrate with sieve_check and the storage level
-// static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_half(sieve, start, stop, step); }
-// static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_half(sieve, factor); }
-// static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_half(sieve, factor); }
-
 #include "sieve/sieve_markSieve.h"
 #include "sieve/sieve_markExtend.h"
 
@@ -30,7 +24,7 @@ void prepareBenchmark() {
    sieve_size in a real number that is the maximum in the sieve (not in bits)
    block_size is in bits and determines how large the blocks are which are processed 
 */
-static sieve_t* shakeSieve(const counter_t sieve_size)
+static sieve_t* shakeSieve(const counter_t sieve_size, storage_type storage)
 {
     sieve_t* sieve      = sieve_create(sieve_size, calcBitsize_half(sieve_size));
 #ifdef COMPILE_TRACE
@@ -69,10 +63,10 @@ static sieve_t* shakeSieve(const counter_t sieve_size)
             markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime_next, prime_max);
         } break;
 
-        case 3: // stripe everything block by block, no extend used
-        {
-            markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, 3, prime_max);
-        } break;
+        // case 3: // stripe everything block by block, no extend used
+        // {
+        //     markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, 3, prime_max);
+        // } break;
     }
 
     // return the completed sieve

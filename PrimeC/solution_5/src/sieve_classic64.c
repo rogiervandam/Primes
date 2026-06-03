@@ -33,7 +33,7 @@ void prepareBenchmark() {
 
 // This is the main module that directs all the work
 // sieve_size in a real number that is the maximum in the sieve (not in bits)
-static sieve_t* shakeSieve(const counter_t sieve_size)
+static sieve_t* shakeSieve(const counter_t sieve_size, storage_type storage)
 {
     const counter_t sieve_bits = sieve_size>>1;
     sieve_t* sieve = sieve_create(sieve_size, sieve_bits);
