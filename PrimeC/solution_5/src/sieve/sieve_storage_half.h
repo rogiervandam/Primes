@@ -69,16 +69,22 @@ calcFactorsize_half(counter_t bitsize)
     return (bitsize << 1);
 }
 
-// This function decouples the factor from the bitstorage
 static inline uint8_t checkFactor_half(sieve_t *sieve, counter_t factor) {
     if (factor > 2 && factor % 2 == 0) return 1;
     return checkBitTrue_uint8(sieve->bitstorage, factor >> 1);
 }
 
+// integration with the generic sieve calculation functions
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
 calcFactorsize(counter_t bitsize) 
 {
     return calcFactorsize_half(bitsize);
 }
+
+// static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
+// calcBitsize(counter_t factorsize) 
+// {
+//     return calcBitsize_half(factorsize);
+// }
 
 #include "../sieve/sieve_calc.h"

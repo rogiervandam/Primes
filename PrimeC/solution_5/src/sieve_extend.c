@@ -18,7 +18,7 @@ static char algorithm_type[] = "other";
 // static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_half(sieve, factor); }
 // static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_half(sieve, factor); }
 
-#include "sieve/sieve_markStripe.h"
+#include "sieve/sieve_markSieve.h"
 #include "sieve/sieve_markExtend.h"
 
 void prepareBenchmark() {

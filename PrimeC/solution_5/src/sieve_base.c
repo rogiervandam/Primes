@@ -24,7 +24,7 @@ void prepareBenchmark() {
 // This is the main module that directs all the work 
 static sieve_t* shakeSieve(const counter_t sieve_size)
 {
-    sieve_t *sieve = sieve_create(sieve_size, calcBitsize_half(sieve_size));
+    sieve_t *sieve = sieve_create(sieve_size, calcBitsize(sieve_size, global_storage) );
     sieve_clear(sieve);
 
     const counter_t prime_max = calcFactor_max(sieve_size);

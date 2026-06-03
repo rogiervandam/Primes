@@ -10,8 +10,8 @@ performBenchmarks(options_t option, sieve_t* (*sieveFunction)(const counter_t), 
     if (option.explain_level || option.trace_level) return runSingleSievePass(option.fixed_benchmark_settings, sieveFunction, algorithm_name, algorithm_type);
 
     #ifdef COMPILE_BENCHMARK_STRIPERS
-    if (option.tunelevel == 5) return benchmarkSieveSetBitsTrue(option, sieveFunction);
-    if (option.tunelevel == 6) return createStepplan(option.fixed_benchmark_settings);
+        if (option.tunelevel == 5) return benchmarkSieveSetBitsTrue(option, sieveFunction);
+        if (option.tunelevel == 6) return createStepplan(option.fixed_benchmark_settings);
     #endif
 
     for(counter_t threads=option.fixed_benchmark_settings.threads, runs = 0; threads >= 1 && runs < 4; threads = (threads/2), runs++ ) {
@@ -21,12 +21,12 @@ performBenchmarks(options_t option, sieve_t* (*sieveFunction)(const counter_t), 
 
         // tuning - try combinations of different settings and apply these
         #ifdef COMPILE_TUNE
-        if (option.tunelevel) { 
-            benchmark_result_t tuning_result = tuneSieveSettings(option.tunelevel, benchmark_settings, sieveFunction);
-            setSettingsFromTuning(&benchmark_settings, &(tuning_result.settings));
-        }
-        if (option.tunelevel == 3) return 0; // do one extra tuning run with the best settings to get a better result for the final benchmark
-        if (option.tunelevel == 4) return continuousBenchmarkTopOptions(sieveFunction); // continuous benchmarking of top 4 options
+            if (option.tunelevel) { 
+                benchmark_result_t tuning_result = tuneSieveSettings(option.tunelevel, benchmark_settings, sieveFunction);
+                setSettingsFromTuning(&benchmark_settings, &(tuning_result.settings));
+            }
+            if (option.tunelevel == 3) return 0; // do one extra tuning run with the best settings to get a better result for the final benchmark
+            if (option.tunelevel == 4) return continuousBenchmarkTopOptions(sieveFunction); // continuous benchmarking of top 4 options
         #endif
 
         // one last check to make sure this is a valid algorithm for these settings
@@ -59,10 +59,10 @@ performBenchmarks(options_t option, sieve_t* (*sieveFunction)(const counter_t), 
         )
 
         #ifdef COMPILE_TIMERS
-        if (option.timers) {
-            timer_init();
-            verbose2( printf("Timing the different parts of the algorithm\n"); )
-        }
+            if (option.timers) {
+                timer_init();
+                verbose2( printf("Timing the different parts of the algorithm\n"); )
+            }
         #endif
 
         debug_final_benchmarking = 1; // allow to count something in the final benchmark runs

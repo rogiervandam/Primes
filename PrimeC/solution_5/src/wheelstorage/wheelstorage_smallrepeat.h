@@ -22,9 +22,9 @@ function(markFactors_wheelstorage_small_repeat,suffix)(void* restrict bitstorage
 
     // go to first aligned block 
     for (register counter_t index_number = start_number; index_number <= stop_number_unique; index_number += step) { 
-        const counter_t wheelstorage_bit = wheelstorage_bit_calc(index_number);
-        const counter_t new_bucket = index_type(wheelstorage_bit, bitbucket_t);
-        // const counter_t new_bucket = function(wheel_bucket_calc,variant_suffix)(index_number);
+        // const counter_t wheelstorage_bit = wheelstorage_bit_calc(index_number);
+        // const counter_t new_bucket = index_type(wheelstorage_bit, bitbucket_t);
+        const counter_t new_bucket = function(wheel_bucket_calc,variant_suffix)(index_number);
 
         if (current_bucket < new_bucket) { // when going to the next block
             if (current_mask) { // apply previous mask if it exists
@@ -34,7 +34,7 @@ function(markFactors_wheelstorage_small_repeat,suffix)(void* restrict bitstorage
             current_mask = (bitbucket_t)0U;
         }
 
-        // const counter_t wheelstorage_bit = wheelstorage_bit_calc(index_number);
+        const counter_t wheelstorage_bit = wheelstorage_bit_calc(index_number);
         if (wheelstorage_bit >= 0) current_mask |= markmask_type(wheelstorage_bit, bitbucket_t);
     } 
 
