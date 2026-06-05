@@ -217,6 +217,7 @@ export default function Visualizer({
 
   const {
     theme, setTheme,
+    isUseSystemTheme, setIsUseSystemTheme,  // item 478
     gridOpacity, setGridOpacity,
     canvasColors, setCanvasColors,
     colorPreset, setColorPreset,
@@ -293,6 +294,17 @@ export default function Visualizer({
   const repeatStartPctRef = useRef(100); // item 452: default to 100%
   isRepeatModeRef.current = isRepeatMode;
   repeatStartPctRef.current = repeatStartPct;
+  // item 480: auto-enable repeat mode when selecting an event
+  const [isRepeatOnSelect, setIsRepeatOnSelect] = useState(initialPrefs.isRepeatOnSelect ?? false);
+  const isRepeatOnSelectRef = useRef(false);
+  isRepeatOnSelectRef.current = isRepeatOnSelect;
+  // item 476: skip events with no changes during all-events playback
+  const [isSkipNoChangeEvents, setIsSkipNoChangeEvents] = useState(initialPrefs.isSkipNoChangeEvents ?? false);
+  // item 488: fast-play timeline simplification
+  const [isFastTimelineSimplifyEnabled, setIsFastTimelineSimplifyEnabled] = useState(initialPrefs.isFastTimelineSimplifyEnabled ?? true);
+  const [fastTimelineCutoffMs, setFastTimelineCutoffMs] = useState(initialPrefs.fastTimelineCutoffMs ?? 500);
+  // item 479: annotation left margin in events panel (px, can be negative)
+  const [annotationMarginLeft, setAnnotationMarginLeft] = useState(initialPrefs.annotationMarginLeft ?? 5);
   // item 433: split repeat handle into start + end range
   const [isRepeatSplit, setIsRepeatSplit] = useState(false);
   const [repeatEndPct, setRepeatEndPct] = useState(100);
@@ -703,6 +715,7 @@ export default function Visualizer({
   useViewPrefsSync({
     introPhase,
     theme,
+    isUseSystemTheme,  // item 478
     layoutSettings,
     eventTitleSettings,
     gridOpacity,
@@ -725,6 +738,11 @@ export default function Visualizer({
     isAllEventsWidgetHidden,
     isAllEventsInDetailPanel,
     isAutoAnimateOnSelect,
+    isRepeatOnSelect,     // item 480
+    isSkipNoChangeEvents, // item 476
+    isFastTimelineSimplifyEnabled, // item 488
+    fastTimelineCutoffMs,          // item 488
+    annotationMarginLeft, // item 479
     isEventsPanelCollapsed,
     isSettingsCollapsed,
     isDetailOpen,
@@ -1002,7 +1020,7 @@ export default function Visualizer({
   // Use stableGoToStep here so handleStepSelection's identity does not change
   // every step during playback (goToStep itself depends on currentStep, which
   // would otherwise cascade into EventsPanel re-rendering on every step).
-  const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({ stopPlayback, goToStep: stableGoToStep, globalPausedRef, playingRef, setIsAnimationReplayPaused, setSelectedSteps, isRepeatModeRef, isRepeatSplitRef, repeatStartPctRef, setIsRepeatSplit, setRepeatStartPct, stepScrubProgressRef, repeatDelayTimeoutRef, setDelayPhaseMsRef });
+  const { handleStepSelection, handleMultiStepSelect } = useStepSelectionHandlers({ stopPlayback, goToStep: stableGoToStep, globalPausedRef, playingRef, setIsAnimationReplayPaused, setSelectedSteps, isRepeatModeRef, isRepeatSplitRef, repeatStartPctRef, setIsRepeatSplit, setRepeatStartPct, stepScrubProgressRef, repeatDelayTimeoutRef, setDelayPhaseMsRef, isRepeatOnSelectRef, setIsRepeatMode });
 
   useSelectionOrchestration({
     steps,
@@ -1062,6 +1080,7 @@ export default function Visualizer({
     },
     loopConfig: {
       isAutoAnimateOnSelect,
+      isSkipNoChangeEvents,  // item 476
     },
   });
 
@@ -1234,11 +1253,23 @@ export default function Visualizer({
     aggMaskStepSetterRef.current(0);
   }, [selectedSteps]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // item 483: immediately re-render the animation overlay when animStyle changes
+  // so the user sees the effect of the new style without needing to scrub.
+  const prevAnimStyleRef = useRef(animStyle);
+  useEffect(() => {
+    if (prevAnimStyleRef.current === animStyle) return;
+    prevAnimStyleRef.current = animStyle;
+    if (playingRef.current) return;
+    seekStepAnimation?.(stepScrubProgressRef.current / 100);
+  }); // no deps — runs after every render but exits early unless animStyle changed
+
   const { renderCanvasStyle, mergedCamera3DContainerStyle } = useCanvasStyles({ canvasAnchorPx, introPhase, camera3DContainerStyle, canvasColors, theme });
 
   const themeContextValue = useMemo(() => ({
     theme,
     setTheme,
+    isUseSystemTheme,    // item 478
+    setIsUseSystemTheme, // item 478
     gridOpacity,
     setGridOpacity,
     canvasColors,
@@ -1258,6 +1289,8 @@ export default function Visualizer({
   }), [
     theme,
     setTheme,
+    isUseSystemTheme,
+    setIsUseSystemTheme,
     gridOpacity,
     setGridOpacity,
     canvasColors,
@@ -1328,6 +1361,14 @@ export default function Visualizer({
     handleBitAnimationModeChange,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
+    isRepeatOnSelect,           // item 480
+    setIsRepeatOnSelect,        // item 480
+    isSkipNoChangeEvents,       // item 476
+    setIsSkipNoChangeEvents,    // item 476
+    isFastTimelineSimplifyEnabled,      // item 488
+    setIsFastTimelineSimplifyEnabled,   // item 488
+    fastTimelineCutoffMs,               // item 488
+    setFastTimelineCutoffMs,            // item 488
     animateBitsMode,          // item 244
     setAnimateBitsMode,       // item 244
     currentStepHasMasks,      // item 471
@@ -1350,6 +1391,14 @@ export default function Visualizer({
     handleBitAnimationModeChange,
     isAutoAnimateOnSelect,
     setIsAutoAnimateOnSelect,
+    isRepeatOnSelect,
+    setIsRepeatOnSelect,
+    isSkipNoChangeEvents,
+    setIsSkipNoChangeEvents,
+    isFastTimelineSimplifyEnabled,
+    setIsFastTimelineSimplifyEnabled,
+    fastTimelineCutoffMs,
+    setFastTimelineCutoffMs,
     animateBitsMode,          // item 244
     setAnimateBitsMode,       // item 244
     currentStepHasMasks,      // item 471
@@ -1598,6 +1647,7 @@ export default function Visualizer({
     // Panels: events
     panelWidth, isAllEventsWidgetHidden,
     setIsEventsPanelCollapsed, setPanelWidth,
+    annotationMarginLeft, setAnnotationMarginLeft,  // item 479
     // Panels: detail
     detailWidth,
     toggleDetailPanel, updateDetailHeight, setDetailWidth,
@@ -1638,6 +1688,11 @@ export default function Visualizer({
     isRepeatMode, setIsRepeatMode, repeatStartPct, setRepeatStartPct,
     // item 433: split repeat handle
     isRepeatSplit, setIsRepeatSplit, repeatEndPct, setRepeatEndPct,
+    // item 476/485: skip events with no changes
+    isSkipNoChangeEvents,
+    // item 488: fast-play timeline simplification
+    isFastTimelineSimplifyEnabled,
+    fastTimelineCutoffMs,
     // Overlays: minimap
     isMinimapVisible, setIsMinimapVisible,
     // Detail inspector

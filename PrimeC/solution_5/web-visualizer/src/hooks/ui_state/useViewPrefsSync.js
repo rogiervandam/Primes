@@ -9,6 +9,7 @@ import { writeViewPrefs } from '../../lib/viewPrefs';
 export function useViewPrefsSync({
   introPhase,
   theme,
+  isUseSystemTheme,  // item 478
   layoutSettings,
   eventTitleSettings,
   gridOpacity,
@@ -31,6 +32,11 @@ export function useViewPrefsSync({
   isAllEventsWidgetHidden,
   isAllEventsInDetailPanel,
   isAutoAnimateOnSelect,
+  isRepeatOnSelect,         // item 480
+  isSkipNoChangeEvents,     // item 476
+  isFastTimelineSimplifyEnabled,  // item 488
+  fastTimelineCutoffMs,           // item 488
+  annotationMarginLeft,     // item 479
   isEventsPanelCollapsed,
   isSettingsCollapsed,
   isDetailOpen,
@@ -42,6 +48,7 @@ export function useViewPrefsSync({
     if (!introCompleteRef.current) return;
     writeViewPrefs({
       theme,
+      isUseSystemTheme,  // item 478
       layoutSettings,
       eventTitleSettings,
       gridOpacity,
@@ -64,9 +71,14 @@ export function useViewPrefsSync({
       isAllEventsWidgetHidden,
       isAllEventsInDetailPanel,
       isAutoAnimateOnSelect,
+      isRepeatOnSelect,         // item 480
+      isSkipNoChangeEvents,     // item 476
+      isFastTimelineSimplifyEnabled,  // item 488
+      fastTimelineCutoffMs,           // item 488
+      annotationMarginLeft,     // item 479
       isEventsPanelCollapsed,
       isSettingsCollapsed,
       isDetailOpen,
     });
-  }, [theme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, renderMode, debugGlModeOverride, debugWorkerGlyphMode, debugRenderTuning, colorPreset, customColors, timelineColors, floaterBg, draggerColor, zoneBgOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, isAllEventsWidgetHidden, isAllEventsInDetailPanel, isAutoAnimateOnSelect, isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpen]);
+  }, [theme, isUseSystemTheme, layoutSettings, eventTitleSettings, gridOpacity, canvasColors, renderMode, debugGlModeOverride, debugWorkerGlyphMode, debugRenderTuning, colorPreset, customColors, timelineColors, floaterBg, draggerColor, zoneBgOpacity, eventDurationMode, playSpeedPercent, delayBetweenEvents, delayBetweenRepeats, eventTimeTargets, isAllEventsWidgetHidden, isAllEventsInDetailPanel, isAutoAnimateOnSelect, isRepeatOnSelect, isSkipNoChangeEvents, isFastTimelineSimplifyEnabled, fastTimelineCutoffMs, annotationMarginLeft, isEventsPanelCollapsed, isSettingsCollapsed, isDetailOpen]);
 }

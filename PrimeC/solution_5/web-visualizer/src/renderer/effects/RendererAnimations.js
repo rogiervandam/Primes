@@ -12,6 +12,9 @@
  *   renderPulse      – scale-up/down pulse on changed/focus bits
  *   renderMaskStamp  – moving stamp across mask write entries
  *   renderMaskHover  – flying mask-imprint preview animation
+ *   renderSpark      – particle-burst animation shooting sparks outward (item 483)
+ *   renderSweep      – scan-line sweep across canvas revealing changed bits (item 483)
+ *   renderGlow       – soft layered radial glow around changed bits (item 483)
  */
 
 // ── Shared drawing helpers ───────────────────────────────────────────────────
@@ -486,6 +489,161 @@ export function renderMaskHover(r, progress, precomputedSlotGroups = null) {
       drawMaskImprint(r, to, to.bounds.cx, to.bounds.cy, {
         alpha: (local - 0.78) / 0.22,
       }, glCtx);
+    }
+  }
+
+  r._endGLAnim(glCtx);
+}
+
+// ── item 483: Three new animation styles ─────────────────────────────────────
+
+/**
+ * Spark animation (item 483): deterministic particle-burst effect.
+ * Each changed bit fires 8 sparks outward along fixed directions,
+ * which spread out and fade over the animation lifetime.
+ *
+ * @param {SieveRenderer} r
+ * @param {number} progress  0..1
+ */
+export function renderSpark(r, progress) {
+  const sourceBits = r.changedBits;
+  if (!sourceBits || sourceBits.size === 0) return;
+  if (progress <= 0 || progress > 1) return;
+
+  const px = r.pixelSize * r.zoom;
+  const color = r._opColor();
+  const cr = color[0] / 255, cg = color[1] / 255, cb = color[2] / 255;
+
+  const glCtx = r._beginGLAnim();
+  if (!glCtx) return;
+
+  // 8 directions evenly distributed
+  const DIRS = 8;
+  const maxDist = Math.max(px * 2.8, 12);
+  const t = progress;
+  const fade = Math.max(0, 1 - t * 1.4);
+
+  for (const globalBit of sourceBits) {
+    const pos = r.bitIndexToCanvas(globalBit);
+    if (!pos) continue;
+
+    // Use globalBit as a seed for deterministic per-bit angle offset
+    const angleOffset = ((globalBit * 2654435761) >>> 0) / 0xffffffff * Math.PI * 2;
+
+    for (let i = 0; i < DIRS; i++) {
+      const angle = angleOffset + (i / DIRS) * Math.PI * 2;
+      const dist = maxDist * t;
+      const sx = pos.x + Math.cos(angle) * dist;
+      const sy = pos.y + Math.sin(angle) * dist;
+      // Spark size shrinks as it travels
+      const size = Math.max(1, px * 0.6 * (1 - t * 0.6));
+      const alpha = fade * (0.65 - i * 0.01);  // slight variation per direction
+      if (alpha > 0.02) {
+        glCtx.drawDot(sx, sy, size, cr, cg, cb, alpha);
+      }
+    }
+    // Keep a dim center pulse so the source bit is still visible
+    if (fade > 0.1) {
+      glCtx.drawFilledRect(pos.x - px / 2, pos.y - px / 2, px, px, cr, cg, cb, fade * 0.55);
+    }
+  }
+
+  r._endGLAnim(glCtx);
+}
+
+/**
+ * Sweep animation (item 483): a horizontal scan line moves across the canvas
+ * from left to right. Changed bits that the sweep has passed briefly flash.
+ *
+ * @param {SieveRenderer} r
+ * @param {number} progress  0..1
+ */
+export function renderSweep(r, progress) {
+  const sourceBits = r.changedBits;
+  if (!sourceBits || sourceBits.size === 0) return;
+  if (progress <= 0 || progress > 1) return;
+
+  const px = r.pixelSize * r.zoom;
+  const color = r._opColor();
+  const cr = color[0] / 255, cg = color[1] / 255, cb = color[2] / 255;
+
+  const glCtx = r._beginGLAnim();
+  if (!glCtx) return;
+
+  const cw = r.canvas ? r.canvas.width : 800;
+  const sweepX = progress * (cw + px * 4) - px * 2;
+  const trailWidth = Math.max(px * 2.5, 18);
+
+  for (const globalBit of sourceBits) {
+    const pos = r.bitIndexToCanvas(globalBit);
+    if (!pos) continue;
+
+    const dist = sweepX - pos.x;
+    if (dist < -px) continue;  // not yet reached
+
+    // Bits just behind the sweep line flash; bits far behind fade
+    const t = Math.min(1, dist / (cw * 0.5 + trailWidth));
+    const alpha = Math.max(0, 1 - t);
+    const trail = Math.max(0, 1 - Math.abs(dist) / trailWidth);
+
+    if (alpha > 0.02) {
+      glCtx.drawFilledRect(pos.x - px / 2, pos.y - px / 2, px, px, cr, cg, cb, alpha * 0.9);
+    }
+    // Sweep highlight at the leading edge
+    if (trail > 0.05) {
+      glCtx.drawDot(pos.x, pos.y, px * 1.6 * (1 + trail * 0.4), cr, cg, cb, trail * 0.65);
+    }
+  }
+
+  r._endGLAnim(glCtx);
+}
+
+/**
+ * Glow animation (item 483): soft layered radial glow around each changed bit.
+ * Multiple concentric transparent circles at decreasing opacity create a
+ * gaussian-like soft glow effect that brightens then fades.
+ *
+ * @param {SieveRenderer} r
+ * @param {number} progress  0..1
+ */
+export function renderGlow(r, progress) {
+  const sourceBits = r.changedBits;
+  if (!sourceBits || sourceBits.size === 0) return;
+  if (progress <= 0 || progress > 1) return;
+
+  const px = r.pixelSize * r.zoom;
+  const color = r._opColor();
+  const cr = color[0] / 255, cg = color[1] / 255, cb = color[2] / 255;
+
+  const glCtx = r._beginGLAnim();
+  if (!glCtx) return;
+
+  // Overall envelope: brightens quickly then fades slowly
+  const peak = 0.25;
+  const envelope = progress < peak
+    ? progress / peak
+    : 1 - (progress - peak) / (1 - peak);
+  const intensity = Math.max(0, envelope);
+
+  // Concentric glow layers: larger radius → lower alpha
+  const LAYERS = [
+    { radiusMult: 0.5,  alpha: 0.85 },
+    { radiusMult: 1.0,  alpha: 0.55 },
+    { radiusMult: 1.8,  alpha: 0.30 },
+    { radiusMult: 2.8,  alpha: 0.16 },
+    { radiusMult: 4.2,  alpha: 0.07 },
+  ];
+
+  for (const globalBit of sourceBits) {
+    const pos = r.bitIndexToCanvas(globalBit);
+    if (!pos) continue;
+
+    for (const layer of LAYERS) {
+      const radius = px * layer.radiusMult;
+      const alpha = layer.alpha * intensity;
+      if (alpha > 0.01) {
+        glCtx.drawDot(pos.x, pos.y, radius, cr, cg, cb, alpha);
+      }
     }
   }
 

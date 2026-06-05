@@ -19,12 +19,10 @@ Working rules:
 5. After docs-affecting changes, update the relevant docs in `docs/` in the same patch.
 6. When a backlog item is completed, mark it as TESTABLE. Under the backlog item, add the following: 
 - feature description for release notes
-- feature description for requirements.md
-- test instructions
-- considerations for edge cases and future maintenance
-- further ideas for enhancements
+- considerations for edge cases and future maintenance and further ideas for enhancements
 - empty notes section where the maintainer can add notes about test or refinement.
-7. When i mark a backlog item as DONE, add the requirement to `docs/REQUIREMENTS.md` in the correct chapter.
+7. When i mark a backlog item as DONE, add it for archiving in the `docs/REQUIREMENTS.md` in the correct chapter.
+
 
 
 

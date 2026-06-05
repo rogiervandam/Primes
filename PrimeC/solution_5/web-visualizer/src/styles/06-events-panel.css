@@ -368,13 +368,19 @@
   flex: 1;
 }
 .event-annotation {
-  margin-left: 5px;
+  margin-left: var(--ep-annot-margin, 5px);  /* item 479: adjustable via drag */
   color: var(--fg-dim);
   font-size: 10.5px;
   font-style: italic;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* item 479: draggable annotation — col-resize cursor hints that horizontal drag adjusts the margin */
+.event-annotation-draggable {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .event-annotation-clickable {

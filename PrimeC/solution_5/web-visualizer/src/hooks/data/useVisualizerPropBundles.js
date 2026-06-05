@@ -47,6 +47,7 @@ export function useVisualizerPropBundles({
   // ── Panels: events ────────────────────────────────────────────────────────
   panelWidth, isAllEventsWidgetHidden,
   setIsEventsPanelCollapsed, setPanelWidth,
+  annotationMarginLeft, setAnnotationMarginLeft,  // item 479
 
   // ── Panels: detail ────────────────────────────────────────────────────────
   detailWidth,
@@ -98,6 +99,11 @@ export function useVisualizerPropBundles({
   isRepeatMode, setIsRepeatMode, repeatStartPct, setRepeatStartPct,
   // item 433: split repeat handle
   isRepeatSplit, setIsRepeatSplit, repeatEndPct, setRepeatEndPct,
+  // item 476/485: skip events with no changes
+  isSkipNoChangeEvents,
+  // item 488: fast-play timeline simplification
+  isFastTimelineSimplifyEnabled,
+  fastTimelineCutoffMs,
 
   // ── Overlays: minimap ─────────────────────────────────────────────────────
   isMinimapVisible, setIsMinimapVisible,
@@ -264,6 +270,11 @@ export function useVisualizerPropBundles({
         onRepeatSplitChange: setIsRepeatSplit,
         repeatEndPct,
         onRepeatEndPctChange: setRepeatEndPct,
+        // item 485: skip empty events when navigating with < > buttons
+        isSkipNoChangeEvents,
+        // item 488: fast-play timeline simplification
+        isFastTimelineSimplifyEnabled,
+        fastTimelineCutoffMs,
       },
     },
 
@@ -273,6 +284,8 @@ export function useVisualizerPropBundles({
         isCollapsed: isEventsPanelCollapsed,
         width: panelWidth,
         isAllEventsWidgetHidden,
+        annotationMarginLeft,      // item 479
+        setAnnotationMarginLeft,   // item 479
         handlers: {
           toggle: toggleEventsPanel,
           setCollapsed: setIsEventsPanelCollapsed,

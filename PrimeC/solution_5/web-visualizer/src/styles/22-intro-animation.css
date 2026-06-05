@@ -136,3 +136,29 @@
 .main-content.ui-chrome-visible .joined-events-widget {
   opacity: 1;
 }
+
+/* item 477: also hide minimap, balloons, connectors, and inspector overlays during the startup procedure. */
+.main-content .minimap-overlay-canvas,
+.main-content .bit-history-panel,
+.main-content .bit-history-connectors,
+.main-content .detail-inspector-overlay,
+.main-content .gi-backdrop {
+  transition: opacity 240ms ease;
+}
+
+.main-content.ui-chrome-hidden .minimap-overlay-canvas,
+.main-content.ui-chrome-hidden .bit-history-panel,
+.main-content.ui-chrome-hidden .bit-history-connectors,
+.main-content.ui-chrome-hidden .detail-inspector-overlay,
+.main-content.ui-chrome-hidden .gi-backdrop {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.main-content.ui-chrome-visible .minimap-overlay-canvas,
+.main-content.ui-chrome-visible .bit-history-panel,
+.main-content.ui-chrome-visible .bit-history-connectors,
+.main-content.ui-chrome-visible .detail-inspector-overlay,
+.main-content.ui-chrome-visible .gi-backdrop {
+  opacity: 1;
+}

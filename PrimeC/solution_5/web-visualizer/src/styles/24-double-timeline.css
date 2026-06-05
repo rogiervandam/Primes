@@ -777,6 +777,10 @@
   z-index: 1;
   transition: width 80ms linear;
 }
+/* item 487: suppress fill transition while user is actively scrubbing the playhead */
+.dtl-anim-zone.dtl-anim-scrubbing .dtl-anim-fill-active {
+  transition: none;
+}
 
 /* During delay phase, wipe out the active fill left-to-right to reveal inactive underneath */
 /* item 442: more prominent pulsing effect — brighter + breathing opacity during wipe */
@@ -1029,6 +1033,29 @@
 }
 .dtl-anim-playhead--empty-repeat {
   animation: dtl-empty-playhead 2s linear infinite;
+}
+
+/* item 488: fast-play simplified timeline — looping sweep animation replaces real progress */
+@keyframes dtl-fast-play-sweep {
+  0%   { clip-path: inset(0 100% 0 0); opacity: 0.6; }
+  45%  { clip-path: inset(0 0 0 0);    opacity: 1;   }
+  55%  { clip-path: inset(0 0 0 0);    opacity: 1;   }
+  100% { clip-path: inset(0 0 0 100%); opacity: 0.4; }
+}
+.dtl-anim-fill-active--fast-play {
+  width: 100% !important;
+  animation: dtl-fast-play-sweep var(--fast-play-cutoff-ms, 500ms) linear infinite;
+}
+/* item 488: hide playhead while playing (show only when paused / scrubbing) */
+.dtl-anim-zone.dtl-anim-playing .dtl-anim-playhead {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.dtl-anim-zone:not(.dtl-anim-playing) .dtl-anim-playhead,
+.dtl-anim-zone.dtl-anim-scrubbing .dtl-anim-playhead {
+  opacity: 1;
+  transition: opacity 80ms ease;
 }
 
 /* item 240: "NO CHANGES — NO ANIMATION" label replaces the speed group in the header */

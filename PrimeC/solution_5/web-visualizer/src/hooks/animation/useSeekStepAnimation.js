@@ -162,6 +162,9 @@ export function useSeekStepAnimation({
           if (animStyle === 'ripple') r.renderRipple(clamped);
           else if (animStyle === 'fade') r.renderFade(clamped);
           else if (animStyle === 'pulse') r.renderPulse(clamped);
+          else if (animStyle === 'spark') r.renderSpark(clamped);
+          else if (animStyle === 'sweep') r.renderSweep(clamped);
+          else if (animStyle === 'glow') r.renderGlow(clamped);
           r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         } else {
           const revealCount = bitsAtTimeRatioRef.current
@@ -189,6 +192,9 @@ export function useSeekStepAnimation({
           if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
           else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
           else if (animStyle === 'fade') r.renderFade(0.35);
+          else if (animStyle === 'spark') r.renderSpark(0.18);
+          else if (animStyle === 'sweep') r.renderSweep(0.22);
+          else if (animStyle === 'glow') r.renderGlow(0.25);
           r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
         }
       }
@@ -274,6 +280,9 @@ export function useSeekStepAnimation({
       if (animStyle === 'ripple') r.renderRipple(clamped);
       else if (animStyle === 'fade') r.renderFade(clamped);
       else if (animStyle === 'pulse') r.renderPulse(clamped);
+      else if (animStyle === 'spark') r.renderSpark(clamped);
+      else if (animStyle === 'sweep') r.renderSweep(clamped);
+      else if (animStyle === 'glow') r.renderGlow(clamped);
       r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
       return;
     }
@@ -315,6 +324,9 @@ export function useSeekStepAnimation({
     if (animStyle === 'ripple') r.renderRipple(0.18, focusBits, { intensity: 1.1, showBeacon: true });
     else if (animStyle === 'pulse') r.renderPulse(0.28, focusBits, { intensity: 1.2, showHalo: true });
     else if (animStyle === 'fade') r.renderFade(0.35);
+    else if (animStyle === 'spark') r.renderSpark(0.18);
+    else if (animStyle === 'sweep') r.renderSweep(0.22);
+    else if (animStyle === 'glow') r.renderGlow(0.25);
     r.renderMinimap(r.canvasWidth, r.canvasHeight || 0, getMinimapDetailH());
   }, [
     seekGenRef,

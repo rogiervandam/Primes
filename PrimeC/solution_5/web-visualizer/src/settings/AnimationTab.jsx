@@ -227,6 +227,10 @@ function AnimationTab({
   bitAnimationMode, onBitAnimationModeChange,
   currentStepHasMasks,   // item 471
   isAutoAnimateOnSelect, onAutoAnimateOnSelectChange,
+  isRepeatOnSelect, onRepeatOnSelectChange,           // item 480
+  isSkipNoChangeEvents, onSkipNoChangeEventsChange,   // item 476
+  isFastTimelineSimplifyEnabled, onFastTimelineSimplifyEnabledChange,  // item 488
+  fastTimelineCutoffMs, onFastTimelineCutoffMsChange,                  // item 488
   animateBitsMode, onAnimateBitsModeChange,  // item 244
 }) {
   const playbackSpeedValue = msToPlaybackSpeed(playSpeed || 100);
@@ -281,6 +285,58 @@ function AnimationTab({
                 <circle cx="12" cy="11" r="3" />
                 <circle cx="24" cy="11" r="5" />
                 <circle cx="36" cy="11" r="7" />
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label="Spark"
+            hint="Particle burst outward"
+            active={(animStyle || 'ripple') === 'spark'}
+            onClick={() => onAnimStyleChange((animStyle || 'ripple') === 'spark' ? 'none' : 'spark')}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <circle cx="24" cy="11" r="2" fill="currentColor" stroke="none" />
+                <line x1="24" y1="11" x2="24" y2="3" strokeWidth="1.5" />
+                <line x1="24" y1="11" x2="32" y2="5" strokeWidth="1.5" />
+                <line x1="24" y1="11" x2="35" y2="11" strokeWidth="1.5" />
+                <line x1="24" y1="11" x2="32" y2="17" strokeWidth="1.5" />
+                <line x1="24" y1="11" x2="24" y2="19" strokeWidth="1.5" />
+                <line x1="24" y1="11" x2="16" y2="17" strokeWidth="1.5" />
+                <line x1="24" y1="11" x2="13" y2="11" strokeWidth="1.5" />
+                <line x1="24" y1="11" x2="16" y2="5" strokeWidth="1.5" />
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label="Sweep"
+            hint="Scan line across canvas"
+            active={(animStyle || 'ripple') === 'sweep'}
+            onClick={() => onAnimStyleChange((animStyle || 'ripple') === 'sweep' ? 'none' : 'sweep')}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <rect x="4" y="5" width="7" height="12" opacity="0.25" />
+                <rect x="14" y="5" width="7" height="12" opacity="0.55" />
+                <rect x="24" y="5" width="7" height="12" opacity="0.9" />
+                <line x1="32" y1="2" x2="32" y2="20" strokeWidth="2" opacity="0.85" />
+                <rect x="34" y="5" width="7" height="12" opacity="0.1" />
+              </svg>
+            )}
+          />
+          <PreviewOptionButton
+            compact
+            label="Glow"
+            hint="Soft radial glow halo"
+            active={(animStyle || 'ripple') === 'glow'}
+            onClick={() => onAnimStyleChange((animStyle || 'ripple') === 'glow' ? 'none' : 'glow')}
+            preview={(
+              <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                <circle cx="24" cy="11" r="9" opacity="0.12" />
+                <circle cx="24" cy="11" r="6.5" opacity="0.22" />
+                <circle cx="24" cy="11" r="4.5" opacity="0.38" />
+                <circle cx="24" cy="11" r="2.5" opacity="0.62" />
+                <circle cx="24" cy="11" r="1.2" fill="currentColor" stroke="none" opacity="0.9" />
               </svg>
             )}
           />
@@ -404,6 +460,47 @@ function AnimationTab({
               : bitAnimationMode === 'mask'
                 ? 'Mask: animate stamp groups only. Toggle Bits to combine.'
                 : 'Bits: animate individual bit changes. Toggle Mask to combine.'}
+          </span>
+        </div>
+      )}
+
+      {/* item 244 / item 482: animate only changed bits (default) or all targeted bits — moved before Animation timing */}
+      {onAnimateBitsModeChange != null && (
+        <div className="settings-section">
+          <label>Animate bits</label>
+          <div className="preview-btn-grid preview-btn-grid-2" style={{ justifyContent: 'flex-start' }}>
+            <PreviewOptionButton
+              compact
+              label="Changed bits"
+              hint="Only animate bits that actually changed state"
+              active={(animateBitsMode || 'changed') === 'changed'}
+              onClick={() => onAnimateBitsModeChange('changed')}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="8" y="6" width="8" height="10" opacity="0.25" />
+                  <rect x="20" y="6" width="8" height="10" fill="var(--accent, #64b4ff)" opacity="0.9" />
+                  <rect x="32" y="6" width="8" height="10" opacity="0.25" />
+                </svg>
+              )}
+            />
+            <PreviewOptionButton
+              compact
+              label="Targeted bits"
+              hint="Animate all bits targeted by the event; already-set bits shown in amber"
+              active={(animateBitsMode || 'changed') === 'targeted'}
+              onClick={() => onAnimateBitsModeChange('targeted')}
+              preview={(
+                <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                  <rect x="8" y="6" width="8" height="10" fill="#f59e0b" opacity="0.8" />
+                  <rect x="20" y="6" width="8" height="10" fill="var(--accent, #64b4ff)" opacity="0.9" />
+                  <rect x="32" y="6" width="8" height="10" fill="#f59e0b" opacity="0.8" />
+                </svg>
+              )}
+            />
+          </div>
+          <span className="settings-hint">
+            <strong>Changed bits</strong>: default, only newly-set bits animate.{' '}
+            <strong>Targeted bits</strong>: shows all bits the sieve tried to set — already-set bits appear in amber.
           </span>
         </div>
       )}
@@ -572,55 +669,104 @@ function AnimationTab({
       {onAutoAnimateOnSelectChange != null && (
         <div className="settings-section">
           <label>Selection behaviour</label>
-          <label className="settings-toggle-row" title="When enabled, selecting an event in the events panel automatically starts the per-event animation loop. Disable to navigate freely without triggering animations.">
-            <input
-              type="checkbox"
-              checked={isAutoAnimateOnSelect !== false}
-              onChange={(e) => onAutoAnimateOnSelectChange(e.target.checked)}
-            />
-            <span>Auto-animate on event select</span>
-          </label>
-          <span className="settings-hint">When on, clicking an event in the list immediately plays its animation. Turn off to browse events without triggering the animation loop.</span>
-        </div>
-      )}
-
-      {/* item 244: animate only changed bits (default) or all targeted bits */}
-      {onAnimateBitsModeChange != null && (
-        <div className="settings-section">
-          <label>Animate bits</label>
-          <div className="preview-btn-grid preview-btn-grid-2">
+          {/* items 481, 480, 476: all three behaviour toggles on one row */}
+          <div className="preview-btn-grid preview-btn-grid-3">
             <PreviewOptionButton
               compact
-              label="Changed bits"
-              hint="Only animate bits that actually changed state"
-              active={(animateBitsMode || 'changed') === 'changed'}
-              onClick={() => onAnimateBitsModeChange('changed')}
+              label="Auto-animate"
+              hint="Selecting an event in the list automatically starts its animation loop"
+              active={isAutoAnimateOnSelect !== false}
+              onClick={() => onAutoAnimateOnSelectChange && onAutoAnimateOnSelectChange(!(isAutoAnimateOnSelect !== false))}
               preview={(
                 <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <rect x="8" y="6" width="8" height="10" opacity="0.25" />
-                  <rect x="20" y="6" width="8" height="10" fill="var(--accent, #64b4ff)" opacity="0.9" />
-                  <rect x="32" y="6" width="8" height="10" opacity="0.25" />
+                  <polygon points="16,4 16,18 36,11" fill="currentColor" opacity="0.9" />
                 </svg>
               )}
             />
+            {onRepeatOnSelectChange != null ? (
+              <PreviewOptionButton
+                compact
+                label="Repeat on select"
+                hint="Automatically enable repeat mode when you click an event"
+                active={!!isRepeatOnSelect}
+                onClick={() => onRepeatOnSelectChange && onRepeatOnSelectChange(!isRepeatOnSelect)}
+                preview={(
+                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                    <path d="M10 11 Q24 3 38 11 Q24 19 10 11z" fill="none" stroke="currentColor" strokeWidth="2" />
+                    <polygon points="34,8 38,11 34,14" fill="currentColor" />
+                  </svg>
+                )}
+              />
+            ) : <span />}
+            {onSkipNoChangeEventsChange != null ? (
+              <PreviewOptionButton
+                compact
+                label="Skip no-change"
+                hint="Skip events with no changed bits during all-events play"
+                active={!!isSkipNoChangeEvents}
+                onClick={() => onSkipNoChangeEventsChange && onSkipNoChangeEventsChange(!isSkipNoChangeEvents)}
+                preview={(
+                  <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
+                    <rect x="4" y="9" width="8" height="4" opacity="0.25" />
+                    <line x1="4" y1="4" x2="12" y2="18" stroke="currentColor" strokeWidth="1.5" opacity="0.6" />
+                    <rect x="20" y="6" width="8" height="10" fill="var(--accent, #64b4ff)" opacity="0.9" />
+                    <rect x="36" y="9" width="8" height="4" opacity="0.25" />
+                    <line x1="36" y1="4" x2="44" y2="18" stroke="currentColor" strokeWidth="1.5" opacity="0.6" />
+                  </svg>
+                )}
+              />
+            ) : <span />}
+          </div>
+          <span className="settings-hint">
+            <strong>Auto-animate</strong>: play animation immediately on event click.{' '}
+            <strong>Repeat on select</strong>: turn on repeat mode when selecting an event.{' '}
+            <strong>Skip no-change</strong>: skip events with no bit changes during all-events play.
+          </span>
+        </div>
+      )}
+
+      {onFastTimelineSimplifyEnabledChange != null && (
+        <div className="settings-section">
+          <label>Fast-play timeline</label>
+          <div className="preview-btn-grid preview-btn-grid-2" style={{ justifyContent: 'flex-start' }}>
             <PreviewOptionButton
               compact
-              label="Targeted bits"
-              hint="Animate all bits targeted by the event; already-set bits shown in amber"
-              active={(animateBitsMode || 'changed') === 'targeted'}
-              onClick={() => onAnimateBitsModeChange('targeted')}
+              label="Simplify at speed"
+              hint="When events are very fast, replace the progress bar with a smooth looping sweep instead of jumpy real-time tracking"
+              active={!!isFastTimelineSimplifyEnabled}
+              onClick={() => onFastTimelineSimplifyEnabledChange && onFastTimelineSimplifyEnabledChange(!isFastTimelineSimplifyEnabled)}
               preview={(
                 <svg viewBox="0 0 48 22" width="48" height="22" aria-hidden="true">
-                  <rect x="8" y="6" width="8" height="10" fill="#f59e0b" opacity="0.8" />
-                  <rect x="20" y="6" width="8" height="10" fill="var(--accent, #64b4ff)" opacity="0.9" />
-                  <rect x="32" y="6" width="8" height="10" fill="#f59e0b" opacity="0.8" />
+                  <rect x="4" y="8" width="40" height="6" opacity="0.2" rx="1" />
+                  <rect x="4" y="8" width="26" height="6" opacity="0.8" rx="1" />
+                  <line x1="30" y1="4" x2="30" y2="18" strokeWidth="1.5" />
                 </svg>
               )}
             />
           </div>
+          {isFastTimelineSimplifyEnabled && onFastTimelineCutoffMsChange != null && (
+            <>
+              <div style={{ marginTop: 8 }}>
+                <input
+                  className="timing-slider"
+                  type="range"
+                  min={100}
+                  max={3000}
+                  step={100}
+                  value={fastTimelineCutoffMs || 500}
+                  onChange={(e) => startTransition(() => onFastTimelineCutoffMsChange(clamp(parseInt(e.target.value || '500', 10) || 500, 100, 10000)))}
+                  title="When the delay between events is shorter than this, use the simplified sweep animation"
+                />
+                <div className="timing-scale" aria-hidden="true">
+                  <span>100ms</span>
+                  <span className="timing-value">Cutoff: {fmtMs(fastTimelineCutoffMs || 500)}</span>
+                  <span>3s</span>
+                </div>
+              </div>
+            </>
+          )}
           <span className="settings-hint">
-            <strong>Changed bits</strong>: default, only newly-set bits animate.{' '}
-            <strong>Targeted bits</strong>: shows all bits the sieve tried to set — already-set bits appear in amber.
+            When playing and the delay between events is below the cutoff, hides the jumping playhead and shows a smooth looping sweep instead. The playhead is always visible when paused or scrubbing.
           </span>
         </div>
       )}

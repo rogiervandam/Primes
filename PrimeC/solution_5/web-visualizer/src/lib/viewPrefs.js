@@ -389,11 +389,21 @@ export function getInitialViewState() {
     draggerColor: initialHexColor(prefs, 'draggerColor', DEFAULT_DRAGGER_COLOR), // item 322/323
     zoneBgOpacity: (typeof prefs?.zoneBgOpacity === 'number' && prefs.zoneBgOpacity >= 0.05 && prefs.zoneBgOpacity <= 0.95)
       ? prefs.zoneBgOpacity : 0.45,  // item 342
+    isUseSystemTheme: prefs?.isUseSystemTheme === true,  // item 478: auto-follow OS light/dark mode
     isAllEventsWidgetHidden: initialAllEventsWidgetHidden(prefs),
     isAllEventsInDetailPanel: prefs?.isAllEventsInDetailPanel === true,  // default: false (item 162)
     // When false, selecting an event will NOT automatically start the
     // per-event animation loop. Default true to preserve prior behavior.
     isAutoAnimateOnSelect: prefs?.isAutoAnimateOnSelect !== false,
+    // item 480: auto-enable repeat mode when selecting an event
+    isRepeatOnSelect: prefs?.isRepeatOnSelect === true,  // default: false
+    // item 476: skip events with no changed bits when playing all events
+    isSkipNoChangeEvents: prefs?.isSkipNoChangeEvents === true,  // default: false
+    // item 488: fast-play timeline simplification
+    isFastTimelineSimplifyEnabled: prefs?.isFastTimelineSimplifyEnabled !== false,  // default: true
+    fastTimelineCutoffMs: (typeof prefs?.fastTimelineCutoffMs === 'number' && prefs.fastTimelineCutoffMs >= 100 && prefs.fastTimelineCutoffMs <= 10000) ? prefs.fastTimelineCutoffMs : 500,
+    // item 479: annotation left margin in the events panel (px, can be negative)
+    annotationMarginLeft: (typeof prefs?.annotationMarginLeft === 'number') ? prefs.annotationMarginLeft : 5,
     ...initialPanelVisibility(prefs),
   };
 }

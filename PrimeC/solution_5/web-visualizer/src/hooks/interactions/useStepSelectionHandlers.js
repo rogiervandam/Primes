@@ -15,8 +15,16 @@ export function useStepSelectionHandlers({
   stepScrubProgressRef,
   repeatDelayTimeoutRef,
   setDelayPhaseMsRef,
+  isRepeatOnSelectRef,  // item 480: if set, auto-enable repeat mode on selection
+  setIsRepeatMode,      // item 480
 }) {
   const handleStepSelection = useCallback((stepIndex) => {
+    // item 480: if repeat-on-select is enabled, automatically turn on repeat mode
+    // when the user clicks an event. This is done first, before the existing
+    // repeat-mode reset logic, so the newly-set repeat mode is consistent.
+    if (isRepeatOnSelectRef?.current && !isRepeatModeRef?.current) {
+      setIsRepeatMode?.(true);
+    }
     // item 460: when switching events in repeat mode, reset to single handle at 100%
     if (isRepeatModeRef?.current) {
       // Eagerly reset refs so that any setCurrentStep updater queued by
@@ -53,7 +61,7 @@ export function useStepSelectionHandlers({
       // mistake it for a mid-animation resume position on the newly selected step.
       stepScrubProgressRef?.current?.(0);
     }
-  }, [stopPlayback, goToStep, playingRef, isRepeatModeRef, isRepeatSplitRef, repeatStartPctRef, setIsRepeatSplit, setRepeatStartPct, stepScrubProgressRef, repeatDelayTimeoutRef, setDelayPhaseMsRef]);
+  }, [stopPlayback, goToStep, playingRef, isRepeatModeRef, isRepeatSplitRef, repeatStartPctRef, setIsRepeatSplit, setRepeatStartPct, stepScrubProgressRef, repeatDelayTimeoutRef, setDelayPhaseMsRef, isRepeatOnSelectRef, setIsRepeatMode]);
 
   const handleMultiStepSelect = useCallback((nextSelection) => {
     // item 460: when the plain-click path clears selection (empty Set) while playing,

@@ -123,6 +123,8 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     externalOpFilter = '',
     revealStepRequest = 0,
     eventTitleVisible = true,
+    annotationMarginLeft = 5,   // item 479: adjustable annotation indent (px)
+    setAnnotationMarginLeft,    // item 479
   } = eventsState;
 
   // item 236/#3+4 perf: subscribe to step changes imperatively so no React
@@ -909,6 +911,37 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
     return map;
   }, [steps]);
 
+  // item 479: ref to current annotationMarginLeft so the drag handler never closes over a stale value
+  const annotationMarginLeftRef = useRef(annotationMarginLeft);
+  annotationMarginLeftRef.current = annotationMarginLeft;
+
+  // item 479: drag the annotation text left/right to adjust the global annotation margin
+  const handleAnnotationPointerDown = useCallback((e) => {
+    if (!setAnnotationMarginLeft) return;
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startMargin = annotationMarginLeftRef.current;
+    let didDrag = false;
+    const onMove = (me) => {
+      const delta = me.clientX - startX;
+      if (Math.abs(delta) > 3) {
+        didDrag = true;
+        setAnnotationMarginLeft(Math.max(-60, Math.min(60, Math.round(startMargin + delta))));
+      }
+    };
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      if (didDrag) {
+        // Suppress the next click so dragging doesn't open the inspector
+        const suppressClick = (ce) => { ce.stopPropagation(); ce.preventDefault(); };
+        document.addEventListener('click', suppressClick, { capture: true, once: true });
+      }
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }, [setAnnotationMarginLeft]);
+
   /**
    * Recursive renderer for a depth-tree node.
    * `nodeDepth` = visual indent level (0 = group child, 1..5 = nested).
@@ -1018,8 +1051,9 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
               return displayAnnotation
                 ? (
                   <span
-                    className={`event-annotation${inspectableUnit ? ' event-annotation-clickable' : ''}`}
+                    className={`event-annotation${inspectableUnit ? ' event-annotation-clickable' : ''}${setAnnotationMarginLeft ? ' event-annotation-draggable' : ''}`}
                     title={inspectableUnit ? `${displayAnnotation}\n\n${inspectableUnit.title}` : displayAnnotation}
+                    onPointerDown={setAnnotationMarginLeft ? handleAnnotationPointerDown : undefined}
                     onClick={inspectableUnit && onInspectAnnotationUnit ? (e) => {
                       e.stopPropagation();
                       onInspectAnnotationUnit({ type: inspectableUnit.type, index: inspectableUnit.index });
@@ -1039,7 +1073,7 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
         )}
       </div>
     );
-  }, [selectedSteps, ancestorStepIndices, collapsed, handleStepClick, toggleGroup, onStepClick, onMultiStepSelect, onInspectAnnotationUnit, parseInspectableUnitFromAnnotation, stepAnnotationMap]);
+  }, [selectedSteps, ancestorStepIndices, collapsed, handleStepClick, toggleGroup, onStepClick, onMultiStepSelect, onInspectAnnotationUnit, parseInspectableUnitFromAnnotation, stepAnnotationMap, handleAnnotationPointerDown, setAnnotationMarginLeft]);
 
   // Resize with scroll preservation
   const handleMouseDown = useCallback((e) => {
@@ -1125,7 +1159,7 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
 
   return (
     <>
-      <div ref={panelRef} className={`events-panel${panelCollapsed ? ' collapsed' : ''}${panelCollapsed && eventsCollapseDir === 'right' ? ' collapse-right' : ''}${eventsOpenFromBottom ? ' events-panel--from-bottom' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: `${width}px` }}>
+      <div ref={panelRef} className={`events-panel${panelCollapsed ? ' collapsed' : ''}${panelCollapsed && eventsCollapseDir === 'right' ? ' collapse-right' : ''}${eventsOpenFromBottom ? ' events-panel--from-bottom' : ''}${opColWide ? ' op-wide' : ''}`} style={{ width: `${width}px`, '--ep-annot-margin': `${annotationMarginLeft}px` }}>
       <div className="events-panel-header">
         <div className="events-panel-header-title-row">
           {/* item 210: left arrow to hide the events panel, like the settings panel toggle */}
@@ -1218,6 +1252,7 @@ export default React.memo(function EventsPanel({ eventsState = {}, eventsHandler
           </label>
           <span className="events-visible-count" title={`${totalVisible} of ${steps.length} events visible`}>{totalVisible}/{steps.length}</span>
         </div>
+        {/* item 479: annotation margin is now adjusted by dragging any annotation text left/right */}
       </div>
       {listVisible && (
       <div className="event-list" ref={listRef} onWheel={onUserScroll}>
