@@ -9,20 +9,6 @@
 
 #elif defined(BUILD_VECTORS_STAGE) || defined(BUILD_WORDS_STAGE)
 
-#if defined(__clang__)
-    #define LOOP_UNROLL_32 _Pragma("clang loop unroll_count(32)")
-    #define LOOP_UNROLL_8 _Pragma("clang loop unroll_count(8)")
-    #define LOOP_IVDEP
-#elif defined(__GNUC__)
-    #define LOOP_UNROLL_32 _Pragma("GCC unroll 32")
-    #define LOOP_UNROLL_8 _Pragma("GCC unroll 8")
-    #define LOOP_IVDEP _Pragma("GCC ivdep")
-#else
-    #define LOOP_UNROLL_32
-    #define LOOP_UNROLL_8
-    #define LOOP_IVDEP
-#endif
-
 // This applyMask variant takes range_start_index and range_stop_index as the word/vector index
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes))) 
 function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t range_start_index, const counter_t range_stop_index, counter_t step, const bitbucket_t mask) 
@@ -40,8 +26,8 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
     #if defined(__GNUC__) && !defined(__clang__) // optimized for GCC
 
         #if unrolls == 16
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for(;(index_ptr < fast_loop_ptr); ) {
             *index_ptr |= mask; index_ptr += step;
             *index_ptr |= mask; index_ptr += step;
@@ -63,8 +49,8 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
         #endif
 
         #if unrolls == 8
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for(;(index_ptr < fast_loop_ptr); ) {
             *index_ptr |= mask; index_ptr += step;
             *index_ptr |= mask; index_ptr += step;
@@ -78,8 +64,8 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
         #endif
 
         #if unrolls == 4
-        LOOP_IVDEP
-        LOOP_UNROLL_32
+        PRAGMA_LOOP_IVDEP
+        PRAGMA_LOOP_UNROLL_32
         for(;(index_ptr < fast_loop_ptr); ) {
             *index_ptr |= mask; index_ptr += step;
             *index_ptr |= mask; index_ptr += step;
@@ -91,8 +77,8 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
     #elif defined(__clang__) // optimized for clang
 
         #if unrolls == 8
-            LOOP_IVDEP
-            LOOP_UNROLL_32
+            PRAGMA_LOOP_IVDEP
+            PRAGMA_LOOP_UNROLL_32
             for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
                 *(index_ptr + step * 0) |= mask;
                 *(index_ptr + step * 1) |= mask;
@@ -106,8 +92,8 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
         #endif
 
         #if unrolls == 4
-            LOOP_IVDEP
-            LOOP_UNROLL_32
+            PRAGMA_LOOP_IVDEP
+            PRAGMA_LOOP_UNROLL_32
             for (; likely(index_ptr < fast_loop_ptr); index_ptr += step_max) {
                 *(index_ptr)            |= mask;
                 *(index_ptr + step)     |= mask;

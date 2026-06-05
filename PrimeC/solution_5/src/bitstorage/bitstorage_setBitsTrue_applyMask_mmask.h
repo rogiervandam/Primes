@@ -7,23 +7,7 @@
     #define INCLUDE_FILE "../../../src/bitstorage/bitstorage_setBitsTrue_applyMask_mmask.h"
     #include "../generic/variants/generate.h"
 
-    // #define unroll_style 2
-
 #elif defined(BUILD_VECTORS_STAGE) || defined(BUILD_WORDS_STAGE)
-
-#if defined(__clang__)
-    #define PRAGMA_LOOP_UNROLL_32 _Pragma("clang loop unroll_count(32)")
-    #define PRAGMA_LOOP_UNROLL_8 _Pragma("clang loop unroll_count(8)")
-    #define PRAGMA_LOOP_IVDEP
-#elif defined(__GNUC__)
-    #define PRAGMA_LOOP_UNROLL_32 _Pragma("GCC unroll 32")
-    #define PRAGMA_LOOP_UNROLL_8 _Pragma("GCC unroll 8")
-    #define PRAGMA_LOOP_IVDEP _Pragma("GCC ivdep")
-#else
-    #define PRAGMA_LOOP_UNROLL_32
-    #define PRAGMA_LOOP_UNROLL_8
-    #define PRAGMA_LOOP_IVDEP
-#endif
 
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
 function(applyMask_index1_mmask,suffix)(void* restrict bitstorage, const counter_t range_start_index, const counter_t range_stop_index, const counter_t step, const bitbucket_t* restrict masks)

@@ -9,9 +9,6 @@ static inline void __attribute__((always_inline, nonnull, aligned(cache_line_byt
 // function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step)
 function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, const counter_t range_start, const counter_t range_stop, const counter_t step, variant_base_type_t base_pattern)
 {
-    // register bitbucket_t* restrict bitstorage_vector = __builtin_assume_aligned(bitstorage, cache_line_bytes);
-    // __builtin_prefetch(&bitstorage_vector[index_type(range_start, bitbucket_t)], 1, 3); // prefetch the memory that will be written soon while creating mask
-
     // build the wordsize pattern, pattern_size en pattern_wordshift efficiently
     register const bitshift_t step_shift = bitindex_calc_type(step, variant_base_type_t); // to enable the compiler to optimize the shift
     register bitshift_t pattern_size = step_shift;
@@ -33,7 +30,6 @@ function(create_mask_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     // Process vectormasks in pairs from the cacheline
     #pragma GCC ivdep
     for (counter_t current_bucket = index_type(range_start, bitbucket_t); current_bucket <= last_unique_bucket; current_bucket += 2) {
-        // __builtin_prefetch(&bitstorage_vector[current_bucket+step], 1, 3); // prefetch the memory that will be written soon while creating mask
         bitbucket_t mark2 = (mark << pattern_vectorshift_vector) | (mark >> (step_shift_vector - pattern_vectorshift_vector)); 
         function(applyMask_index_pair,suffix)(bitstorage, current_bucket, stop_bucket, step, mark, mark2);
         mark = (mark2 << pattern_vectorshift_vector) | (mark2 >> (step_shift_vector - pattern_vectorshift_vector)); 

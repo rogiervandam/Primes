@@ -117,16 +117,6 @@ log_event_functionid(int level, void* bitstorage, function_id_t function_id, con
     trace_record_event_full(level, bitstorage, timer_function_names[function_id], (double)0, annotation);
 }
 
-// static inline void
-// log_event_byFunction(int level, void* bitstorage, function_id_t function_id, const char* fmt, ...)
-// {
-//     char annotation[1024];
-//     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-//     if 
-//     trace_record_event_full(level, bitstorage, timer_function_names[function_id], (double)0, annotation);
-//     explain
-// }
-
 #define COLLECT_ARGS(string, maxlength, fmt, args) \
     char string[maxlength]; va_list args; va_start(args, fmt); vsnprintf(string, sizeof(string), fmt, args); va_end(args);
 
