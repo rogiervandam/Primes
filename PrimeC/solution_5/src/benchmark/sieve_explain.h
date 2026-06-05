@@ -14,7 +14,7 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings, const char* algorith
             (algorithm_type && strcmp(algorithm_type, "wheel") == 0)
                 ? getStorageModelName((int)benchmark_settings.storage)
                 : "half";
-        counter_t trace_bit_count = calcBitsize(benchmark_settings.factor_max, benchmark_settings.storage);
+        counter_t trace_bit_count = calcBitsize_storage(benchmark_settings.factor_max, benchmark_settings.storage);
         char trace_settings_tag[128];
         char trace_title[192];
         char trace_info[256];
@@ -32,10 +32,10 @@ initSingleRunTrace(benchmark_settings_t benchmark_settings, const char* algorith
                  trace_storage_model, trace_settings_tag, trace_title, trace_info);
 
         #if defined(WHEEL_SIZE) && defined(WHEEL_STRIPE_BITS)
-        if (g_trace.enabled) trace_write_wheel_definition(WHEEL_SIZE, WHEEL_STRIPE_BITS, WHEEL_BASIC_SIZE, WHEEL_REPEATS, WHEEL_MAX, wheel_number, wheel_bitcount);
+        if (trace.enabled) trace_write_wheel_definition(WHEEL_SIZE, WHEEL_STRIPE_BITS, WHEEL_BASIC_SIZE, WHEEL_REPEATS, WHEEL_MAX, wheel_number, wheel_bitcount);
         #endif
 
-        if (g_trace.enabled) {
+        if (trace.enabled) {
             log_text((int)option.trace_level, "Initial" , "Settings used: %s", trace_settings_tag);
 
             uint8_t* empty = (uint8_t*)calloc(1, (size_t)((trace_bit_count + 7) / 8));
@@ -52,7 +52,7 @@ static inline void
 finalizeSingleRunTrace(sieve_t* sieve)
 {
     #ifdef COMPILE_TRACE
-    if (option.trace_filename && g_trace.enabled) {
+    if (option.trace_filename && trace.enabled) {
         log_event(0, sieve->bitstorage, "Final", 0, "Final state: sieve complete");
         trace_finalize();
         verbose2( printf("Trace saved to %s\n", option.trace_filename); )

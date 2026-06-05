@@ -46,6 +46,7 @@
 #define time_markFactors_wheelstorage_small_repeat_pairv2_align 41
 #define time_markFactors_wheelstorage_small_repeat_pairv2_copy 42
 #define time_markFactors_wheelstorage_small_repeat_pair_rotate 43
+#define time_markFactors_base 44
 
 static const char* timer_function_names[100] = {
     [time_setBitsTrue] = "setBitsTrue",
@@ -92,6 +93,7 @@ static const char* timer_function_names[100] = {
     [time_markFactors_wheelstorage_small_repeat_pairv2_align] = "markFactors_wheelstorage_small_repeat_pairv2_align",
     [time_markFactors_wheelstorage_small_repeat_pairv2_copy] = "markFactors_wheelstorage_small_repeat_pairv2_copy",
     [time_markFactors_wheelstorage_small_repeat_pair_rotate] = "markFactors_wheelstorage_small_repeat_pair_rotate",
+    [time_markFactors_base] = "markFactors_base",
 };
 
 #endif
