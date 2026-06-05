@@ -1,3 +1,5 @@
+// check stripe functions for correctness by comparing the results with a reference implementation
+
 #ifdef COMPILE_CHECK_STRIPERS
 #include "../generic/functions.h"
 

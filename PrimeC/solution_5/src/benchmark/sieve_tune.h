@@ -1,8 +1,6 @@
 #pragma once
 
 #ifdef COMPILE_TUNE
-#include "sieve_benchmark_settings.h"
-
 typedef struct {
     counter_t sieve_bits;
     counter_t prime_max;
@@ -275,7 +273,6 @@ static benchmark_result_t tuneSieveSettings(int tune_level, benchmark_settings_t
             
             // Check if the settings are valid
             #ifdef COMPILE_CHECKALL
-            tuning_settings = checkBenchmarkSettings(tuning_settings);
             const int valid = checkSieveWithBenchmarkSettings(tuning_settings);
             if (!valid) {
                 verbose1( fprintf(stderr, "The sieve is " COLOR_RED "NOT" COLOR_RESET " valid for settings %s with factor %ju\n", getBenchmarkSettingAsString(tuning_settings), (uintmax_t) tuning_settings.factor_max); )

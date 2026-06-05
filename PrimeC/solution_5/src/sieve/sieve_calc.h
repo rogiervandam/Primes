@@ -25,30 +25,29 @@ calcFactor_max(counter_t range_stop)
     return (usqrt(range_stop));
 }
 
-static const storage_t storage_table[STORAGE_WHEEL + 1] = {
-    [STORAGE_FULL] = { STORAGE_FULL, 1, 1, 2 }
+static storage_specs storage_table[STORAGE_WHEEL + 1] = {
+    [0] = { 0, 0, 0, 0 } // default value for storage type 0, which is not used
+    ,[STORAGE_FULL] = { STORAGE_FULL, 1, 1, 2 }
     ,[STORAGE_HALF] = { STORAGE_HALF, 1, 2, 2 }
-#if defined WHEEL_SIZE && defined WHEEL_STRIPE_BITS
-    ,[STORAGE_WHEEL] = { STORAGE_WHEEL, WHEEL_STRIPE_BITS, WHEEL_SIZE, WHEEL_MAX } // this is used for testing the wheel storage with a small wheel, it is not a real storage type
-#endif
 };
+
 // these are necessary for a generic calculation in the benchmark settings
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-calcBitsize_storage(counter_t factorsize, storage_type storage_id) 
+calcBitsize_storage(counter_t factorsize, storage_type storage) 
 {
-    return (factorsize * storage_table[storage_id].bitsize) / storage_table[storage_id].factorsize + ((factorsize * storage_table[storage_id].bitsize) % storage_table[storage_id].factorsize != 0);
+    return (factorsize * storage_table[storage].bitsize) / storage_table[storage].factorsize + ((factorsize * storage_table[storage].bitsize) % storage_table[storage].factorsize != 0);
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-calcFactorsize_storage(counter_t bitsize, storage_type storage_id) 
+calcFactorsize_storage(counter_t bitsize, storage_type storage) 
 {
-    return (bitsize * storage_table[storage_id].factorsize) / storage_table[storage_id].bitsize + ((bitsize * storage_table[storage_id].factorsize) % storage_table[storage_id].bitsize != 0);
+    return (bitsize * storage_table[storage].factorsize) / storage_table[storage].bitsize + ((bitsize * storage_table[storage].factorsize) % storage_table[storage].bitsize != 0);
 }
 
 static inline const char*
-getStorageModelName(storage_type storage_id)
+getStorageModelName(storage_type storage)
 {
-    switch (storage_id) {
+    switch (storage) {
         case STORAGE_FULL:             return "full";
         case STORAGE_HALF:             return "half";
         case STORAGE_WHEEL:            return "wheel";
@@ -57,22 +56,22 @@ getStorageModelName(storage_type storage_id)
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-calcSize(counter_t factorsize, storage_type storage_id) 
+calcSize(counter_t factorsize, storage_type storage) 
 {
-    return (factorsize * storage_table[storage_id].bitsize) / storage_table[storage_id].factorsize + ((factorsize * storage_table[storage_id].bitsize) % storage_table[storage_id].factorsize != 0);
+    return (factorsize * storage_table[storage].bitsize) / storage_table[storage].factorsize + ((factorsize * storage_table[storage].bitsize) % storage_table[storage].factorsize != 0);
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-calcMax(counter_t sieve_size, storage_type storage_id) 
+calcMax(counter_t sieve_size, storage_type storage) 
 {
     return calcFactor_max(sieve_size);
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-calcStep(counter_t prime, storage_type storage_id) 
+calcStep(counter_t prime, storage_type storage) 
 {
     #if defined(STORAGE_HALF_DEFINED)
-    if (storage_id == STORAGE_HALF) {
+    if (storage == STORAGE_HALF) {
         return calcFactor_step_half(prime);
     }
     #endif
@@ -81,10 +80,10 @@ calcStep(counter_t prime, storage_type storage_id)
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-calcStart(counter_t prime, counter_t block_start, storage_type storage_id) 
+calcStart(counter_t prime, counter_t block_start, storage_type storage) 
 {
     #if defined(STORAGE_HALF_DEFINED)
-    if (storage_id == STORAGE_HALF) {
+    if (storage == STORAGE_HALF) {
         return calcFactor_start_half(prime, block_start);
     }
     #endif
@@ -93,10 +92,10 @@ calcStart(counter_t prime, counter_t block_start, storage_type storage_id)
 }
 
 static inline counter_t __attribute__((always_inline, hot, aligned(cache_line_bytes)))
-calcStop(counter_t sieve_size, storage_type storage_id) 
+calcStop(counter_t sieve_size, storage_type storage) 
 {
     #if defined(STORAGE_HALF_DEFINED)
-    if (storage_id == STORAGE_HALF) {
+    if (storage == STORAGE_HALF) {
         return calcBitsize_half(sieve_size);
     }
     #endif

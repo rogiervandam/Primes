@@ -1,8 +1,9 @@
-#pragma once
-#include "sieve_time.h"
-
 // perform benchmarks with different settings 
 // outputs results in a format that can be parsed by the benchmarking system
+
+#pragma once
+#include "sieve_time.h"
+#include "sieve_functions_benchmark.h"
 
 static int 
 performBenchmarks(options_t option, sieve_t* (*sieveFunction)(const counter_t, const storage_type), const char* algorithm_name, const char* algorithm_type)

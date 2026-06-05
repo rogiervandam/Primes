@@ -67,8 +67,6 @@
         counter_t target_bucket = start_bucket + max_masks - 1;
 
         for (counter_t index_number = start_number; index_number <= stop_number_unique; index_number += step) {
-            // const counter_t wheelstorage_bit = wheelstorage_bit_calc_estimate(index_number);
-            // const counter_t current_bucket = index_type(wheelstorage_bit, bitbucket_t);
             const counter_t current_bucket = function(wheel_bucket_calc,variant_suffix)(index_number);
 
             if (current_bucket > target_bucket) {
@@ -94,9 +92,6 @@
     #undef MMASK_PASS_ARGS
 
 #elif defined(BUILD_WORDS_STAGE) && defined(unrolls) && (unrolls > 1)
-// ── Section B: per-suffix entry point ───────────────────────────────────────
-//    Reached once per (bitbucket_t, unrolls) combination from wheelstorage.h.
-//    Loops over max_masks 1–8, self-including into Section A each time.
 
     #ifndef INCLUDE_MMASK_ME
         #define INCLUDE_MMASK_ME "wheelstorage_smallrepeat_mmask.h"

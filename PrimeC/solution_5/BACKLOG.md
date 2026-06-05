@@ -1,4 +1,2 @@
 - refactor sieve_trace
-- Look at includes
-- factor out the sieve main procedure
 - 

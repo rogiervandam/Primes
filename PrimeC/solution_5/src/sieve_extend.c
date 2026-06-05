@@ -63,10 +63,6 @@ static sieve_t* shakeSieve(const counter_t sieve_size, storage_type storage)
             markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, prime_next, prime_max);
         } break;
 
-        // case 3: // stripe everything block by block, no extend used
-        // {
-        //     markSieveBlockByBlock(sieve, sieve_size, blocksize_factor, 3, prime_max);
-        // } break;
     }
 
     // return the completed sieve

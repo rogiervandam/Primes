@@ -126,7 +126,6 @@ benchmarkSieveSetBitsTrue(options_t option, sieve_t* (*sieveFunction)(const coun
     const counter_t max_factor = option.fixed_benchmark_settings.factor_max;
     storage_type storage = option.fixed_benchmark_settings.storage;
     sieve_t* sieve = sieveFunction(max_factor);
-    // benchmarkSetBitsTrue(sieve->bitstorage, 1024, calcBitsize(max_factor, option.fixed_benchmark_settings.storage), 2, calcFactor_max(max_factor));
     log1("Benchmarking setBitsTrue functions for max factor %ju and storage type %d\n", (uintmax_t)max_factor, (int)storage);
     benchmarkSetBitsTrue(sieve->bitstorage, 1024, max_factor, 1, calcMax(max_factor, storage)/2, storage);
     sieve_delete(sieve);

@@ -2,14 +2,35 @@
 #pragma once
 
 #include "../generic/settings.h"
-// #include <inttypes.h>
-#include "sieve_benchmark_settings.h"
+typedef struct  {
+    counter_t factor_max;
+    counter_t stripe_faster;
+    counter_t largestep_faster;
+    counter_t blocksize_bits;
+    counter_t vectorsize;
+    counter_t algorithm;
+    counter_t storage;
+    counter_t threads;
+    double    sample_duration;
+} benchmark_settings_t;
 
+typedef struct  {
+    benchmark_settings_t settings;
+    counter_t passes;
+    double    elapsed_time;
+    double    avg;
+} benchmark_result_t;
 typedef enum storage_type {
-    STORAGE_FULL      = 0,
-    STORAGE_HALF      = 1,
-    STORAGE_WHEEL     = 2
+    STORAGE_FULL      = 1,
+    STORAGE_HALF      = 2,
+    STORAGE_WHEEL     = 3
 } storage_type;
+typedef struct  {
+    storage_type storage;
+    counter_t bitsize;
+    counter_t factorsize;
+    counter_t highest_prime_in_storage;
+} storage_specs;
 typedef struct  {
     benchmark_settings_t fixed_benchmark_settings;
     counter_t show_explain_factor_max;
@@ -39,6 +60,8 @@ typedef struct  {
 } options_t;
 
 options_t option; // global options variable, this is used to store all the options that can be set by the user and accessed throughout the program
+
+#include "sieve_benchmark_settings.h"
 
 /*
  * Generate a default trace filename under ./log/

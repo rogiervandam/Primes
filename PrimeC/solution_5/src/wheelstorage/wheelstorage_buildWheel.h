@@ -28,7 +28,6 @@
     static counter_t   wheel_number     [wheel_bitalloc]; // contains the mapping from bit to number: the nth bit corresponds to the wheel_number[n] number in the wheel
     static counter_t   wheel_bit        [WHEEL_SIZE];     // the number of shifts needed to get the bitmask for this index to the right position in the bitbucket. 
                                                           // Might be greater than the number of bits in wheelmask_t, in which case we need to forward to the next bitbucket(s) as well
-    // static wheelmask_t wheel_mask        [WHEEL_SIZE];            // the bitmask for this index in the wheel, used for marking bits in the bitstorage   
 
     // Runtime path: compute wheel data from scratch.
     void buildWheel() {
@@ -62,6 +61,9 @@
         }
 
         verbose2 (printf("Wheel size: %u, Wheel stripes: %ju, Wheel stripe bytes: %ju Wheel stripe bits: %ju Wheel max: %ju\n", WHEEL_SIZE, (uintmax_t)wheel_bitalloc, (uintmax_t)wheel_bitalloc/8, (uintmax_t)wheel_bitalloc, (uintmax_t)WHEEL_MAX) );
-    }
+
+        // register the wheel data in the sieve_calc storage table for the wheel storage type, so that it can be used in the generic calculations for the benchmark settings
+        storage_table[STORAGE_WHEEL] = (storage_specs){ STORAGE_WHEEL, WHEEL_STRIPE_BITS, WHEEL_SIZE, WHEEL_MAX };
+};
     
 #endif

@@ -11,7 +11,6 @@
 #endif
 
 #include "wheelstorage_buildWheel.h"
-// #include "../sieve/sieve_calc.h"
 #include "wheelstorage_calc.h"
 
 #if defined BUILD_WORDS_STAGE //---- include only the variant function

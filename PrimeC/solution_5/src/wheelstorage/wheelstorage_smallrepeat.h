@@ -14,7 +14,6 @@ function(markFactors_wheelstorage_small_repeat,suffix)(void* restrict bitstorage
     for (; start_number <= next_aligned; start_number += step) function(markFactor_wheelstorage,suffix)(bitstorage, start_number);
     logStop8(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "Finished aligning to first full bitbucket at number %ju", (uintmax_t)start_number);
 
-    // const counter_t stop_number_unique = min(start_number + ((bitcount_type(bitbucket_t) + wheel_bitalloc - 1) / wheel_bitalloc) * WHEEL_BASIC_SIZE * (wheel_step + 1), stop_number); 
     const counter_t stop_number_unique = min(getFactor( bitbucket_end_type(wheelstorage_bit_estimate_last(start_number), bitbucket_t) - 1 + wheel_step * wheel_bitalloc * ((bitcount_type(bitbucket_t) + wheel_bitalloc - 1) / wheel_bitalloc)), stop_number);
 
     bitbucket_t current_mask = 0ULL;
@@ -22,8 +21,6 @@ function(markFactors_wheelstorage_small_repeat,suffix)(void* restrict bitstorage
 
     // go to first aligned block 
     for (register counter_t index_number = start_number; index_number <= stop_number_unique; index_number += step) { 
-        // const counter_t wheelstorage_bit = wheelstorage_bit_calc(index_number);
-        // const counter_t new_bucket = index_type(wheelstorage_bit, bitbucket_t);
         const counter_t new_bucket = function(wheel_bucket_calc,variant_suffix)(index_number);
 
         if (current_bucket < new_bucket) { // when going to the next block
@@ -38,7 +35,6 @@ function(markFactors_wheelstorage_small_repeat,suffix)(void* restrict bitstorage
         if (wheelstorage_bit >= 0) current_mask |= markmask_type(wheelstorage_bit, bitbucket_t);
     } 
 
-    // TODO: This can be left out if WHEEL aligns well and stop_number_unique is chosen carefully
     if (current_mask) {
         function(applyMask_index,suffix)(bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
     }

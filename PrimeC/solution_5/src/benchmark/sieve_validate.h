@@ -2,7 +2,8 @@
 
 #include "sieve_functions_check.h"
 
-static void deepAnalyzeWithBenchmarkSettings(sieve_t* (*sieveFunction)(const counter_t, const storage_type), benchmark_settings_t benchmark_settings) 
+static void __attribute__((cold)) 
+deepAnalyzeWithBenchmarkSettings(sieve_t* (*sieveFunction)(const counter_t, const storage_type), benchmark_settings_t benchmark_settings) 
 {
     prepareBenchmarkGlobals(benchmark_settings);
     sieve_t* sieve = sieveFunction(benchmark_settings.factor_max, benchmark_settings.storage);
@@ -10,7 +11,8 @@ static void deepAnalyzeWithBenchmarkSettings(sieve_t* (*sieveFunction)(const cou
     sieve_delete(sieve);
 }
 
-static int checkSieveWithBenchmarkSettings(sieve_t* (*sieveFunction)(const counter_t, const storage_type), benchmark_settings_t benchmark_settings) 
+static int __attribute__((cold)) 
+checkSieveWithBenchmarkSettings(sieve_t* (*sieveFunction)(const counter_t, const storage_type), benchmark_settings_t benchmark_settings) 
 {
     benchmark_settings = checkBenchmarkSettings(benchmark_settings);
     prepareBenchmarkGlobals(benchmark_settings);

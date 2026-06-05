@@ -14,7 +14,6 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
     for (; start_number <= next_aligned; start_number += step) function(markFactor_wheelstorage,suffix)(bitstorage, start_number);
     logStop8(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_align, "Finished aligning to first full bitbucket at number %ju", (uintmax_t)start_number);
 
-    // const counter_t stop_number_unique = min(getFactor( bitbucket_start_type(wheelstorage_bit_estimate_last(start_number), bitbucket_t) - 1 + wheel_step * wheel_bitalloc * ((bitcount_type(bitbucket_t) + wheel_bitalloc - 1) / wheel_bitalloc)), stop_number);
     const counter_t stop_number_unique = min(getFactor( bitbucket_start_type(wheelstorage_bit_estimate_last(start_number), bitbucket_t) - 1 + wheel_step * bitcount_type(bitbucket_t)), stop_number);
     bitbucket_t current_mask = (bitbucket_t)0U, pending_mask = (bitbucket_t)0U;
     counter_t pending_bucket = 0, current_bucket = 0; // initialize current_bucket to 0 always triggers pending mask, but maybe cheaper than calculating the first bucket beforehand
@@ -29,13 +28,13 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
         if (new_bucket != current_bucket) {
             if (pending_mask) {
                 if (current_mask && ((pending_bucket + 1) == current_bucket )) { 
-                    function(applyMask_index_pair,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
-                    // function(applyMask_index2_mmask_args,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
+                    // function(applyMask_index_pair,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
+                    function(applyMask_index2_mmask_args,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask, current_mask);
                     current_mask = (bitbucket_t)0U; // will be copied to pending_mask
                 }
                 else {
-                    // function(applyMask_index1_mmask,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, &pending_mask);
-                    function(applyMask_index,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
+                    function(applyMask_index1_mmask,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, &pending_mask);
+                    // function(applyMask_index,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
                 }
             }
 
@@ -45,22 +44,17 @@ function(markFactors_wheelstorage_small_repeat_pair,suffix)(void* restrict bitst
             current_mask = (bitbucket_t)0U;
         }
 
-        // const counter_t wheelstorage_bit = wheelstorage_bit_calc(index_number);
-        // if (wheelstorage_bit >= 0) current_mask |= markmask_type(wheelstorage_bit, bitbucket_t);
         const counter_t wheel_index = index_number % WHEEL_SIZE;
         if (wheel_bit[wheel_index] >= 0) {
-            // current_mask |= wheel_mask[wheel_index];
             current_mask |= markmask_type((wheel_bitalloc * (index_number / WHEEL_SIZE)) + wheel_bit[wheel_index], bitbucket_t);
         }
     }
 
     if (pending_mask) {
-        function(applyMask_index,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, pending_mask);
-        // function(applyMask_index1_mmask,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, &pending_mask);
+        function(applyMask_index1_mmask,suffix)(bitstorage, pending_bucket, stop_bucket, wheel_step, &pending_mask);
     }
     if (current_mask) {
-        function(applyMask_index,suffix)(bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
-        // function(applyMask_index1_mmask,suffix)(bitstorage, current_bucket, stop_bucket, wheel_step, &current_mask);
+        function(applyMask_index1_mmask,suffix)(bitstorage, current_bucket, stop_bucket, wheel_step, &current_mask);
     }
 
     logStop7(bitstorage, time_markFactors_wheelstorage_small_repeat_pair, "finished marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number, (uintmax_t)((safe_diff(stop_number,start_number))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(stop_number,start_number))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
