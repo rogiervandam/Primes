@@ -8,7 +8,7 @@ function(markFactor_wheelstorage,suffix)(void* restrict bitstorage, const regist
     register const counter_t wheelstorage_bit = wheelstorage_bit_calc(index);
 
     #ifdef COMPILE_TRACE
-        if (g_trace.enabled && wheelstorage_bit >= 0) primes_trace_add_pending_target((uint32_t)wheelstorage_bit);
+        if (trace.enabled && wheelstorage_bit >= 0) primes_trace_add_pending_target((uint32_t)wheelstorage_bit);
     #endif
     
     if (wheelstorage_bit >= 0) bitstorage_sized[ index_type(wheelstorage_bit, bitbucket_t)] |= markmask_type(wheelstorage_bit, bitbucket_t);

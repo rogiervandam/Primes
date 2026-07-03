@@ -106,7 +106,7 @@ log_text_functionid(int level, function_id_t function_id, const char* fmt, ...)
 {
     char annotation[1024];
     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-    trace_record_text_full(level, timer_function_names[function_id], annotation);
+    trace_record_text(level, timer_function_names[function_id], annotation);
 }
 
 static inline void
@@ -114,7 +114,7 @@ log_event_functionid(int level, void* bitstorage, function_id_t function_id, con
 {
     char annotation[1024];
     va_list args; va_start(args, fmt); vsnprintf(annotation, sizeof(annotation), fmt, args); va_end(args);
-    trace_record_event_full(level, bitstorage, timer_function_names[function_id], (double)0, annotation);
+    trace_record_event(level, bitstorage, timer_function_names[function_id], (double)0, annotation);
 }
 
 #define COLLECT_ARGS(string, maxlength, fmt, args) \
@@ -124,7 +124,7 @@ static void
 log_text(int level, const char* label, const char* fmt, ...)
 {
     COLLECT_ARGS(annotation, 1024, fmt, args);
-    if (option.trace_level >= level) trace_record_text_full(level, label, annotation);
+    if (option.trace_level >= level) trace_record_text(level, label, annotation);
     if (option.explain_level >= level) {
         if (label) {
             printf("%s: %s\n", label, annotation);
@@ -139,7 +139,7 @@ static void
 log_text_unlabeled(int level, const char* fmt, ...)
 {
     COLLECT_ARGS(annotation, 1024, fmt, args);
-    if (option.trace_level >= level) trace_record_text_full(level, NULL, annotation);
+    if (option.trace_level >= level) trace_record_text(level, NULL, annotation);
     if (option.explain_level >= level) printf("%s\n", annotation);
 }
 
@@ -147,7 +147,7 @@ static void
 log_event(int level, const void* bitstorage, const char* label, double time, const char* fmt, ...)
 {
     COLLECT_ARGS(annotation, 1024, fmt, args);
-    if (option.trace_level >= level) trace_record_event_full(level, bitstorage, label, time, annotation);
+    if (option.trace_level >= level) trace_record_event(level, bitstorage, label, time, annotation);
     if (option.explain_level >= level) {
         if (label) {
             printf("%s: %s\n", label, annotation);
@@ -161,7 +161,7 @@ static void
 log_event_untimed(int level, const void* bitstorage, const char* label, const char* fmt, ...)
 {
     COLLECT_ARGS(annotation, 1024, fmt, args);
-    if (option.trace_level >= level) trace_record_event_full(level, bitstorage, label, 0.0, annotation);
+    if (option.trace_level >= level) trace_record_event(level, bitstorage, label, 0.0, annotation);
     if (option.explain_level >= level) {
         if (label) {
             printf("%s: %s\n", label, annotation);
@@ -175,7 +175,7 @@ static void
 log_event_bare(int level, const void* bitstorage, const char* fmt, ...)
 {
     COLLECT_ARGS(annotation, 1024, fmt, args);
-    if (option.trace_level >= level) trace_record_event_full(level, bitstorage, NULL, 0.0, annotation);
+    if (option.trace_level >= level) trace_record_event(level, bitstorage, NULL, 0.0, annotation);
     if (option.explain_level >= level) printf("%s\n", annotation);
 }
 
@@ -264,7 +264,7 @@ log_mask(int level, const void* bitstorage, const char* label, uint64_t word_bit
                 all_mask_bits[0], all_mask_bits[1], all_mask_bits[2], all_mask_bits[3],
                 all_mask_bits[4], all_mask_bits[5], all_mask_bits[6], all_mask_bits[7]
             };
-            trace_record_applymask_step_labeled(level, bitstorage, label, annotation,
+            trace_record_applymask(level, bitstorage, label, annotation,
                                                 word_bits, (uint64_t)range_start_index, (uint64_t)range_stop_index, (uint64_t)step,
                                                 slot_bits_ptrs, all_mask_counts, mask_slot_count,
                                                 mask_target_words, mask_target_slots, mask_target_count);

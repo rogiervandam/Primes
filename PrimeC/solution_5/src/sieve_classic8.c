@@ -55,7 +55,7 @@ static sieve_t* shakeSieve(const counter_t sieve_size, const storage_type storag
         for(counter_t i=start; i < sieve_bits; i += step) {
             // log6(bitstorage, "Setting bit %d", (int)i);
 #ifdef COMPILE_TRACE
-            if (g_trace.enabled) primes_trace_add_pending_target((uint32_t)i);
+            if (trace.enabled) primes_trace_add_pending_target((uint32_t)i);
 #endif
             bitstorage[index_type(i, bitbucket_t)] |= markmask_calc_type(i,bitbucket_t);
         }

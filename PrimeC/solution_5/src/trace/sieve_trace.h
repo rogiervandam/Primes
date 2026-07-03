@@ -316,7 +316,7 @@ trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count, int tr
  */
 
 static void
-trace_record_event_full(int level, const void* bitstorage, const char* label, double time, const char* annotation)
+trace_record_event(int level, const void* bitstorage, const char* label, double time, const char* annotation)
 {
     if (!trace.enabled || !trace.file) return;
 
@@ -367,7 +367,7 @@ trace_record_event_full(int level, const void* bitstorage, const char* label, do
 }
 
 static void
-trace_record_applymask_step_labeled(int level, const void* bitstorage,
+trace_record_applymask(int level, const void* bitstorage,
                                     const char* label,
                                     const char* annotation,
                                     counter_t word_bits,
@@ -463,24 +463,22 @@ trace_record_applymask_step_labeled(int level, const void* bitstorage,
 }
 
 static void
-trace_record_text_full(int level, const char* label, const char* annotation)
+trace_record_text(int level, const char* label, const char* annotation)
 {
     if (!trace.enabled || !trace.file) return;
 
     trace.step_count++;
     const char* event_label = trace_optional_label(label);
 
-    /* annotation text prefix (human-readable) */
     fputs(annotation ? annotation : "", trace.file);
 
-    /* inline JSON metadata */
     fprintf(trace.file, " { \"traceline\": %u", trace.step_count);
-    if (trace.depth > 0) fprintf(trace.file, ", \"depth\": %d", trace.depth);
-    if (level > 0) fprintf(trace.file, ", \"level\": %d", level);
-    if (event_label) {
-        fputs(", \"operation\": ", trace.file);
-        trace_write_json_string(trace.file, event_label);
-    }
+        if (trace.depth > 0) fprintf(trace.file, ", \"depth\": %d", trace.depth);
+        if (level > 0) fprintf(trace.file, ", \"level\": %d", level);
+        if (event_label) {
+            fputs(", \"operation\": ", trace.file);
+            trace_write_json_string(trace.file, event_label);
+        }
     fputs(" }\n", trace.file);
 }
 
