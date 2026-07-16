@@ -113,7 +113,7 @@ function(applyMask_index,suffix)(void* restrict bitstorage, const counter_t rang
             (const void* const[]){&mask}, 1, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
 
-    logStop8(bitstorage, time_applyMask, "ApplyMask_index%s finished applying %s mask\n", STR(suffix), STR(variant_suffix));
+    logStop8(bitstorage, time_applyMask, "ApplyMask_index%s finished applying %s mask", STR(suffix), STR(variant_suffix));
 }
 
 #endif

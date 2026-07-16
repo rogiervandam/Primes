@@ -27,7 +27,6 @@ trace_ensure_log_directory_for_path(const char* filename)
 
         struct stat st;
         if (stat("log", &st) == 0) return S_ISDIR(st.st_mode) ? 1 : 0;
-
         if (trace_mkdir("log") == 0) return 1;
         if (errno == EEXIST) return 1;
         return 0;
@@ -77,12 +76,11 @@ trace_set_console_feedback(int enabled)
     trace_console_feedback_enabled = enabled;
 }
 
-
-/* Write a JSON-escaped version of str to file */
+/* Write a JSON key-value pair with an escaped string value: ` "key": "value"` (leading space included) */
 static void
-trace_write_json_string(FILE* f, const char* str)
+trace_write_json_string(FILE* f, const char* key, const char* str)
 {
-    fputc('"', f);
+    fprintf(f, " \"%s\": \"", key);
     if (str) {
         for (const char* p = str; *p; p++) {
             switch (*p) {
@@ -163,10 +161,10 @@ primes_trace_collect_mask_bits(uint32_t* out_bits, uint32_t out_capacity, const 
 }
 
 static void
-trace_write_array_uint32(FILE* f, const void* values_void, counter_t count)
+trace_write_array_uint32(FILE* f, const char* key, const void* values_void, counter_t count)
 {
     const uint32_t* values = (const uint32_t*)values_void;
-    fputc('[', f);
+    fprintf(f, ", \"%s\": []", key);
     for (counter_t index = 0; index < count; index++) {
         if (index > 0) fputc(',', f);
         fprintf(f, "%u", values[index]);
@@ -175,10 +173,10 @@ trace_write_array_uint32(FILE* f, const void* values_void, counter_t count)
 }
 
 static void
-trace_write_array_uint64(FILE* f, const void* values_void, counter_t count)
+trace_write_array_uint64(FILE* f, const char* key, const void* values_void, counter_t count)
 {
     const uint64_t* values = (const uint64_t*)values_void;
-    fputc('[', f);
+    fprintf(f, ", \"%s\": []", key);
     for (counter_t index = 0; index < count; index++) {
         if (index > 0) fputc(',', f);
         fprintf(f, "%llu", (unsigned long long)values[index]);
@@ -198,13 +196,13 @@ trace_write_wheel_definition(counter_t wheel_size,
     if (!trace.enabled || !trace.file || !map_numbers || map_count == 0) return;
 
     fprintf(trace.file,
-            "{ \"wheel_size\": %ju, \"bits_per_wheel\": %ju, \"base_size\": %ju, \"repeats\": %ju, \"wheel_max\": %ju, \"map_count\": %ju, \"map_numbers\": ",
+            "{ \"wheel_size\": %ju, \"bits_per_wheel\": %ju, \"base_size\": %ju, \"repeats\": %ju, \"wheel_max\": %ju, \"map_count\": %ju, ",
             (uintmax_t)wheel_size, (uintmax_t)bits_per_wheel,(uintmax_t)base_size,(uintmax_t)repeats,(uintmax_t)wheel_max, (uintmax_t)map_count);
-    function(trace_write_array, counter_suffix)(trace.file, map_numbers, map_count);
+    function(trace_write_array, counter_suffix)(trace.file, "map_numbers", map_numbers, map_count);
     fputs(", \"map_bits\": [", trace.file);
-    for(counter_t i = 0; i < map_count; i++) { 
-        fprintf(trace.file, "%ju", (uintmax_t)i);
-        if (i < map_count - 1) fputc(',', trace.file);
+    for(counter_t index = 0; index < map_count; index++) { 
+        if (index > 0) fputc(',', trace.file);
+        fprintf(trace.file, "%ju", (uintmax_t)index);
     }
     fputs("] }\n", trace.file);
 }
@@ -280,31 +278,109 @@ trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count, int tr
         fputs("{", trace.file);
         int first_field = 1;
         if (trace_title && *trace_title) {
-            fputs(" \"title\": ", trace.file);
-            trace_write_json_string(trace.file, trace_title);
+            trace_write_json_string(trace.file, "title", trace_title);
             first_field = 0;
         }
         if (trace_info && *trace_info) {
             if (!first_field) fputs(",", trace.file);
-            fputs(" \"info\": ", trace.file);
-            trace_write_json_string(trace.file, trace_info);
+            trace_write_json_string(trace.file, "info", trace_info);
         }
         fputs(" }\n", trace.file);
     }
 
     /* Dedicated storage model line for downstream tooling to locate without parsing
        the primary TRACE header. Format: "StorageModel: <name>" */
-    fprintf(trace.file, "StorageModel: %s\n", storage_model);
+    fprintf(trace.file, "StorageModel: %s", storage_model);
 
     trace.enabled = 1;
 
     if (trace_console_feedback_enabled) {
         fprintf(stderr, "Trace: recording to %s (sieve_size=%llu, bits=%llu, %u bytes)\n",
-                filename,
-                (unsigned long long)sieve_size,
-                (unsigned long long)bit_count,
-                trace.bitstorage_bytes);
+                filename, (unsigned long long)sieve_size, (unsigned long long)bit_count, trace.bitstorage_bytes);
     }
+}
+
+/* Write "changed_bits" JSON field: bit indices where current differs from snapshot. */
+static void
+trace_write_changed_bits(FILE* f, const uint8_t* current)
+{
+    fputs(", \"changed_bits\": [", f);
+    int first = 1;
+    for (uint32_t byte_idx = 0; byte_idx < trace.bitstorage_bytes; byte_idx++) {
+        uint8_t diff = current[byte_idx] ^ trace.snapshot[byte_idx];
+        for (uint32_t bit = 0; diff; bit++, diff >>= 1) {
+            if (diff & 1) {
+                uint64_t bit_index = (uint64_t)byte_idx * 8 + bit;
+                if (!first) fputc(',', f);
+                fprintf(f, "%llu", (unsigned long long)bit_index);
+                first = 0;
+            }
+        }
+    }
+    fputc(']', f);
+}
+
+/* Write "target_bits" JSON field from the pending-targets list; clears the list. */
+static void
+trace_write_pending_target_bits(FILE* f)
+{
+    if (trace_pending_target_count <= 0) return;
+    fputs(", \"target_bits\": [", f);
+    for (int _k = 0; _k < trace_pending_target_count; _k++) {
+        if (_k) fputc(',', f);
+        fprintf(f, "%u", trace_pending_target_bits[_k]);
+    }
+    fputc(']', f);
+    trace_pending_target_count = 0;
+}
+
+/* Write "target_bits" JSON field from mask_target_words + slot_bits. */
+static void
+trace_write_mask_target_bits(FILE* f,
+                              counter_t word_bits,
+                              counter_t mask_target_count,
+                              counter_t slot_count,
+                              const uint64_t* mask_target_words,
+                              const uint32_t* mask_target_slots,
+                              const uint32_t* const* slot_bits,
+                              const uint32_t* slot_counts)
+{
+    if (word_bits == 0 || mask_target_count == 0 || slot_count == 0) return;
+    fputs(", \"target_bits\": [", f);
+    int tb_first = 1;
+    for (counter_t ti = 0; ti < mask_target_count; ti++) {
+        uint64_t wi = mask_target_words[ti];
+        uint32_t si = (uint32_t)(mask_target_slots[ti] % (uint32_t)slot_count);
+        const uint32_t* sbits = slot_bits[si];
+        uint32_t scount = slot_counts[si];
+        uint64_t base_bit = wi * (uint64_t)word_bits;
+        for (uint32_t bi = 0; bi < scount; bi++) {
+            if (!tb_first) fputc(',', f);
+            fprintf(f, "%llu", (unsigned long long)(base_bit + sbits[bi]));
+            tb_first = 0;
+        }
+    }
+    fputc(']', f);
+}
+
+/* Write the common opening of a trace record: increment step_count, write the
+   annotation prefix, open the JSON object, emit traceline/depth/level/operation.
+   Returns 1 if trace is active, 0 if not (caller must return immediately). */
+static int
+trace_begin_record(int level, const char* label, const char* annotation)
+{
+    if (!trace.enabled || !trace.file) return 0;
+    trace.step_count++;
+    const char* event_label = trace_optional_label(label);
+    fputs(annotation ? annotation : "", trace.file);
+    fprintf(trace.file, " { \"traceline\": %u", trace.step_count);
+    if (trace.depth > 0) fprintf(trace.file, ", \"depth\": %d", trace.depth);
+    if (level > 0) fprintf(trace.file, ", \"level\": %d", level);
+    if (event_label) {
+        fputs(",", trace.file);
+        trace_write_json_string(trace.file, "operation", event_label);
+    }
+    return 1;
 }
 
 /*
@@ -316,54 +392,15 @@ trace_init(const char* filename, uint64_t sieve_size, uint64_t bit_count, int tr
  */
 
 static void
-trace_record_event(int level, const void* bitstorage, const char* label, double time, const char* annotation)
+trace_record_event(int level, const uint8_t* bitstorage, const char* label, double time, const char* annotation)
 {
-    if (!trace.enabled || !trace.file) return;
-
-    const uint8_t* current = (const uint8_t*)bitstorage;
-    trace.step_count++;
-    const char* event_label = trace_optional_label(label);
-
-    /* annotation text prefix (human-readable) */
-    fputs(annotation ? annotation : "", trace.file);
-
-    /* inline JSON metadata */
-    fprintf(trace.file, " { \"traceline\": %u", trace.step_count);
-    if (trace.depth > 0) fprintf(trace.file, ", \"depth\": %d", trace.depth);
-    if (level > 0) fprintf(trace.file, ", \"level\": %d", level);
-    if (event_label) {
-        fputs(", \"operation\": ", trace.file);
-        trace_write_json_string(trace.file, event_label);
-    }
+    if (!trace_begin_record(level, label, annotation)) return;
     if (time > 0) fprintf(trace.file, ", \"time\": %.9f", time);
+    trace_write_pending_target_bits(trace.file);
+    trace_write_changed_bits(trace.file, bitstorage);
+    fputs(" }\n", trace.file);
 
-    if (trace_pending_target_count > 0) {
-        fputs(", \"target_bits\": [", trace.file);
-        for (int _k = 0; _k < trace_pending_target_count; _k++) {
-            if (_k) fputc(',', trace.file);
-            fprintf(trace.file, "%u", trace_pending_target_bits[_k]);
-        }
-        fputc(']', trace.file);
-        trace_pending_target_count = 0;
-    }
-
-    /* changed_bits array */
-    fputs(", \"changed_bits\": [", trace.file);
-    int first = 1;
-    for (uint32_t byte_idx = 0; byte_idx < trace.bitstorage_bytes; byte_idx++) {
-        uint8_t diff = current[byte_idx] ^ trace.snapshot[byte_idx];
-        for (uint32_t bit = 0; diff; bit++, diff >>= 1) {
-            if (diff & 1) {
-                uint32_t bit_index = byte_idx * 8 + bit;
-                if (!first) fputc(',', trace.file);
-                fprintf(trace.file, "%u", bit_index);
-                first = 0;
-            }
-        }
-    }
-    fputs("] }\n", trace.file);
-
-    memcpy(trace.snapshot, current, trace.bitstorage_bytes);
+    memcpy(trace.snapshot, bitstorage, trace.bitstorage_bytes);
 }
 
 static void
@@ -381,83 +418,39 @@ trace_record_applymask(int level, const void* bitstorage,
                                     const uint32_t* mask_target_slots,
                                     counter_t mask_target_count)
 {
-    if (!trace.enabled || !trace.file) return;
-
     static const char* s_pattern_kind_names[] = {"", "single", "pair", "triple", "quad"};
 
     const uint8_t* current = (const uint8_t*)bitstorage;
-    trace.step_count++;
-    const char* event_label = trace_optional_label(label);
     const counter_t bit_start = word_start * word_bits;
     const counter_t bit_stop = (word_stop + 1) * word_bits - 1;
     const counter_t bit_step = step_words * word_bits;
 
-    /* annotation text prefix (human-readable) */
-    fputs(annotation ? annotation : "", trace.file);
+    if (!trace_begin_record(level, label, annotation)) return;
 
-    /* inline JSON metadata */
-    fprintf(trace.file, " { \"traceline\": %u", trace.step_count);
-    if (trace.depth > 0) fprintf(trace.file, ", \"depth\": %d", trace.depth);
-    if (level > 0) fprintf(trace.file, ", \"level\": %d", level);
-    if (event_label) {
-        fputs(", \"operation\": ", trace.file);
-        trace_write_json_string(trace.file, event_label);
-    }
     fprintf(trace.file,
             ", \"start\": %ju, \"stop\": %ju, \"step\": %ju"
             ", \"word_bits\": %ju, \"word_start\": %ju, \"word_stop\": %ju, \"step_words\": %ju",
             (uintmax_t)bit_start, (uintmax_t)bit_stop, (uintmax_t)bit_step,
             (uintmax_t)word_bits, (uintmax_t)word_start, (uintmax_t)word_stop, (uintmax_t)step_words);
+
     if (slot_count == 1) {
-        fputs(", \"mask_bits\": ", trace.file);
-        trace_write_array_uint32(trace.file, slot_bits[0], slot_counts[0]);
+        trace_write_array_uint32(trace.file, "mask_bits", slot_bits[0], slot_counts[0]);
     }
 
     const char* pattern_kind = (slot_count >= 1 && slot_count <= 4) ? s_pattern_kind_names[slot_count] : "multi";
     fprintf(trace.file, ", \"pattern_kind\": \"%s\", \"pattern_slot_count\": %u", pattern_kind, slot_count);
+    char slot_key[32];
     for (counter_t s = 0; s < slot_count; s++) {
-        fprintf(trace.file, ", \"pattern_slot%ju_bits\": ", (uintmax_t)s);
-        trace_write_array_uint32(trace.file, slot_bits[s], slot_counts[s]);
+        snprintf(slot_key, sizeof(slot_key), "pattern_slot%ju_bits", (uintmax_t)s);
+        trace_write_array_uint32(trace.file, slot_key, slot_bits[s], slot_counts[s]);
     }
-    fputs(", \"mask_target_words\": ", trace.file);
-    trace_write_array_uint64(trace.file, mask_target_words, mask_target_count);
-    fputs(", \"mask_target_slots\": ", trace.file);
-    trace_write_array_uint32(trace.file, mask_target_slots, mask_target_count);
+    trace_write_array_uint64(trace.file, "mask_target_words", mask_target_words, mask_target_count);
+    trace_write_array_uint32(trace.file, "mask_target_slots", mask_target_slots, mask_target_count);
 
-    /* target_bits: explicit absolute bit indices derived from mask_target_words + slot_bits */
-    if (word_bits > 0 && mask_target_count > 0 && slot_count > 0) {
-        fputs(", \"target_bits\": [", trace.file);
-        int tb_first = 1;
-        for (counter_t ti = 0; ti < mask_target_count; ti++) {
-            uint64_t wi = mask_target_words[ti];
-            uint32_t si = (slot_count > 0) ? (uint32_t)(mask_target_slots[ti] % (uint32_t)slot_count) : 0;
-            const uint32_t* sbits = slot_bits[si];
-            uint32_t scount = slot_counts[si];
-            uint64_t base_bit = wi * (uint64_t)word_bits;
-            for (uint32_t bi = 0; bi < scount; bi++) {
-                if (!tb_first) fputc(',', trace.file);
-                fprintf(trace.file, "%llu", (unsigned long long)(base_bit + sbits[bi]));
-                tb_first = 0;
-            }
-        }
-        fputc(']', trace.file);
-    }
-
-    /* changed_bits array */
-    fputs(", \"changed_bits\": [", trace.file);
-    int first = 1;
-    for (counter_t byte_idx = 0; byte_idx < trace.bitstorage_bytes; byte_idx++) {
-        uint8_t diff = current[byte_idx] ^ trace.snapshot[byte_idx];
-        for (counter_t bit = 0; diff; bit++, diff >>= 1) {
-            if (diff & 1) {
-                counter_t bit_index = byte_idx * 8 + bit;
-                if (!first) fputc(',', trace.file);
-                fprintf(trace.file, "%ju", (uintmax_t)bit_index);
-                first = 0;
-            }
-        }
-    }
-    fputs("] }\n", trace.file);
+    trace_write_mask_target_bits(trace.file, word_bits, mask_target_count, slot_count,
+                                  mask_target_words, mask_target_slots, slot_bits, slot_counts);
+    trace_write_changed_bits(trace.file, current);
+    fputs(" }\n", trace.file);
 
     memcpy(trace.snapshot, current, trace.bitstorage_bytes);
 }
@@ -465,20 +458,7 @@ trace_record_applymask(int level, const void* bitstorage,
 static void
 trace_record_text(int level, const char* label, const char* annotation)
 {
-    if (!trace.enabled || !trace.file) return;
-
-    trace.step_count++;
-    const char* event_label = trace_optional_label(label);
-
-    fputs(annotation ? annotation : "", trace.file);
-
-    fprintf(trace.file, " { \"traceline\": %u", trace.step_count);
-        if (trace.depth > 0) fprintf(trace.file, ", \"depth\": %d", trace.depth);
-        if (level > 0) fprintf(trace.file, ", \"level\": %d", level);
-        if (event_label) {
-            fputs(", \"operation\": ", trace.file);
-            trace_write_json_string(trace.file, event_label);
-        }
+    if (!trace_begin_record(level, label, annotation)) return;
     fputs(" }\n", trace.file);
 }
 
@@ -486,19 +466,16 @@ trace_record_text(int level, const char* label, const char* annotation)
 static void __attribute__((cold))
 trace_finalize(void)
 {
-    if (!trace.file) return;
+    trace.enabled = 0;
 
-    fclose(trace.file);
-    trace.file = NULL;
+    if (!trace.file) return;
+    fclose(trace.file); trace.file = NULL;
 
     if (trace.snapshot) {
-        free(trace.snapshot);
-        trace.snapshot = NULL;
+        free(trace.snapshot); trace.snapshot = NULL;
     }
 
     if (trace_console_feedback_enabled) {
         fprintf(stderr, "Trace: recorded %u events\n", trace.step_count);
     }
-
-    trace.enabled = 0;
 }

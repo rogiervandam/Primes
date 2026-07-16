@@ -40,7 +40,7 @@ static sieve_t* shakeSieve(const counter_t sieve_size, storage_type storage)
     bitbucket_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
     const counter_t prime_max = ((1 + usqrt( (sieve_size) + 1 )) >> 1);
 
-    verbose5( printf("\nShaking sieve to find all primes up to %ju\n",(uintmax_t)sieve_size); )
+    log5("Shaking sieve to find all primes up to %ju",(uintmax_t)sieve_size);
 
     sieve_clear(sieve);
     counter_t prime = 1;

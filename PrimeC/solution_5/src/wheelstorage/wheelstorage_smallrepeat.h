@@ -39,5 +39,5 @@ function(markFactors_wheelstorage_small_repeat,suffix)(void* restrict bitstorage
         function(applyMask_index,suffix)(bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
     }
     
-    logStop6(bitstorage, time_markFactors_wheelstorage_small_repeat, "MarkFactorsWheelStorageSmallRepeat: finished setting factors\n");
+    logStop6(bitstorage, time_markFactors_wheelstorage_small_repeat, "finished setting factors");
 }

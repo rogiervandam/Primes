@@ -55,5 +55,5 @@ function(markFactors_wheelstorage_small_repeat_pair_vector,suffix)(void* restric
         function(applyMask_index,suffix)(bitstorage, current_bucket, stop_bucket, wheel_step, current_mask);
     }
 
-    logStop6(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_vector, "MarkFactorsWheelStorageSmallRepeatPairVector: finished setting factors\n");
+    logStop6(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_vector, "finished setting factors");
 }

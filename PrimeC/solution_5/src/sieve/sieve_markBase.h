@@ -23,7 +23,7 @@
             default: setBitsTrue_largestep_repeat_uint8_unroll8 (sieve->bitstorage, start>>1, stop>>1, step>>1); break;
         }
         
-        logStop6(sieve->bitstorage, time_markFactors_base, "finished setting factors\n");
+        logStop6(sieve->bitstorage, time_markFactors_base, "finished setting factors");
     }
 
 #endif

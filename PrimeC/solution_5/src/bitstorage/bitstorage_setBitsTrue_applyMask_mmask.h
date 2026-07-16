@@ -50,7 +50,7 @@ function(applyMask_index1_mmask,suffix)(void* restrict bitstorage, const counter
     log_mask(8, bitstorage, timer_function_names[time_applyMask_mmask], (uint64_t)bitcount_type(bitbucket_t), range_start_index, range_stop_index, step,
              (const void* const[]){masks}, 1, sizeof(variant_base_type_t), BITBUCKET_ELEMENTS, (uint32_t)bitcount_type(variant_base_type_t));
     #endif
-    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index1%s finished applying mask\n", STR(suffix));
+    logStop8(bitstorage, time_applyMask_mmask, "ApplyMaskMmask_index1%s finished applying mask", STR(suffix));
 }
 
 static inline void __attribute__((always_inline, hot, nonnull, aligned(cache_line_bytes)))
