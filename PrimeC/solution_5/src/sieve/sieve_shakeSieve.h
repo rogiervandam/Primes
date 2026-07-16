@@ -4,7 +4,7 @@ static sieve_t* shakeSieve(const counter_t sieve_size, const storage_type storag
     sieve_t *sieve = sieve_create(sieve_size, calcBitsize_storage(sieve_size, storage) );
     sieve_clear(sieve);
 
-    const counter_t prime_start = storage_table[storage].highest_prime_in_storage + 1;
+    const counter_t prime_start = storage_table[storage].highest_prime_in_storage + (storage == STORAGE_HALF ? 1 : 2);
     const counter_t prime_max   = calcFactor_max(sieve_size);
     const counter_t factorBlock = calcFactorsize_storage(global_blocksize_bits, storage);
     
