@@ -24,5 +24,5 @@ function(markFactors_wheelstorage_repeat,suffix)(void* restrict bitstorage, cons
             function(applyMask_index, suffix)(bitstorage, start_bucket, stop_bucket, wheel_step, markmask);
         }
     } 
-    logStop7(bitstorage, time_markFactors_wheelstorage_repeat, "finished setting factors");
+    logStop7(bitstorage, time_markFactors_wheelstorage_repeat, "Finished setting factors");
 }

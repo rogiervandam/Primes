@@ -13,5 +13,5 @@ function(markFactor_wheelstorage,suffix)(void* restrict bitstorage, const regist
     
     if (wheelstorage_bit >= 0) bitstorage_sized[ index_type(wheelstorage_bit, bitbucket_t)] |= markmask_type(wheelstorage_bit, bitbucket_t);
 
-    logStop9(bitstorage, time_markFactor_wheelstorage, "finished marking factor %ju", (uintmax_t)index);
+    logStop9(bitstorage, time_markFactor_wheelstorage, "Finished marking factor %ju", (uintmax_t)index);
 }

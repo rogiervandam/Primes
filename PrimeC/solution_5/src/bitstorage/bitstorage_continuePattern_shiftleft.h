@@ -62,7 +62,7 @@ function(continuePattern_shiftleft,suffix)(void* restrict bitstorage, const coun
     }
 
     if (copy_word >= destination_stop_word) {
-        logStop7(bitstorage, time_continuePattern_shiftleft, "finished continuing pattern\n");
+        logStop7(bitstorage, time_continuePattern_shiftleft, "Finished continuing pattern\n");
         return;
     }
 

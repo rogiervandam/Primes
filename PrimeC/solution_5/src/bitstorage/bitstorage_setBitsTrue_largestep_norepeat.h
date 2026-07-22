@@ -28,7 +28,7 @@ function(setBitsTrue_largestep_norepeat,suffix)(void* restrict bitstorage, const
 
     if unlikely(index==range_stop) function(setBitTrue, variant_suffix)(bitstorage, index);
 
-    logStop7(bitstorage, time_setBitsTrue_largestep_norepeat,"finished settings bits using largestep%s", STR(suffix));
+    logStop7(bitstorage, time_setBitsTrue_largestep_norepeat,"Finished settings bits using largestep%s", STR(suffix));
 }
 
 #endif

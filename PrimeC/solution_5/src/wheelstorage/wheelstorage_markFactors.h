@@ -29,5 +29,5 @@ markFactors_wheelstorage(void* restrict bitstorage, counter_t start, counter_t s
     // markFactors_wheelstorage_small_repeat_uint8_unroll8(bitstorage, start, stop, step);
     // markFactors_wheelstorage_norepeat_uint8_unroll8(bitstorage, start, stop, step);
 
-    logStop6(bitstorage, time_markFactors_wheelstorage, "finished setting factors");
+    logStop6(bitstorage, time_markFactors_wheelstorage, "Finished setting factors");
 }

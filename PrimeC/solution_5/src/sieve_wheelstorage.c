@@ -1,4 +1,4 @@
-// Sieve algorithm by Rogier van Dam - 2025
+// Sieve algorithm by Rogier van Dam - 2026
 // Find all primes up to <max int> using the Sieve of Eratosthenes (https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes)
 
 // This file includes all the building blocks for the sieve algorithm "wheelstorage"

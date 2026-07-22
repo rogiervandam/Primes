@@ -22,5 +22,5 @@ function(continuePattern_aligned,suffix)(void* restrict bitstorage, const counte
         log9(bitstorage, time_continuePattern_aligned, "copying pattern in loop source_word=%ju copy_word %ju size %ju", (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size);
     }
 
-    logStop7(bitstorage, time_continuePattern_aligned, "finished continuing pattern\n");
+    logStop7(bitstorage, time_continuePattern_aligned, "Finished continuing pattern\n");
 }

@@ -20,7 +20,7 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
                                 & keepmask_type(copy_start, bitbucket_t) & chopmask_type(destination_stop, bitbucket_t);
         log9(bitstorage, time_continuePattern_shiftright, "handled with shift right in one %s copy source_word=%ju copy_word=%ju size=%ju", STR(variant_base), (uintmax_t)source_word, (uintmax_t)copy_word, (uintmax_t)size_bits);
 
-        logStop7(bitstorage, time_continuePattern_shiftright, "finished continuing pattern\n");
+        logStop7(bitstorage, time_continuePattern_shiftright, "Finished continuing pattern\n");
         return; // rapid exit for one word variant
     }
 
@@ -51,7 +51,7 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
 
     // end if we reached the destination already
     if (copy_word >= destination_stop_word) {
-        logStop7(bitstorage, time_continuePattern_shiftright, "finished continuing pattern\n");
+        logStop7(bitstorage, time_continuePattern_shiftright, "Finished continuing pattern\n");
         return;
     }
 
@@ -74,5 +74,5 @@ function(continuePattern_shiftright,suffix)(void* restrict bitstorage, const cou
 
     log9(bitstorage, time_continuePattern_shiftright, "copying pattern with memcpy source_byte=%p copy_byte=%p size=%ju", (void*)source_byte, (void*)destination_byte, (uintmax_t)size);
 
-    logStop7(bitstorage, time_continuePattern_shiftright, "finished continuing pattern");
+    logStop7(bitstorage, time_continuePattern_shiftright, "Finished continuing pattern");
 }

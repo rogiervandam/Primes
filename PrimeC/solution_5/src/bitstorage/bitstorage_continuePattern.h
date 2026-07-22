@@ -45,7 +45,7 @@
         else if (source_bit < copy_bit) function(continuePattern_shiftright,suffix)(bitstorage, source_start, destination_stop, size);
         else                            function(continuePattern_aligned   ,suffix)(bitstorage, source_start, destination_stop, size);
 
-        logStop6(bitstorage, time_continuePattern,"finished continue pattern with source_start %ju destination_stop %ju size %ju", (uintmax_t)source_start, (uintmax_t)destination_stop, (uintmax_t)size);
+        logStop6(bitstorage, time_continuePattern,"Finished continue pattern with source_start %ju destination_stop %ju size %ju", (uintmax_t)source_start, (uintmax_t)destination_stop, (uintmax_t)size);
     }
 
 #endif

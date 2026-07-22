@@ -83,7 +83,7 @@
         const counter_t masks_remaining = min(stop_bucket - min(stop_bucket, start_bucket), (counter_t)max_masks);
         if (masks_remaining) function(applyMask_index_mmask,suffix)(bitstorage, start_bucket, stop_bucket, wheel_step, masks, masks_remaining);
 
-        logStop6(bitstorage, time_markFactors_wheelstorage_small_repeat_mmask, "finished setting factors");
+        logStop6(bitstorage, time_markFactors_wheelstorage_small_repeat_mmask, "Finished setting factors");
     }
 
     #undef APPLYMASK_CALL

@@ -14,7 +14,7 @@
         const counter_t range_stop_next_bucketstart = (range_start | (mask_type(bitbucket_t)*2)) + 2; // find nice alignment
         if (range_stop_next_bucketstart + step * bitcount_type(bitbucket_t) > range_stop) {
             setBitsTrue_largestep_norepeat_uint8_unroll4(bitstorage, range_start, range_stop, step);
-            logStop7(bitstorage, time_setBitsTrue_smallstep_rotate_pair, "finished setting bits step %3ju in %ju bit range (%ju-%ju) with %ju bits to set; handed of to setBitsTrue_range because of a short range (%ju-%ju)", 
+            logStop7(bitstorage, time_setBitsTrue_smallstep_rotate_pair, "Finished setting bits step %3ju in %ju bit range (%ju-%ju) with %ju bits to set; handed of to setBitsTrue_range because of a short range (%ju-%ju)", 
                 (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)range_start, (uintmax_t)range_stop);
             return;
         }
@@ -46,7 +46,7 @@
             function(applyMask_index,suffix)(bitstorage, current_bucket, stop_bucket, step, mask);
         }
 
-        logStop7(bitstorage, time_setBitsTrue_largestep_bitbucket,"finished setting bits using largestep%s\n", STR(suffix));
+        logStop7(bitstorage, time_setBitsTrue_largestep_bitbucket,"Finished setting bits using largestep%s\n", STR(suffix));
     }
 
     #endif

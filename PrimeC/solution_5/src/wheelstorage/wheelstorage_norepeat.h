@@ -16,5 +16,5 @@ function(markFactors_wheelstorage_norepeat,suffix)(void* restrict bitstorage, co
     for (; index <= range_stop; index += step) 
         function(markFactor_wheelstorage,suffix)(bitstorage, index);
 
-    logStop6(bitstorage, time_markFactors_wheelstorage_norepeat, "finished setting factors");
+    logStop6(bitstorage, time_markFactors_wheelstorage_norepeat, "Finished setting factors");
 }

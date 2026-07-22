@@ -28,7 +28,7 @@ function(setBitsTrue_smallstep_norepeat,suffix)(void* restrict bitstorage, const
         bitstorage_sized[current_bucket] |= mask;
     }
 
-    logStop6(bitstorage, time_setBitsTrue_smallstep_norepeat, "finished setting bits\n");
+    logStop6(bitstorage, time_setBitsTrue_smallstep_norepeat, "Finished setting bits\n");
 }
 
 #endif

@@ -1,7 +1,7 @@
 static inline void __attribute__((always_inline, hot, nonnull,  aligned(cache_line_bytes))) 
 function(markFactors_wheelstorage_small_repeat_pair_rotate,suffix)(void* restrict bitstorage, counter_t start_number, const counter_t stop_number, const counter_t step)
 {
-    logStart7(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_rotate, "Setting factors for prime %ju with step %ju using 'repeating pairs' of %s in %ju number range (%ju-%ju)", 
+    logStart7(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_rotate, "Setting factors for prime %ju with step %ju using 'rotating repeating pairs' of %s in %ju number range (%ju-%ju)", 
         (uintmax_t)step/2, (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number);   
 
     const counter_t stop_bucket = function(wheel_bucket_calc,variant_suffix)(stop_number);
@@ -42,6 +42,6 @@ function(markFactors_wheelstorage_small_repeat_pair_rotate,suffix)(void* restric
         current_mask = current_mask >> bitshift | current_mask << (bitcount_type(bitbucket_t) - 2*bitshift); // rotate the mask for the new bucket
     }
 
-    logStop7(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_rotate, "finished marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_rotate_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number, (uintmax_t)((safe_diff(stop_number,start_number))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(stop_number,start_number))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
+    logStop7(bitstorage, time_markFactors_wheelstorage_small_repeat_pair_rotate, "Finished marking factors with step %3ju for prime %ju using markFactors_wheelstorage_small_repeat_pair_rotate_vector %s in %ju factor range (%ju-%ju) (%ju occurances; %ju repeats)", (uintmax_t)step, (uintmax_t)step/2, STR(suffix), (uintmax_t)safe_diff(stop_number,start_number),(uintmax_t)start_number,(uintmax_t)stop_number, (uintmax_t)((safe_diff(stop_number,start_number))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(stop_number,start_number))/(uintmax_t)(bitcount_type(bitbucket_t)*step)));
 
 }

@@ -21,7 +21,7 @@ function(setBitsTrue_largestep_repeat,suffix)(void* restrict bitstorage, const c
         function(applyMask_index,suffix)(bitstorage, index_type(index, bitbucket_t), stop_bucket, step, markmask_type(index, bitbucket_t));
     } 
 
-    logStop7(bitstorage, time_setBitsTrue_largestep_repeat,"finished setting bits using largestep%s", STR(suffix));
+    logStop7(bitstorage, time_setBitsTrue_largestep_repeat,"Finished setting bits using largestep%s", STR(suffix));
 }
 
 #endif

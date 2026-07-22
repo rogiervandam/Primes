@@ -11,7 +11,7 @@ markSieveBlock(sieve_t* sieve, const counter_t block_start, const counter_t bloc
         markFactors(sieve, calcFactor_start(prime, block_start), block_stop, calcFactor_step(prime));
     }
 
-    logStop5(sieve->bitstorage, time_sieveStripeBlock, "finished block stripe for block %ju - %ju with prime %ju\n", 
+    logStop5(sieve->bitstorage, time_sieveStripeBlock, "Finished block stripe for block %ju - %ju with prime %ju\n", 
         (uintmax_t)block_start/2, (uintmax_t)block_stop/2, (uintmax_t)prime);
     return prime; 
 }

@@ -47,7 +47,7 @@ function(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
 
     if unlikely(range_stop_next_bucketstart + step * bitcount_type(bitbucket_t) > range_stop) {
         setBitsTrue_largestep_norepeat_uint8_unroll4(bitstorage, range_start, range_stop, step);
-        logStop7(bitstorage, time_setBitsTrue_smallstep_rotate_pair, "finished setting bits step %3ju in %ju bit range (%ju-%ju) with %ju bits to set; handed of to setBitsTrue_range because of a short range (%ju-%ju)", 
+        logStop7(bitstorage, time_setBitsTrue_smallstep_rotate_pair, "Finished setting bits step %3ju in %ju bit range (%ju-%ju) with %ju bits to set; handed of to setBitsTrue_range because of a short range (%ju-%ju)", 
             (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)range_start, (uintmax_t)range_stop);
         return;
     }
@@ -55,7 +55,7 @@ function(setBitsTrue_smallstep_rotate_pair,suffix)(void* restrict bitstorage, co
     const counter_t range_start_new = setBitsTrue_range_return_uint8(bitstorage, range_start, range_stop_next_bucketstart, step);
     function(create_mask_smallstep_rotate_pair,suffix)(bitstorage, range_start_new, range_stop, step, 1ULL);
 
-    logStop7(bitstorage, time_setBitsTrue_smallstep_rotate_pair, "finished setting bits step %3ju using smallstep%-10s in %ju bit range (%ju-%ju) with %ju bits to set; using %ju copies of %ju bit mask", 
+    logStop7(bitstorage, time_setBitsTrue_smallstep_rotate_pair, "Finished setting bits step %3ju using smallstep%-10s in %ju bit range (%ju-%ju) with %ju bits to set; using %ju copies of %ju bit mask", 
         (uintmax_t)step, STR(suffix), (uintmax_t)safe_diff(range_stop,range_start),(uintmax_t)range_start,(uintmax_t)range_stop, (uintmax_t)((safe_diff(range_stop,range_start))/(uintmax_t)step), (uintmax_t)(((uintmax_t)safe_diff(range_stop,range_start))/(uintmax_t)(bitcount_type(bitbucket_t)*step)), (uintmax_t)bitcount_type(bitbucket_t));
 }
 #endif
