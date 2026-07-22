@@ -1,3 +1,13 @@
+
+// static inline void __attribute__((always_inline, hot, aligned(cache_line_bytes))) 
+// markFactors_half(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) 
+// {
+//     setBitsTrue(sieve->bitstorage, start>>1, stop>>1, step>>1);
+// }
+
+// static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_half(sieve, start, stop, step); }
+
+
 // returns prime that could not be handled:
 // start is too large
 // range is too big
@@ -125,3 +135,4 @@ markExtendSieveBlockByBlock(sieve_t* sieve, const counter_t sieve_size, const co
     }
     return prime_next; 
 }
+

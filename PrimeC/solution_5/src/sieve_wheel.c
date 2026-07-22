@@ -15,7 +15,7 @@ static char algorithm_type[] = "wheel";
 // include helper functions
 #include "benchmark/sieve_options.h"
 #include "sieve/sieve_manager.h"
-#include "sieve/sieve_storage_half.h"
+#include "sieve/sieve_storage_wheelfilter.h"
 #include "sieve/sieve_markWheel.h"
 
 void prepareBenchmark() {

@@ -11,6 +11,7 @@ static char algorithm_type[] = "other";
 #include "benchmark/sieve_options.h"
 #include "sieve/sieve_manager.h"
 #include "sieve/sieve_storage_half.h"
+
 #include "bitstorage/bitstorage_continuePattern.h"
 #include "sieve/sieve_markSieve.h"
 #include "sieve/sieve_markExtend.h"
@@ -26,7 +27,7 @@ void prepareBenchmark() {
 */
 static sieve_t* shakeSieve(const counter_t sieve_size, storage_type storage)
 {
-    sieve_t* sieve      = sieve_create(sieve_size, calcBitsize_half(sieve_size));
+    sieve_t* sieve      = sieve_create(sieve_size, storage);
 #ifdef COMPILE_TRACE
     // Keep traced diffs deterministic: start from a known all-clear bitstorage state.
     sieve_clear(sieve);
@@ -35,7 +36,7 @@ static sieve_t* shakeSieve(const counter_t sieve_size, storage_type storage)
 
     // use globals as constant - these get optimized
     const counter_t stripeprime_faster  = global_stripeprime_faster;
-    const counter_t blocksize_factor    = calcFactorsize_half(global_blocksize_bits);
+    const counter_t blocksize_factor    = calcFactorsize_storage(global_blocksize_bits, storage);
     const counter_t algorithm           = global_algorithm;
 
     log4("Shaking sieve to find all primes up to %ju by marking multiples of all primes up to %ju", (uintmax_t)sieve_size, (uintmax_t)calcFactor_max(sieve_size));

@@ -1,7 +1,7 @@
 // This is the main module that directs all the work 
 static sieve_t* shakeSieve(const counter_t sieve_size, const storage_type storage)
 {
-    sieve_t *sieve = sieve_create(sieve_size, calcBitsize_storage(sieve_size, storage) );
+    sieve_t *sieve = sieve_create(sieve_size, storage);
     sieve_clear(sieve);
 
     const counter_t prime_start = storage_table[storage].highest_prime_in_storage + (storage == STORAGE_HALF ? 1 : 2);

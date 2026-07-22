@@ -30,8 +30,6 @@
 
 #if defined (include_once_last) 
 static inline void markFactors(sieve_t *sieve, counter_t start, counter_t stop, counter_t step) { markFactors_base(sieve, start, stop, step); }
-static inline uint8_t checkFactor(sieve_t* sieve, register counter_t factor) { return checkFactor_half(sieve, factor); }
-static inline counter_t findUnmarked(sieve_t *sieve, counter_t factor) { return findUnmarked_half(sieve, factor); }
 #endif
 
 #endif // MARKBASE_GUARD

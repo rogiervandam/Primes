@@ -35,9 +35,9 @@ void prepareBenchmark() {
 // sieve_size in a real number that is the maximum in the sieve (not in bits)
 static sieve_t* shakeSieve(const counter_t sieve_size, storage_type storage)
 {
-    const counter_t sieve_bits = sieve_size>>1;
-    sieve_t* sieve = sieve_create(sieve_size, sieve_bits);
+    sieve_t* sieve = sieve_create(sieve_size, storage);
     bitbucket_t* bitstorage = __builtin_assume_aligned(sieve->bitstorage, cache_line_bytes);
+    const counter_t sieve_bits = sieve->bits;
     const counter_t prime_max = ((1 + usqrt( (sieve_size) + 1 )) >> 1);
 
     log5("Shaking sieve to find all primes up to %ju",(uintmax_t)sieve_size);
